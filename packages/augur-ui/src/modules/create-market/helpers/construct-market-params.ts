@@ -1,20 +1,24 @@
-import { TransactionMetadataParams } from 'contract-dependencies-ethers/build';
+import { TransactionMetadataParams } from '@augurproject/contract-dependencies-ethers';
 import { NewMarket } from 'modules/types';
-import {
+import type {
   CreateYesNoMarketParams,
   CreateCategoricalMarketParams,
   CreateScalarMarketParams,
+} from '@augurproject/sdk';
+import {
   stringTo32ByteHex,
   tickSizeToNumTickWithDisplayPrices,
   convertDisplayValuetoAttoValue,
-} from '@augurproject/sdk';
+} from '@augurproject/utils';
 import { BigNumber } from 'bignumber.js';
 import {
   SCALAR,
   CATEGORICAL,
   TEN_TO_THE_EIGHTEENTH_POWER,
+  ONE,
 } from 'modules/common/constants';
 import { CreateNewMarketParams } from 'modules/contracts/actions/contractCalls';
+import { generateTxParameterId } from 'utils/generate-tx-parameter-id';
 
 export function constructMarketParams(
   newMarket: CreateNewMarketParams,
@@ -27,8 +31,10 @@ export function constructMarketParams(
     new BigNumber(100)
   );
   const feePerCashInAttoCash = fee.multipliedBy(TEN_TO_THE_EIGHTEENTH_POWER);
-  const affiliateFeeDivisor = new BigNumber(newMarket.affiliateFee || 0);
-  const marketEndTime = new BigNumber(newMarket.endTime);
+  const affiliateFeeDivisor = Number(newMarket.affiliateFee) !== 0 ? Number(ONE.div(new BigNumber(newMarket.affiliateFee || 0).div(100)).decimalPlaces(0)) : 0;
+  const marketEndTime = new BigNumber(
+    newMarket.endTime ? newMarket.endTime : newMarket.endTimeFormatted.timestamp
+  );
   const extraInfo = JSON.stringify({
     categories: newMarket.categories,
     description: newMarket.description,
@@ -82,51 +88,19 @@ export function constructMarketParams(
   }
 }
 
-export function constructMarketParamsReturn(
-  newMarket: NewMarket
-): TransactionMetadataParams {
-  const fee = new BigNumber(newMarket.settlementFee || 0).div(
-    new BigNumber(100)
-  );
-  const feePerCashInAttoCash = fee.multipliedBy(TEN_TO_THE_EIGHTEENTH_POWER);
-  const affiliateFeeDivisor = new BigNumber(newMarket.affiliateFee || 0);
-  const marketEndTime = new BigNumber(newMarket.endTime);
-  const extraInfo = JSON.stringify({
-    categories: newMarket.categories,
+export function getConstructedMarketId(newMarket: NewMarket): string {
+  const params: TransactionMetadataParams = {
     description: newMarket.description,
-    longDescription: newMarket.detailsText,
-    _scalarDenomination: newMarket.scalarDenomination,
-    offsetName: newMarket.offsetName,
-  });
+  };
+  return generateTxParameterId(params);
+}
 
-  let params: TransactionMetadataParams = {
-    _endTime: marketEndTime,
-    _feePerCashInAttoCash: feePerCashInAttoCash,
-    _affiliateFeeDivisor: affiliateFeeDivisor,
-    _designatedReporterAddress: newMarket.designatedReporterAddress,
-    _extraInfo: extraInfo,
+export function getDeconstructedMarketId(marketParameters): string {
+  const extraInfo = JSON.parse(marketParameters._extraInfo);
+
+  const params: TransactionMetadataParams = {
+    description: extraInfo.description,
   };
 
-  if (newMarket.marketType === SCALAR) {
-    const prices = [
-      convertDisplayValuetoAttoValue(new BigNumber(newMarket.minPrice)),
-      convertDisplayValuetoAttoValue(new BigNumber(newMarket.maxPrice)),
-    ];
-    const numTicks = tickSizeToNumTickWithDisplayPrices(
-      new BigNumber(newMarket.tickSize),
-      new BigNumber(newMarket.minPrice),
-      new BigNumber(newMarket.maxPrice)
-    );
-    params = Object.assign(params, {
-      _prices: prices,
-      _numTicks: numTicks,
-    });
-  } else if (newMarket.marketType === CATEGORICAL) {
-    const _outcomes = newMarket.outcomes.map(o => stringTo32ByteHex(o));
-    params = Object.assign(params, {
-      _outcomes,
-    });
-  }
-
-  return params;
+  return generateTxParameterId(params);
 }

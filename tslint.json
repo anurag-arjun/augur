@@ -7,12 +7,14 @@
     "gts/tslint.json"
   ],
   "rules": {
+    "import-blacklist": [true, ["@augurproject\/.*\/build.*"]],
     "quotemark": [true, "single", "jsx-single", "avoid-template", "avoid-escape"],
+    "no-return-await": false,
+    "forin": false,
     "ban": [true,
       {"name": ["it", "only"]},
       {"name": ["it", "async", "only"]},
       {"name": ["describe", "only"]},
-      {"name": "parseInt", "message": "tsstyle#type-coercion"},
       {"name": "parseFloat", "message": "tsstyle#type-coercion"},
       {"name": "Array", "message": "tsstyle#array-constructor"},
       {"name": ["*", "innerText"], "message": "Use .textContent instead. tsstyle#browser-oddities"}

@@ -4,7 +4,12 @@
   display: flex;
   flex: 1;
   justify-content: flex-start;
-  padding: @size-10 @size-10 0 @size-10;
+  padding: @size-10 @size-10 0 0;
+  max-height: @size-32;
+
+  @media @breakpoint-mobile {
+    padding-left: @size-10;
+  }
 
   @media @breakpoint-min-desktop-min {
     padding: @size-10 0 0 0;
@@ -17,21 +22,29 @@
     margin-left: auto;
     display: flex;
     flex-flow: row nowrap;
+    margin-left: auto;
+
+    @media @breakpoint-tablet {
+      .mono-10-medium;
+
+      margin-left: @size-20;
+    }
 
     @media @breakpoint-mobile {
       display: none;
     }
 
     > div {
-      margin-right: @size-32;
+      margin-right: @size-24;
+      margin-bottom: 2px;
     }
   }
 }
 
 .Label {
-  .mono-9-bold;
+  .mono-10-bold;
 
-  color: @color-inactive-text;
+  color: @color-secondary-text;
   padding-bottom: @size-10;
   text-transform: uppercase;
   white-space: nowrap;
@@ -44,7 +57,6 @@
     flex-grow: 1;
 
     > span {
-      font-weight: @weight-medium;
       margin-left: 0.1875rem;
     }
   }
@@ -57,9 +69,9 @@
       &::after {
         background-color: @color-primary-text;
         border-radius: 0.1875rem;
-        bottom: 0;
+        bottom: 1px;
         content: '';
-        height: 0.125rem;
+        height: 1px;
         left: 0;
         position: absolute;
         right: 0.125rem;
@@ -67,7 +79,7 @@
     }
   }
 
-  @media @breakpoint-mobile-mid {
+  @media @breakpoint-mobile {
     padding-bottom: @size-12;
     position: relative;
 

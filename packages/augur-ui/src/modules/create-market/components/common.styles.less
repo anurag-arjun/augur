@@ -1,13 +1,15 @@
 @import (reference) '~assets/styles/shared';
 
 .Header {
-  .text-24-bold;
+  .text-22-bold;
 
   color: @color-primary-text;
   margin-bottom: @size-24;
 
-  @media @breakpoint-mobile-mid {
+  @media @breakpoint-mobile {
     .text-18-bold;
+
+    margin-bottom: @size-22;
   }
 }
 
@@ -15,8 +17,13 @@
   .text-24-bold;
 
   color: @color-primary-text;
-  margin-top: @size-48;
   margin-bottom: @size-24;
+
+  @media @breakpoint-mobile {
+    .text-18-bold;
+
+    margin-top: @size-6;
+  }
 }
 
 .MediumHeader {
@@ -26,6 +33,16 @@
 
   > span {
     .text-16-bold;
+  }
+
+  @media @breakpoint-mobile {
+    .text-14;
+
+    line-height: 140%;
+
+    > span {
+      .text-14;
+    }
   }
 }
 
@@ -58,10 +75,18 @@
       margin-top: @size-32;
     }
   }
+
+  @media @breakpoint-mobile {
+    &:not(:first-of-type) {
+      > h1 {
+        margin-top: @size-22;
+      }
+    }
+  }
 }
 
 .LargeSubheaders {
-  margin-bottom: @size-32;
+  margin-bottom: @size-16;
 
   > h2 {
     margin-bottom: 0;
@@ -78,7 +103,13 @@
 
   &.Small {
     > p {
-      margin-top: @size-2;
+      margin-top: @size-8;
+    }
+  }
+
+  @media @breakpoint-mobile {
+    > p {
+      margin-top: @size-6;
     }
   }
 }
@@ -94,16 +125,17 @@
     margin-top: 0;
   }
 
-  @media @breakpoint-mobile-mid {
+  @media @breakpoint-mobile {
     align-items: flex-start;
     padding: 0 @size-8;
+    margin: @size-24 0 @size-8;
   }
 }
 
 .SmallHeaderLink {
   > span,
   > button {
-    .text-14;
+    .text-12;
   }
 
   > span {
@@ -121,7 +153,7 @@
     }
   }
 
-  @media @breakpoint-mobile-mid {
+  @media @breakpoint-mobile {
     > span,
     > button {
       .text-12;
@@ -140,6 +172,7 @@
     > button {
       display: flex;
       margin-left: @size-44;
+      align-items: center;
 
       > svg {
         height: @size-10;
@@ -161,6 +194,14 @@
         > svg > path {
           fill: @color-inactive-text;
         }
+      }
+    }
+  }
+
+  @media @breakpoint-mobile {
+    > li:last-of-type {
+      > button {
+        margin-left: @size-30;
       }
     }
   }
@@ -202,6 +243,13 @@
     color: @color-error;
     margin-top: @size-4;
   }
+
+  @media @breakpoint-mobile {
+    > span {
+      padding: @size-10;
+      padding-left: 0;
+    }
+  }
 }
 
 .SmallSubheaders {
@@ -222,6 +270,7 @@
     .text-16-medium;
 
     color: @color-primary-text;
+    word-break: break-word;
   }
 
   > span:nth-of-type(2) {
@@ -229,18 +278,31 @@
 
     margin-top: @size-4;
   }
+
+  @media @breakpoint-mobile {
+    > h1 {
+      .text-10-medium;
+    }
+
+    > span,
+    > div > span,
+    > label > p {
+      .text-14-bold;
+    }
+  }
 }
 
 .SmallSubheadersTooltip {
   .SmallSubheaders;
 
   > h1 > label {
-    margin-bottom: @size-2;
+    margin-bottom: 0;
     margin-left: @size-4;
 
     > svg {
       width: @size-12;
       height: @size-12;
+      display: flex;
     }
   }
 
@@ -249,8 +311,7 @@
     margin-left: @size-5;
 
     > svg {
-      width: @size-16;
-      height: @size-16;
+      width: @size-12;
     }
   }
 
@@ -258,10 +319,6 @@
   > span {
     align-items: center;
     display: flex;
-
-    > label > svg > path {
-      fill: @color-primary-action;
-    }
   }
 }
 
@@ -279,23 +336,29 @@
 }
 
 .ExplainerBlock {
-  border: 1px solid @color-secondary-action-outline;
+  border: 1px solid @color-dark-grey;
+  background: @color-module-background;
   border-radius: @border-radius-extra-rounded;
   padding: @size-16;
   margin-bottom: @size-24;
   display: flex;
   flex-direction: column;
 
-  > h2 {
+  > h5 {
     .text-18-bold;
 
     color: @color-primary-text;
     margin-bottom: @size-8;
   }
+
   > ul {
     list-style-position: outside;
     list-style-type: disc;
-    margin: 0 @size-16;
+    margin: 0 @size-16 @size-16;
+
+    &:last-of-type {
+      margin: 0 @size-16;
+    }
 
     &.NotBulleted {
       margin: 0;
@@ -319,6 +382,41 @@
       margin-bottom: @size-8;
     }
   }
+
+  &.ModalStyling {
+    padding: 0;
+    margin-bottom: @size-16;
+    border: 0;
+
+    > h5 {
+      .text-14-bold;
+
+      margin-bottom: @size-16;
+    }
+
+    > p,
+    > li {
+      .text-12;
+    }
+  }
+
+  @media @breakpoint-mobile {
+    margin-bottom: @size-8;
+    padding: @size-24;
+
+    > h5 {
+      .text-14-bold;
+
+      margin-bottom: @size-12;
+    }
+
+    > ul {
+      > p,
+      > li {
+        .text-12;
+      }
+    }
+  }
 }
 
 .ContentBlock {
@@ -326,28 +424,26 @@
   display: flex;
   background: @color-module-background;
   border-radius: @border-radius-extra-rounded;
-  padding: @size-40;
+  padding: @size-40 @size-40 @size-24 @size-40;
+  border: 1px solid @color-dark-grey;
 
   > button {
     max-width: 200px;
   }
 
-  > button {
-    margin-top: @size-24;
-  }
-
   &.NoDark {
     background: transparent;
     padding: 0;
+    border: 0;
   }
 
   &.Dark {
-    background: @color-dark-grey;
+    background: @color-module-background;
     padding: @size-24;
   }
 
-  @media @breakpoint-mobile-mid {
-    padding: @size-24 @size-16;
+  @media @breakpoint-mobile {
+    padding: @size-20 @size-16;
     width: 100%;
   }
 }
@@ -361,7 +457,7 @@
 .HasError {
   margin-top: @size-32;
 
-  > section {
+  > div {
     margin-top: @size-12;
   }
 }
@@ -371,7 +467,7 @@
     display: flex;
     justify-content: space-between;
 
-    @media @breakpoint-mobile-mid {
+    @media @breakpoint-mobile {
       display: grid;
       grid-template-columns: repeat(1, 1fr);
       grid-gap: @size-12;
@@ -389,10 +485,14 @@
     padding: @size-20;
     margin-top: @size-24;
 
-    @media @breakpoint-mobile-mid {
+    @media @breakpoint-mobile {
       flex-direction: column;
       min-width: unset;
-      padding: 0;
+      padding: @size-16;
+
+      > div {
+        margin-top: @size-10;
+      }
     }
 
     > div {
@@ -442,8 +542,8 @@
     .text-14-medium;
 
     color: @color-primary-text;
-    background: @color-dark-grey;
-    border: 1px solid @color-secondary-action-outline;
+    background: @color-module-background;
+    border: 1px solid @color-dark-grey;
     border-radius: @border-radius-default;
     line-height: @size-18;
     display: flex;
@@ -500,7 +600,7 @@
     .text-16-medium;
 
     color: @color-primary-text;
-    margin: @size-32 0 @size-8;
+    margin-bottom: @size-32 0 @size-8;
   }
 
   > span {
@@ -571,7 +671,6 @@
   > Button {
     display: flex;
     width: 70px;
-    height: @size-40;
     margin-left: @size-44;
 
     > svg {

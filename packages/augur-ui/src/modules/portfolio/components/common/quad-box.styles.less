@@ -1,6 +1,7 @@
 @import (reference) '~assets/styles/shared';
 
 .Quad {
+  // background: @color-table-header;
   background: @color-module-background;
   border: 1px solid @color-dark-grey;
   border-radius: @border-radius-default;
@@ -8,7 +9,7 @@
   flex: 1;
   min-height: 50%;
 
-  @media @breakpoint-mobile-mid {
+  @media @breakpoint-mobile {
     background: unset;
     border: 0;
     padding-bottom: 0;
@@ -22,10 +23,10 @@
     display: flex;
     flex-direction: column;
 
-    @media @breakpoint-mobile-mid {
+    @media @breakpoint-mobile {
       background: unset;
-      max-height: calc(~"100vh - @{multi-top-bar-height-mobile}");
       min-height: calc(~"100vh - @{multi-top-bar-height-mobile}");
+      max-height: calc(~"100vh - @{multi-top-bar-height-mobile}");
       overflow-y: visible;
       padding: 0 @size-6 @size-4;
     }
@@ -55,15 +56,14 @@
   display: none;
 }
 
-@media @breakpoint-mobile-mid {
+@media @breakpoint-mobile {
   .NormalOnMobile {
     background: @color-module-background;
     border: 1px solid @color-dark-grey;
-    padding-bottom: @size-24;
   }
-  
+
   .ShowOnMobile {
-    display: flex;
+    display: block;
   }
 
   .HideOnMobile {
@@ -72,5 +72,12 @@
 
   .Hide {
     display: none;
+  }
+}
+
+.MarketBox {
+  @media @breakpoint-mobile {
+    border: 1px solid @color-dark-grey;
+    margin-top: @size-8;
   }
 }

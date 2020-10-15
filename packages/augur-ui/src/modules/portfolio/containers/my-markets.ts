@@ -7,7 +7,7 @@ import { removePendingData } from 'modules/pending-queue/actions/pending-queue-m
 import { CREATE_MARKET } from 'modules/common/constants';
 import { collectMarketCreatorFees } from 'modules/markets/actions/market-creator-fees-management';
 import { retrySubmitMarket } from 'modules/markets/actions/submit-new-market';
-import { AppState } from 'store';
+import { AppState } from 'appStore';
 
 const mapStateToProps = (state: AppState) => {
   const createdMarkets = selectAuthorOwnedMarkets(state);
@@ -21,7 +21,7 @@ const mapStateToProps = (state: AppState) => {
     disputingWindowEndTime: state.universe.disputeWindow && state.universe.disputeWindow.endTime || 0,
   };
 };
-// TOJDO confirm with TOm whats up with this, getBalance Only
+// TODO confirm with Tom whats up with this, getBalance Only
 const mapDispatchToProps = dispatch => ({
   removePendingMarket: id => dispatch(removePendingData(id, CREATE_MARKET)),
   retrySubmitMarket: data => dispatch(retrySubmitMarket(data)),

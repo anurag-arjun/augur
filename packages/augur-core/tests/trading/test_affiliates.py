@@ -8,9 +8,12 @@ from old_eth_utils import ecsign, sha3, normalize_key, int_to_32bytearray, bytea
 
 
 def test_fingerprint(kitchenSinkFixture, universe, cash, market):
+    if kitchenSinkFixture.paraAugur:
+        return
+
     affiliates = kitchenSinkFixture.contracts['Affiliates']
-    affiliateValidator = kitchenSinkFixture.contracts['AffiliateValidator']
-    shareToken = kitchenSinkFixture.contracts['ShareToken']
+    affiliateValidator = kitchenSinkFixture.applySignature("AffiliateValidator", affiliates.createAffiliateValidator())
+    shareToken = kitchenSinkFixture.getShareToken()
 
     accountFingerprint = longTo32Bytes(11)
     affiliateFingerprint = longTo32Bytes(12)
@@ -22,31 +25,25 @@ def test_fingerprint(kitchenSinkFixture, universe, cash, market):
     affiliates.setFingerprint(affiliateFingerprint, sender=affiliate)
     affiliates.setReferrer(affiliate)
 
-    # Confirm affiliate fees begin at 0 for the referrer
-    assert market.affiliateFeesAttoCash(affiliate) == 0
-
     numSets = 10
     cost = numSets * market.getNumTicks()
-    cash.faucet(cost)
-    shareToken.buyCompleteSets(market.address, account, numSets)
-    shareToken.sellCompleteSets(market.address, account, account, numSets, accountFingerprint)
-
     expectedAffiliateFees = cost * .0025
     expectedAffiliateFees *= .8
-
-    assert market.affiliateFeesAttoCash(affiliate) == expectedAffiliateFees
+    cash.faucet(cost)
+    shareToken.buyCompleteSets(market.address, account, numSets)
+    with TokenDelta(cash, expectedAffiliateFees, affiliate):
+        shareToken.sellCompleteSets(market.address, account, account, numSets, accountFingerprint)
 
     # If we pass the affiliate fingerprint we will see that the affiliate fees do not apply and will remain what they were before complete set sale
     cash.faucet(cost)
     shareToken.buyCompleteSets(market.address, account, numSets)
-    shareToken.sellCompleteSets(market.address, account, account, numSets, affiliateFingerprint)
-
-    assert market.affiliateFeesAttoCash(affiliate) == expectedAffiliateFees
+    with TokenDelta(cash, 0, affiliate):
+        shareToken.sellCompleteSets(market.address, account, account, numSets, affiliateFingerprint)
 
 def test_affiliate_validator(kitchenSinkFixture, universe, cash):
     affiliates = kitchenSinkFixture.contracts['Affiliates']
-    affiliateValidator = kitchenSinkFixture.contracts['AffiliateValidator']
-    shareToken = kitchenSinkFixture.contracts['ShareToken']
+    affiliateValidator = kitchenSinkFixture.applySignature("AffiliateValidator", affiliates.createAffiliateValidator())
+    shareToken = kitchenSinkFixture.getShareToken()
 
     market = kitchenSinkFixture.createReasonableYesNoMarket(universe, affiliateValidator = affiliateValidator.address)
 
@@ -64,7 +61,7 @@ def test_affiliate_validator(kitchenSinkFixture, universe, cash):
 
     accountKey = longTo32Bytes(21)
     salt = 0
-    accountHash = affiliateValidator.getKeyHash(accountKey, salt)
+    accountHash = affiliateValidator.getKeyHash(accountKey, account, salt)
 
     # A bad signature will be rejected
     with raises(TransactionFailed):
@@ -85,37 +82,32 @@ def test_affiliate_validator(kitchenSinkFixture, universe, cash):
 
     affiliateKey = longTo32Bytes(22)
     salt += 1
-    affiliateHash = affiliateValidator.getKeyHash(affiliateKey, salt)
+    affiliateHash = affiliateValidator.getKeyHash(affiliateKey, affiliate, salt)
     r, s, v = signHash(affiliateHash, affiliateValidatorOperatorPrivKey)
     affiliateValidator.addKey(affiliateKey, salt, r, s, v, sender=affiliate)
 
-    # Confirm affiliate fees begin at 0 for the referrer
-    assert market.affiliateFeesAttoCash(affiliate) == 0
-
     numSets = 10
     cost = numSets * market.getNumTicks()
-    cash.faucet(cost)
-    shareToken.buyCompleteSets(market.address, account, numSets)
-    shareToken.sellCompleteSets(market.address, account, account, numSets, accountFingerprint)
-
     expectedAffiliateFees = cost * .0025
     expectedAffiliateFees *= .8
-
-    assert market.affiliateFeesAttoCash(affiliate) == expectedAffiliateFees
+    cash.faucet(cost)
+    shareToken.buyCompleteSets(market.address, account, numSets)
+    with TokenDelta(cash, expectedAffiliateFees, affiliate):
+        shareToken.sellCompleteSets(market.address, account, account, numSets, accountFingerprint)
 
     # If we try to use an account that has registered an affiliate key which is the same as the referrer the affiliate fees do not apply and will remain what they were before complete set sale
     dupeAccount = kitchenSinkFixture.accounts[2]
     affiliates.setReferrer(affiliate, sender=dupeAccount)
     salt += 1
-    affiliateHash = affiliateValidator.getKeyHash(affiliateKey, salt)
+    affiliateHash = affiliateValidator.getKeyHash(affiliateKey, dupeAccount, salt)
     r, s, v = signHash(affiliateHash, affiliateValidatorOperatorPrivKey)
     affiliateValidator.addKey(affiliateKey, salt, r, s, v, sender=dupeAccount)
     
     cash.faucet(cost, sender=dupeAccount)
     shareToken.buyCompleteSets(market.address, dupeAccount, numSets, sender=dupeAccount)
-    shareToken.sellCompleteSets(market.address, dupeAccount, dupeAccount, numSets, accountFingerprint, sender=dupeAccount)
-
-    assert market.affiliateFeesAttoCash(affiliate) == expectedAffiliateFees
+    expectedAffiliateAmount = 20 if kitchenSinkFixture.paraAugur else 0
+    with TokenDelta(cash, expectedAffiliateAmount, affiliate):
+        shareToken.sellCompleteSets(market.address, dupeAccount, dupeAccount, numSets, accountFingerprint, sender=dupeAccount)
 
     # It will also not work if the account or the referrer does not have a key registered with the validator
     noKeyAccount = kitchenSinkFixture.accounts[3]
@@ -123,9 +115,8 @@ def test_affiliate_validator(kitchenSinkFixture, universe, cash):
     
     cash.faucet(cost, sender=noKeyAccount)
     shareToken.buyCompleteSets(market.address, noKeyAccount, numSets, sender=noKeyAccount)
-    shareToken.sellCompleteSets(market.address, noKeyAccount, noKeyAccount, numSets, accountFingerprint, sender=noKeyAccount)
-
-    assert market.affiliateFeesAttoCash(affiliate) == expectedAffiliateFees
+    with TokenDelta(cash, expectedAffiliateAmount, affiliate):
+        shareToken.sellCompleteSets(market.address, noKeyAccount, noKeyAccount, numSets, accountFingerprint, sender=noKeyAccount)
 
 def signHash(hash, private_key):
     key = normalize_key(private_key.to_hex())

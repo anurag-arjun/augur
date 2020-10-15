@@ -57,11 +57,8 @@ function LoginView () {
         <h1 className='loginHeaderAnimation' onClick={focusUsernameInput}>
           Welcome to Augur<br />Global Chat
         </h1>
-        <p>Disclaimer</p>
         <p>
-          The comment section is for entertainment purposes only.
-          Augur does not monitor or assess the accuracy of comments.
-          Traders should seek out independent information before making any investment decision.
+          <span>Disclaimer:</span> This chat is an unmoderated public forum. Please seek independent information and do your own research before making any trading decisions.
         </p>
         <LoginForm
           theme={{ ...uiStore.theme }}

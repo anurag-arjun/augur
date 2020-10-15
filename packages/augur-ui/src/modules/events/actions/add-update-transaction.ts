@@ -1,15 +1,9 @@
+import { AppState } from 'appStore';
 import {
-  addCanceledOrder,
-  removeCanceledOrder,
-} from 'modules/orders/actions/update-order-status';
-import {
-  PUBLICTRADE,
   CANCELORDER,
   CANCELORDERS,
+  BATCHCANCELORDERS,
   TX_ORDER_ID,
-  TX_ORDER_IDS,
-  TX_MARKET_ID,
-  TX_TRADE_GROUP_ID,
   CREATEMARKET,
   CREATECATEGORICALMARKET,
   CREATESCALARMARKET,
@@ -18,58 +12,167 @@ import {
   CATEGORICAL,
   SCALAR,
   YES_NO,
-  PUBLICCREATEORDER,
-  PUBLICCREATEORDERS,
-  APPROVE,
-  DOINITIALREPORT,
-  ZERO,
-  PREFILLEDSTAKE,
-  PUBLICFILLBESTORDER,
   PUBLICFILLORDER,
+  CREATEAUGURWALLET,
+  WITHDRAWALLFUNDSASDAI,
+  ADDLIQUIDITY,
+  SWAPEXACTTOKENSFORTOKENS,
+  SWAPTOKENSFOREXACTETH,
+  SWAPETHFOREXACTTOKENS,
+  SENDETHER,
+  BUYPARTICIPATIONTOKENS,
+  TRANSFER,
+  MODAL_ERROR,
+  MIGRATE_FROM_LEG_REP_TOKEN,
+  APPROVE_FROM_LEG_REP_TOKEN,
+  REDEEMSTAKE,
+  MIGRATEOUTBYPAYOUT,
+  TRADINGPROCEEDSCLAIMED,
+  CLAIMMARKETSPROCEEDS,
+  FORKANDREDEEM,
+  FINALIZE,
+  DOINITIALREPORT,
+  CONTRIBUTE,
+  APPROVE,
+  TRANSACTIONS,
+  SETREFERRER,
+  SETAPPROVALFORALL,
+  WRAP_ETH,
+  UNWRAP_ETH,
+  STAKE,
+  REDEEM,
+  EXIT,
 } from 'modules/common/constants';
-import { UIOrder, CreateMarketData } from 'modules/types';
-import { convertTransactionOrderToUIOrder } from 'modules/events/actions/transaction-conversions';
-import {
-  addPendingOrder,
-  updatePendingOrderStatus,
-  removePendingOrder,
-} from 'modules/orders/actions/pending-orders-management';
+import { CreateMarketData } from 'modules/types';
 import { ThunkDispatch } from 'redux-thunk';
 import { Action } from 'redux';
-import { AppState } from 'store';
-import { Events, Getters, TXEventName } from '@augurproject/sdk';
+import {
+  Events,
+  TXEventName,
+  parseZeroXMakerAssetData
+} from '@augurproject/sdk-lite';
 import {
   addPendingData,
-  removePendingData,
+  addUpdatePendingTransaction,
+  addCanceledOrder,
+  updatePendingReportHash,
+  updatePendingDisputeHash,
+  removePendingDataByHash,
+  removePendingTransaction,
 } from 'modules/pending-queue/actions/pending-queue-management';
 import { convertUnixToFormattedDate } from 'utils/format-date';
-import { TransactionMetadataParams } from 'contract-dependencies-ethers/build';
+import { TransactionMetadataParams } from '@augurproject/contract-dependencies-ethers';
 import { generateTxParameterId } from 'utils/generate-tx-parameter-id';
 import { updateLiqTransactionParamHash } from 'modules/orders/actions/liquidity-management';
-import {
-  setLiquidityMultipleOrdersStatus,
-  deleteMultipleLiquidityOrders,
-  setLiquidityOrderStatus,
-  deleteLiquidityOrder,
-} from 'modules/events/actions/liquidity-transactions';
 import { addAlert, updateAlert } from 'modules/alerts/actions/alerts';
+import { getDeconstructedMarketId } from 'modules/create-market/helpers/construct-market-params';
+import { updateModal } from 'modules/modal/actions/update-modal';
 
-export const addUpdateTransaction = (txStatus: Events.TXStatus) => (
+const ADD_PENDING_QUEUE_METHOD_CALLS = [
+  BUYPARTICIPATIONTOKENS,
+  REDEEMSTAKE,
+  MIGRATE_FROM_LEG_REP_TOKEN,
+  APPROVE_FROM_LEG_REP_TOKEN,
+  BATCHCANCELORDERS,
+  TRADINGPROCEEDSCLAIMED,
+  MIGRATEOUTBYPAYOUT,
+  FORKANDREDEEM,
+  CREATEAUGURWALLET,
+  WITHDRAWALLFUNDSASDAI,
+  ADDLIQUIDITY,
+  SWAPEXACTTOKENSFORTOKENS,
+  SWAPTOKENSFOREXACTETH,
+  SWAPETHFOREXACTTOKENS,
+  SENDETHER,
+  TRANSFER,
+  CLAIMMARKETSPROCEEDS,
+  FINALIZE,
+  APPROVE,
+  SETREFERRER,
+  SETAPPROVALFORALL,
+  WRAP_ETH,
+  UNWRAP_ETH,
+  STAKE,
+  REDEEM,
+  EXIT
+];
+
+const AUTO_REMVE_SUCCESSFUL_PENDING_QUEUE = [
+  APPROVE,
+  WRAP_ETH,
+  UNWRAP_ETH
+];
+export const getRelayerDownErrorMessage = (walletType, hasEth) => {
+  const errorMessage =
+    "We're currently experiencing a technical difficulty processing transaction fees in DAI. If possible please come back later to process this transaction";
+
+  if (hasEth) {
+    return (
+      errorMessage +
+      `\nIf you need to make the transaction now transaction costs will be paid in ETH from your ${walletType} wallet.`
+    );
+  }
+  return (
+    errorMessage +
+    '\nIf you need to make the transaction now please follow these steps:'
+  );
+};
+
+export const addUpdateTransaction = (txStatus: Events.TXStatus) => async (
   dispatch: ThunkDispatch<void, any, Action>,
   getState: () => AppState
 ) => {
   const { eventName, transaction, hash } = txStatus;
   if (transaction) {
     const methodCall = transaction.name.toUpperCase();
-    const { blockchain, alerts } = getState();
+    const { blockchain, loginAccount } = getState();
 
-    if (eventName === TXEventName.Failure) {
+    if (ADD_PENDING_QUEUE_METHOD_CALLS.includes(methodCall)) {
+      dispatch(
+        addUpdatePendingTransaction(methodCall, eventName, hash, {
+          ...transaction,
+        })
+      );
+    }
+    if (
+      AUTO_REMVE_SUCCESSFUL_PENDING_QUEUE.includes(methodCall) &&
+      eventName === TXEventName.Success
+    ) {
+      setTimeout(() => dispatch(removePendingTransaction(methodCall)), 500);
+    }
+
+    if (eventName === TXEventName.RelayerDown) {
+      const hasEth = (await loginAccount.meta.signer.provider.getBalance(
+        loginAccount.meta.signer._address
+      )).gt(0);
+
+      dispatch(
+        updateModal({
+          type: MODAL_ERROR,
+          error: getRelayerDownErrorMessage(
+            loginAccount.meta.accountType,
+            hasEth
+          ),
+          showDiscordLink: false,
+          showAddFundsHelp: !hasEth,
+          walletType: loginAccount.meta.accountType,
+          title: "We're having trouble processing transactions",
+        })
+      );
+    }
+
+    if (
+      eventName === TXEventName.Failure ||
+      eventName === TXEventName.RelayerDown
+    ) {
+      const genHash = hash ? hash : generateTxParameterId(transaction.params);
+
       dispatch(
         addAlert({
-          id: hash ? hash : generateTxParameterId(transaction.params),
-          uniqueId: hash ? hash : generateTxParameterId(transaction.params),
+          id: genHash,
+          uniqueId: genHash,
           params: transaction.params,
-          status: eventName,
+          status: TXEventName.Failure,
           timestamp: blockchain.currentAugurTimestamp * 1000,
           name: methodCall,
         })
@@ -110,49 +213,78 @@ export const addUpdateTransaction = (txStatus: Events.TXStatus) => (
     }
 
     switch (methodCall) {
-      case PUBLICCREATEORDERS: {
-        const { marketInfos } = getState();
-        const marketId = transaction.params[TX_MARKET_ID];
-        const market = marketInfos[marketId];
-        setLiquidityMultipleOrdersStatus(txStatus, market, dispatch);
-
-        if (eventName === TXEventName.Success) {
-          deleteMultipleLiquidityOrders(txStatus, market, dispatch);
-        }
-        break;
-      }
-      case PUBLICCREATEORDER: {
-        const { marketInfos } = getState();
-        const marketId = transaction.params[TX_MARKET_ID];
-        const market = marketInfos[marketId];
-        setLiquidityOrderStatus(txStatus, market, dispatch);
-
-        if (eventName === TXEventName.Success) {
-          deleteLiquidityOrder(txStatus, market, dispatch);
-        }
-        break;
-      }
-      case PUBLICTRADE: {
-        const tradeGroupId = transaction.params[TX_TRADE_GROUP_ID];
-        const marketId = transaction.params[TX_MARKET_ID];
-        const { marketInfos } = getState();
-        const market = marketInfos[marketId];
-        if (!hash && eventName === TXEventName.AwaitingSigning) {
-          return addOrder(txStatus, market, dispatch);
-        }
-        dispatch(
-          updatePendingOrderStatus(tradeGroupId, marketId, eventName, hash)
+      case REDEEMSTAKE: {
+        const params = transaction.params;
+        params._reportingParticipants.map(participant =>
+          dispatch(
+            addPendingData(participant, REDEEMSTAKE, eventName, hash, {
+              ...transaction,
+            })
+          )
         );
-        if (eventName === TXEventName.Success) {
-          dispatch(removePendingOrder(tradeGroupId, marketId));
+        params._disputeWindows.map(window =>
+          dispatch(
+            addPendingData(window, REDEEMSTAKE, eventName, hash, {
+              ...transaction,
+            })
+          )
+        );
+        break;
+      }
+      case CLAIMMARKETSPROCEEDS: {
+        const params = transaction.params;
+        if (params._markets.length === 1) {
+          dispatch(
+            addPendingData(
+              params._markets[0],
+              CLAIMMARKETSPROCEEDS,
+              eventName,
+              hash,
+              { ...transaction }
+            )
+          );
+        } else {
+          dispatch(
+            addUpdatePendingTransaction(methodCall, eventName, hash, {
+              ...transaction,
+            })
+          );
         }
+        break;
+      }
+      case BUYPARTICIPATIONTOKENS: {
+        if (eventName === TXEventName.Success) {
+          const { universe } = getState();
+          const { disputeWindow } = universe;
+          const { startTime, endTime } = disputeWindow;
+
+          const genHash = hash
+            ? hash
+            : generateTxParameterId(transaction.params);
+          dispatch(
+            updateAlert(genHash, {
+              id: genHash,
+              uniqueId: genHash,
+              params: {
+                ...transaction.params,
+                marketId: 1,
+                startTime,
+                endTime,
+              },
+              status: eventName,
+              timestamp: blockchain.currentAugurTimestamp * 1000,
+              name: methodCall,
+            })
+          );
+        }
+
         break;
       }
       case CREATEMARKET:
       case CREATECATEGORICALMARKET:
       case CREATESCALARMARKET:
       case CREATEYESNOMARKET: {
-        const id = generateTxParameterId(transaction.params);
+        const id = getDeconstructedMarketId(transaction.params);
         const data = createMarketData(
           transaction.params,
           id,
@@ -160,15 +292,17 @@ export const addUpdateTransaction = (txStatus: Events.TXStatus) => (
           blockchain.currentAugurTimestamp * 1000,
           methodCall
         );
-        dispatch(addPendingData(id, CREATE_MARKET, eventName, hash, data));
+        // pending queue will be updated when created market event comes in.
+        if (eventName !== TXEventName.Success)
+          dispatch(addPendingData(id, CREATE_MARKET, eventName, hash, data));
         if (hash)
           dispatch(
             updateLiqTransactionParamHash({ txParamHash: id, txHash: hash })
           );
-        if (hash && eventName === TXEventName.Success) {
-          dispatch(removePendingData(id, CREATE_MARKET));
-        }
-        if (hash && eventName === TXEventName.Failure) {
+        if (
+          (hash && eventName === TXEventName.Failure) ||
+          eventName === TXEventName.RelayerDown
+        ) {
           // if tx fails, revert hash to generated tx id, for retry
           dispatch(
             updateLiqTransactionParamHash({ txParamHash: hash, txHash: id })
@@ -177,21 +311,65 @@ export const addUpdateTransaction = (txStatus: Events.TXStatus) => (
         break;
       }
       case CANCELORDER: {
-        const orderId = transaction.params[TX_ORDER_ID];
-        dispatch(addCanceledOrder(orderId, eventName));
-        if (eventName === TXEventName.Success) {
-          dispatch(removeCanceledOrder(orderId));
-        }
+        const orderId =
+          transaction.params && transaction.params.order[TX_ORDER_ID];
+        dispatch(addCanceledOrder(orderId, eventName, hash));
+        break;
+      }
+      case BATCHCANCELORDERS: {
+        const orders = (transaction.params && transaction.params.orders) || [];
+        orders.map(order =>
+          dispatch(addCanceledOrder(order.orderId, eventName, hash))
+        );
         break;
       }
       case CANCELORDERS: {
-        const orderIds = transaction.params[TX_ORDER_IDS];
-        orderIds.map(id => dispatch(addCanceledOrder(id, eventName)));
+        const orders = (transaction.params && transaction.params._orders) || [];
+        orders.map(order => {
+          dispatch(addCanceledOrder(order.orderId, eventName, hash));
+          dispatch(
+            addPendingData(
+              parseZeroXMakerAssetData(order.makerAssetData).market,
+              CANCELORDERS,
+              eventName,
+              hash
+            )
+          );
+          if (eventName === TXEventName.Success) {
+            const alert = {
+              params: {
+                hash,
+              },
+              status: TXEventName.Success,
+              name: CANCELORDERS,
+            };
+
+            dispatch(updateAlert(order.orderId, alert));
+          }
+        });
+        break;
+      }
+      case DOINITIALREPORT: {
+        hash &&
+          dispatch(
+            updatePendingReportHash(transaction.params, hash, eventName)
+          );
+        break;
+      }
+      case CONTRIBUTE: {
+        hash &&
+          dispatch(
+            updatePendingDisputeHash(transaction.params, hash, eventName)
+          );
+        break;
+      }
+      case APPROVE: {
         if (eventName === TXEventName.Success) {
-          orderIds.map(id => dispatch(removeCanceledOrder(id)));
+          dispatch(removePendingDataByHash(hash, TRANSACTIONS));
         }
         break;
       }
+
       default:
         return null;
     }
@@ -224,24 +402,4 @@ function createMarketData(
     data.marketType = SCALAR;
   }
   return data;
-}
-
-function addOrder(
-  tx: Events.TXStatus,
-  market: Getters.Markets.MarketInfo,
-  dispatch
-) {
-  if (!market)
-    return console.log(`Could not find ${market.id} to process transaction`);
-  const order: UIOrder = convertTransactionOrderToUIOrder(
-    tx.hash,
-    tx.transaction.params,
-    tx.eventName,
-    market
-  );
-  if (!order)
-    return console.log(
-      `Could not process order to add pending order for market ${market.id}`
-    );
-  dispatch(addPendingOrder(order, market.id));
 }

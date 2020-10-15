@@ -1,17 +1,18 @@
 import { ThunkDispatch } from 'redux-thunk';
 import { Action } from 'redux';
 import { augurSdk } from 'services/augursdk';
-import { AppState } from 'store';
+import { AppState } from 'appStore';
 import { updateLoginAccount } from 'modules/account/actions/login-account';
 import { NodeStyleCallback } from 'modules/types';
+import { NOTIFICATION_TYPES } from 'modules/common/constants';
+import { updateReadNotifications } from 'modules/notifications/actions/update-notifications';
+import { loadMarketsInfoIfNotLoaded } from 'modules/markets/actions/load-markets-info';
 
-export const loadAccountReportingHistory = (
-  marketIdAggregator?: Function
-) => async (
+export const loadAccountReportingHistory = () => async (
   dispatch: ThunkDispatch<void, any, Action>,
   getState: () => AppState
 ) => {
-  const { universe, loginAccount } = getState();
+  const { universe, loginAccount, readNotifications } = getState();
   if (!loginAccount || !loginAccount.address) return;
   const Augur = augurSdk.get();
   const reporting = await Augur.getAccountRepStakeSummary({
@@ -19,15 +20,19 @@ export const loadAccountReportingHistory = (
     account: loginAccount.address,
   });
   // pull all markets from reporting, disputing.
-  const marketIds = [];
+  let marketIds = [];
   if (reporting.reporting && reporting.reporting.contracts.length > 0)
-    reporting.reporting.contracts.map(c => [...marketIds, c.marketId]);
+    marketIds = reporting.reporting.contracts.map(c => c.marketId);
   if (reporting.disputing && reporting.disputing.contracts.length > 0)
-    reporting.disputing.contracts.map(c => [...marketIds, c.marketId]);
+    marketIds = reporting.disputing.contracts.map(c => c.marketId);
 
-  if (marketIdAggregator) marketIdAggregator(marketIds);
-
+  const notification = readNotifications.find(n => n.type === NOTIFICATION_TYPES.claimReportingFees);
+  if (notification) {
+    dispatch(updateReadNotifications([{...notification, isImportant: true, isNew: true}]))
+  }
   dispatch(updateLoginAccount({ reporting }));
+
+  if (marketIds.length > 0) dispatch(loadMarketsInfoIfNotLoaded(marketIds));
 };
 
 export const loadAccountCurrentDisputeHistory = async (

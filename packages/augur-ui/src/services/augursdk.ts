@@ -1,96 +1,163 @@
-import { Augur, Provider } from '@augurproject/sdk';
-import { SEOConnector, WebsocketConnector } from '@augurproject/sdk/build/connector';
-import { ContractDependenciesEthers, EthersSigner, } from 'contract-dependencies-ethers';
-import { WebWorkerConnector } from './ww-connector';
+import type { SDKConfiguration } from '@augurproject/artifacts';
+import type { EthersSigner } from '@augurproject/contract-dependencies-ethers';
+import type { Augur, Connectors } from '@augurproject/sdk';
 
-import { EthersProvider } from '@augurproject/ethersjs-provider';
-import { JsonRpcProvider } from 'ethers/providers';
-import { Addresses } from '@augurproject/artifacts';
-import { EnvObject } from 'modules/types';
-import { listenToUpdates, unListenToEvents } from 'modules/events/actions/listen-to-updates';
-import { isMobileSafari } from 'utils/is-safari';
+import { logger, NetworkId } from '@augurproject/utils';
+import type { JsonRpcProvider } from '@ethersproject/providers';
+import { NULL_ADDRESS } from 'modules/common/constants';
+
+import {
+  listenToUpdates,
+  unListenToEvents,
+} from 'modules/events/actions/listen-to-updates';
+import { BigNumber } from 'utils/create-big-number';
+import { isEmpty } from 'utils/is-empty';
+import { isLocalHost } from 'utils/is-localhost';
 import { analytics } from './analytics';
+import { createBrowserMeshWorker } from './browser-mesh';
+import { isMobileSafari, isSafari } from 'utils/is-safari';
+
+window.BigNumber = BigNumber;
 
 export class SDK {
-  sdk: Augur<Provider> | null = null;
-  isWeb3Transport = false;
-  env: EnvObject = null;
+  client: Augur | null = null;
   isSubscribed = false;
-  networkId: string;
-  account: string;
-  private signerNetworkId: string;
+  private connector:Connectors.BaseConnector;
+  private config: SDKConfiguration;
 
-  async makeApi(
-    provider: JsonRpcProvider,
-    account = '',
-    signer: EthersSigner,
-    env: EnvObject,
-    signerNetworkId?: string,
-    isWeb3 = false
-  ):Promise<Augur<Provider>> {
-    this.isWeb3Transport = isWeb3;
-    this.env = env;
-    this.account = account;
-    this.signerNetworkId = signerNetworkId;
-    const ethersProvider = new EthersProvider(provider, 10, 0, 40);
-    this.networkId = await ethersProvider.getNetworkId();
-    const contractDependencies = new ContractDependenciesEthers(
-      ethersProvider,
-      signer,
-      account
-    );
-
-    const connector = this.pickConnector(env['sdkEndpoint']);
-
-    connector.connect(
-      env['ethereum-node'].http
-        ? env['ethereum-node'].http
-        : 'http://localhost:8545',
-      account
-    );
-
-    this.sdk = await Augur.create<Provider>(
-      ethersProvider,
-      contractDependencies,
-      Addresses[this.networkId],
-      connector,
-    );
-
-    window.AugurSDK = this.sdk;
-
-    return this.sdk;
+  get networkId() {
+    return this.config?.networkId;
   }
 
-  async syncUserData(address: string, signer: EthersSigner, signerNetworkId: string) {
-    if (this.sdk) {
-      this.sdk.syncUserData(address);
-      if (signer) this.sdk.signer = signer;
-      this.signerNetworkId = signerNetworkId;
+  connect() {
+    return this.connector.connect(this.config);
+  }
 
-      analytics.identify(address, { address, signerNetworkId })
+  async makeClient(
+    provider: JsonRpcProvider,
+    config: SDKConfiguration,
+    signer: EthersSigner = undefined,
+    account: string = null,
+    affiliate: string = NULL_ADDRESS,
+    enableFlexSearch = true,
+  ): Promise<Augur> {
+    const { Connectors, EthersProvider, createClient } = await import(/* webpackChunkName: 'augur-sdk' */ '@augurproject/sdk');
+
+    this.config = config;
+    let paraOfChoice = process.env.PARA_DEPLOY_TOKEN_NAME
+    for(const key of Object.keys(config.paraDeploys)) {
+      if (!paraOfChoice) paraOfChoice = key;
+      if(config.paraDeploys[key].name === paraOfChoice) {
+        config.paraDeploy = key;
+        logger.log(`Setting paraDeploy name ${paraOfChoice} with address ${key}.`)
+        break;
+      }
+    }
+
+
+    if ((isSafari() || isMobileSafari()) && this.config.zeroX) {
+      this.config.zeroX.delayTillSDKReady = true;
+    }
+
+    const ethersProvider = new EthersProvider(
+      provider,
+      this.config.ethereum.rpcRetryCount,
+      this.config.ethereum.rpcRetryInterval,
+      this.config.ethereum.rpcConcurrency
+    );
+
+    if (this.config.sdk?.enabled) {
+      this.connector = new Connectors.WebsocketConnector();
+    } else {
+      this.connector = new Connectors.SingleThreadConnector();
+    }
+
+    // PG: BEGIN HACK
+    try {
+      await new Promise((resolve, reject) => {
+        try {
+          const request = indexedDB.open('0x-mesh/mesh_dexie_db');
+          request.onsuccess = () => {
+            try {
+              const db = request.result;
+              const transaction = db.transaction('orders', "readwrite");
+              const objectStore = transaction.objectStore("orders");
+
+              transaction.onerror = () => {
+                console.log("There was an error clearing orders table");
+                reject();
+              }
+
+              const objectStoreRequest = objectStore.clear();
+              objectStoreRequest.onsuccess = function(event) {
+                console.log('Orders table clear complete');
+                resolve();
+              };
+            } catch(e) {
+              reject();
+            }
+          }
+        } catch(e) {
+          reject();
+        }
+      });
+    } catch(e) {
+
+    }
+    // PG: END HACK
+
+    this.client = await createClient(this.config, this.connector, signer, ethersProvider, enableFlexSearch, createBrowserMeshWorker);
+
+    if (!isEmpty(account)) {
+      this.syncUserData(account, provider, signer, this.networkId).catch((error) => {
+        console.log('Wallet create error during create: ', error);
+      });
+    }
+
+    // tslint:disable-next-line:ban-ts-ignore
+    // @ts-ignore
+    window.AugurSDK = this.client;
+    return this.client;
+  }
+
+  async syncUserData(
+    account: string,
+    provider: JsonRpcProvider,
+    signer: EthersSigner,
+    expectedNetworkId: NetworkId,
+    primaryProvider: string,
+  ) {
+    if (!this.client) {
+      throw new Error('Trying to sync user data before Augur is initialized');
+    }
+
+    if (expectedNetworkId && this.networkId !== expectedNetworkId) {
+      throw new Error(`Setting the current user is expecting to be on network ${expectedNetworkId} but Augur was already connected to ${this.networkId}`);
+    }
+
+    if (!signer) {
+      throw new Error('Attempting to set logged in user without specifying a signer');
+    }
+
+    this.client.signer = signer;
+    if (primaryProvider === 'wallet') {
+      this.client.setProvider(provider);
+    }
+
+    if (!isLocalHost()) {
+      analytics.identify(account, { networkId: this.networkId });
     }
   }
 
   async destroy() {
-    unListenToEvents(this.sdk);
+    if (this.client) unListenToEvents(this.client);
     this.isSubscribed = false;
-    if (this.sdk) this.sdk.disconnect();
-    this.sdk = null;
+    this.client = null;
   }
 
-  pickConnector(sdkEndpoint: string) {
-    if (sdkEndpoint) {
-      return new WebsocketConnector(sdkEndpoint);
-    } else if (isMobileSafari()) {
-      return new SEOConnector()
-    } else {
-      return new WebWorkerConnector();
-    }
-  }
-
-  get(): Augur<Provider> {
-    if (this.sdk) {
-      return this.sdk;
+  get(): Augur {
+    if (this.client) {
+      return this.client;
     }
     throw new Error('API must be initialized before use.');
   }
@@ -104,14 +171,6 @@ export class SDK {
     } catch (e) {
       this.isSubscribed = false;
     }
-  }
-
-  sameNetwork(): boolean {
-    const localNetwork = this.networkId;
-    const signerNetworkId = this.signerNetworkId;
-
-    if (!localNetwork || !signerNetworkId) return undefined;
-    return localNetwork.toString() === signerNetworkId.toString();
   }
 }
 

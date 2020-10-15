@@ -9,7 +9,7 @@ def test_cancelBid(contractsFixture, cash, market, universe):
     createOrder = contractsFixture.contracts['CreateOrder']
     cancelOrder = contractsFixture.contracts['CancelOrder']
     orders = contractsFixture.contracts['Orders']
-    shareToken = contractsFixture.contracts["ShareToken"]
+    shareToken = contractsFixture.getShareToken()
 
     orderType = BID
     amount = fix(1)
@@ -31,7 +31,7 @@ def test_cancelBid(contractsFixture, cash, market, universe):
         "universe": universe.address,
         "market": market.address,
 	    "eventType": 1,
-	    "addressData": [nullAddress, contractsFixture.accounts[1], nullAddress],
+	    "addressData": [contractsFixture.accounts[1], nullAddress],
 	    "uint256Data": [0, 0, 0, fix('1', '60'), 0, 0, 0,  contractsFixture.contracts['Time'].getTimestamp(), 0, 0],
     }
     with AssertLog(contractsFixture, 'OrderEvent', orderEventLog):
@@ -54,7 +54,7 @@ def test_cancelAsk(contractsFixture, cash, market):
     createOrder = contractsFixture.contracts['CreateOrder']
     cancelOrder = contractsFixture.contracts['CancelOrder']
     orders = contractsFixture.contracts['Orders']
-    shareToken = contractsFixture.contracts["ShareToken"]
+    shareToken = contractsFixture.getShareToken()
 
     orderType = ASK
     amount = fix(1)
@@ -65,7 +65,7 @@ def test_cancelAsk(contractsFixture, cash, market):
     marketInitialCash = cash.balanceOf(market.address)
     marketInitialYesShares = shareToken.totalSupplyForMarketOutcome(market.address, YES)
     marketInitialNoShares = shareToken.totalSupplyForMarketOutcome(market.address, NO)
-    with BuyWithCash(cash, fix(100 - fxpPrice), contractsFixture.accounts[1], "create order"):
+    with BuyWithCash(cash, fix(1000 - fxpPrice), contractsFixture.accounts[1], "create order"):
         orderID = createOrder.publicCreateOrder(orderType, amount, fxpPrice, market.address, outcomeID, longTo32Bytes(0), longTo32Bytes(0), tradeGroupID, nullAddress, sender=contractsFixture.accounts[1])
     assert(orderID != bytearray(32)), "Order ID should be non-zero"
     assert orders.getOrderCreator(orderID), "Order should have an owner"
@@ -85,7 +85,7 @@ def test_cancelAsk(contractsFixture, cash, market):
     assert marketInitialNoShares == shareToken.totalSupplyForMarketOutcome(market.address, NO), "Market's no shares should be unchanged"
 
 def test_cancelWithSharesInEscrow(contractsFixture, cash, market, universe):
-    shareToken = contractsFixture.contracts['ShareToken']
+    shareToken = contractsFixture.getShareToken()
     createOrder = contractsFixture.contracts['CreateOrder']
     cancelOrder = contractsFixture.contracts['CancelOrder']
     orders = contractsFixture.contracts['Orders']
@@ -130,11 +130,11 @@ def test_cancelWithSharesInEscrow(contractsFixture, cash, market, universe):
     assert marketInitialNoShares == shareToken.totalSupplyForMarketOutcome(market.address, NO), "Market's no shares should be unchanged"
 
 def test_cancelWithSharesInEscrowAsk(contractsFixture, cash, market, universe):
-    shareToken = contractsFixture.contracts['ShareToken']
+    shareToken = contractsFixture.getShareToken()
     createOrder = contractsFixture.contracts['CreateOrder']
     cancelOrder = contractsFixture.contracts['CancelOrder']
     orders = contractsFixture.contracts['Orders']
-    shareToken = contractsFixture.contracts["ShareToken"]
+    shareToken = contractsFixture.getShareToken()
 
     totalProceeds = fix('12', market.getNumTicks())
     marketCreatorFee = totalProceeds / market.getMarketCreatorSettlementFeeDivisor()

@@ -1,28 +1,26 @@
 import { ThunkDispatch } from 'redux-thunk';
 import { Action } from 'redux';
 import { augurSdk } from 'services/augursdk';
-import { OPEN, REPORTING_STATE } from 'modules/common/constants';
-import { AppState } from 'store';
-import { updateUserOpenOrders, updateUserOpenOrdersInMarket } from 'modules/markets/actions/market-trading-history-management';
+import { AppState } from 'appStore';
+import { refreshUserOpenOrders } from 'modules/markets/actions/market-trading-history-management';
+import { updateLoginAccount } from 'modules/account/actions/login-account';
 
-export const loadAccountOpenOrders = (
-  options: any = {},
-  marketIdAggregator: Function
-) => async (dispatch: ThunkDispatch<void, any, Action>, getState: () => AppState) => {
+export const loadAccountOpenOrders = () => async (
+  dispatch: ThunkDispatch<void, any, Action>,
+  getState: () => AppState
+) => {
   const { universe, loginAccount } = getState();
+  if (!loginAccount.mixedCaseAddress) return;
   const Augur = augurSdk.get();
-  const orders = await Augur.getTradingOrders({
-    ...options,
+  const userOpenOrders = await Augur.getUserOpenOrders({
     universe: universe.id,
-    account: loginAccount.address,
-    orderState: OPEN,
-    filterFinalized: true
+    account: loginAccount.mixedCaseAddress,
   });
-  if (marketIdAggregator) marketIdAggregator(Object.keys(orders));
-  dispatch(updateUserOpenOrders(orders));
-  if (options.marketId) {
-    // update orders in market, they could have been cancelled
-    dispatch(updateUserOpenOrdersInMarket(options.marketId, orders));
-  }
+  dispatch(refreshUserOpenOrders(userOpenOrders.orders));
+  if (userOpenOrders.totalOpenOrdersFrozenFunds)
+    dispatch(
+      updateLoginAccount({
+        totalOpenOrdersFrozenFunds: userOpenOrders.totalOpenOrdersFrozenFunds,
+      })
+    );
 };
-

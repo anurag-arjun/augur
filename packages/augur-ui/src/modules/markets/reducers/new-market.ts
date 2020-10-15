@@ -12,7 +12,7 @@ import {
 } from 'modules/common/constants';
 import { createBigNumber } from 'utils/create-big-number';
 import { NewMarket, BaseAction, LiquidityOrder } from 'modules/types';
-import { formatShares, formatDai } from 'utils/format-number';
+import { formatShares, formatDaiPrice, formatEther } from 'utils/format-number';
 import { EMPTY_STATE } from 'modules/create-market/constants';
 import deepClone from 'utils/deep-clone';
 
@@ -69,10 +69,10 @@ export default function(
           mySize: quantity,
           cumulativeShares: quantity,
           orderEstimate: createBigNumber(orderEstimate),
-          avgPrice: formatDai(price),
+          avgPrice: formatEther(price),
           unmatchedShares: formatShares(quantity),
           sharesEscrowed: formatShares(quantity),
-          tokensEscrowed: formatDai(createBigNumber(orderEstimate)),
+          tokensEscrowed: formatEther(createBigNumber(orderEstimate)),
           id: updatedOrders.length,
         } as any);
       }
@@ -102,7 +102,7 @@ export default function(
       const updatedOutcomeUpdatedShares = recalculateCumulativeShares(
         updatedOrders
       );
-      const orderBook = {
+      let orderBook = {
         ...newMarket.orderBook,
         [outcome]: updatedOutcomeUpdatedShares,
       };
@@ -110,7 +110,9 @@ export default function(
       const { initialLiquidityDai, initialLiquidityGas } = calculateLiquidity(
         orderBook
       );
-
+      if (initialLiquidityDai.eq(createBigNumber(0))) {
+        orderBook = {};
+      }
       return {
         ...newMarket,
         initialLiquidityDai,

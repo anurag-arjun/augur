@@ -5,16 +5,26 @@
   border-radius: @border-radius-default;
   display: flex;
   flex-direction: column;
-  padding: @size-12 @size-16;
+  padding: 0 @size-16;
+
+  > section {
+    padding: @size-12 0;
+    border-bottom: 1px solid @color-dark-grey;
+
+    @media @breakpoint-mobile {
+      border-bottom: 0;
+    }
+  }
+
+  @media @breakpoint-mobile {
+    &:not(last-of-type) {
+      margin-bottom: @size-4;
+    }
+  }
 }
 
 .NewNotificationCard {
-  background: @color-secondary-action;
-  border-bottom: 1px solid fade(@color-secondary-action-outline, 50%);
-
-  &:last-of-type {
-    border-bottom: 0;
-  }
+  background: @color-active-background;
 }
 
 .TitleBar {
@@ -32,7 +42,7 @@
   align-items: center;
   display: flex;
   justify-content: center;
-  margin: 0 @size-8 0 0;
+  margin: 0 @size-4 0 0;
 
   > svg {
     height: @size-12;
@@ -53,30 +63,39 @@
   }
 }
 
-.Title {
-  .mono-11-bold;
+.ImportantRed {
+  > svg {
+    > circle {
+      stroke: @color-outcome-five;
+    }
 
-  color: @color-inactive-text;
-  margin: 0 @size-9 0 0;
-  text-transform: uppercase;
+    > rect {
+      fill: @color-outcome-five;
+    }
 
-  @media @breakpoint-mobile {
-    .mono-10-bold;
+    > path {
+      fill: @color-outcome-five;
+    }
   }
 }
 
-.Message {
-  .text-11;
+.Title {
+  .mono-12-semi-bold;
 
-  color: @color-inactive-text;
-  line-height: 0.9375rem;
+  color: @color-secondary-text;
+  margin: 0 @size-4 0 0;
+  text-transform: uppercase;
+}
+
+.Message {
+  .text-12;
+
+  color: @color-secondary-text;
   display: flex;
   flex-direction: column;
 
-  @media @breakpoint-mobile {
-    .text-10;
-
-    line-height: @size-14;
+  > span {
+    .limit-lines(2);
   }
 }
 
@@ -90,7 +109,22 @@
   > span > span {
     font-weight: bold;
   }
+
+  > div.BottomRow > div.Countdown > span > span:first-of-type {
+    color: @color-primary-text;
+  }
 }
+
+div.HasCheckbox {
+  > section > div.Message {
+    flex-direction: column;
+
+    > div.BottomRow {
+      margin-left: 0;
+      padding-left: 0;
+    }
+  }
+} 
 
 .NotificationCard button {
   margin-left: auto;
@@ -99,28 +133,79 @@
 .BottomRow {
   align-items: flex-end;
   display: flex;
+
+  @media @breakpoint-mobile {
+    flex-flow: column-reverse nowrap;
+
+    > div {
+      margin: @size-8 auto 0 0;
+    }
+
+    > button {
+      justify-content: center;
+      margin-left: 0;
+      margin-top: @size-12;
+      width: 100%;
+    }
+  }
+
+  &.HasCheckbox {
+    display: grid;
+    grid-template-columns: @size-30 1fr 1fr;
+    align-items: center;
+    margin-top: @size-6;
+
+    > div {
+      margin-bottom: 0;
+    }
+  }
+}
+
+.noCounter {
+  > section > div.Message {
+    display: flex;
+    flex-flow: row nowrap;
+
+    @media @breakpoint-mobile {
+      flex-flow: column nowrap;
+    }
+
+    > div.BottomRow {
+      margin-left: auto;
+      padding-left: @size-12;
+
+      @media @breakpoint-mobile {
+        padding-left: 0;
+      }
+    }
+  }
 }
 
 .Countdown {
   margin: @size-12 0 0;
 
   > span {
-    > span {
-      width: max-content !important;
-    }
-
     > span:first-of-type {
-      .mono-10;
+      .mono-10-medium;
 
-      color: @color-inactive-text;
-      line-height: normal;
-      text-transform: uppercase;
+      color: @color-secondary-text;
+      text-transform: capitalize;
     }
 
     > span:last-of-type {
-      .mono-12;
+      .mono-12-medium;
+    }
+  }
+}
 
-      line-height: normal;
+.NewTopLabel {
+  margin-right: auto;
+}
+
+div.DarkBackgroundMobile {
+  @media @breakpoint-mobile {
+    > div:last-of-type {
+      background: @color-dark-grey;
     }
   }
 }

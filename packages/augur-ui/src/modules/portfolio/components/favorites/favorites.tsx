@@ -6,6 +6,7 @@ import { FavoritesButton } from "modules/common/buttons";
 import { END_TIME } from "modules/common/constants";
 
 import Styles from "modules/portfolio/components/common/quad.styles.less";
+import favoriteStyles from 'modules/portfolio/components/favorites/favorites.styles.less'
 import { MarketData } from "modules/types";
 
 const sortByOptions = [
@@ -20,7 +21,7 @@ const sortByOptions = [
     label: "Market Creation",
     value: "marketCreation",
     comp(marketA, marketB) {
-      return marketB.creationTime.timestamp - marketA.creationTime.timestamp;
+      return marketB.creationTime - marketA.creationTime;
     }
   },
   {
@@ -41,7 +42,6 @@ function filterComp(input, market) {
 interface FavoritesProps {
   markets: Array<MarketData>;
   currentAugurTimestamp: number;
-  disputingWindowEndTime: number;
   toggleFavorite: Function;
   toggle: Function;
 }
@@ -49,7 +49,6 @@ interface FavoritesProps {
 export default class Favorites extends Component<FavoritesProps> {
   static defaultProps = {
     currentAugurTimestamp: 0,
-    disputingWindowEndTime: 0,
   };
 
   constructor(props) {
@@ -61,17 +60,15 @@ export default class Favorites extends Component<FavoritesProps> {
   renderRightContent(market) {
     const {
       currentAugurTimestamp,
-      disputingWindowEndTime,
       toggleFavorite,
     } = this.props;
-
     return (
       <div className={Styles.MultiColumn}>
         <MarketProgress
           reportingState={market.reportingState}
           currentTime={currentAugurTimestamp}
           endTimeFormatted={market.endTimeFormatted}
-          reportingWindowEndTime={disputingWindowEndTime}
+          reportingWindowEndTime={market.disputeInfo && market.disputeInfo.disputeWindow && market.disputeInfo.disputeWindow.endTime || 0}
           alignRight
         />
         <FavoritesButton
@@ -90,6 +87,7 @@ export default class Favorites extends Component<FavoritesProps> {
     return (
       <FilterBox
         title="Watchlist"
+        customClass={favoriteStyles.Watchlist}
         sortByOptions={sortByOptions}
         sortByStyles={{ minWidth: "10.625rem" }}
         markets={markets}

@@ -1,15 +1,16 @@
-import store from "store";
+import store, { AppState } from "appStore";
 import { createBigNumber } from "utils/create-big-number";
-import { BUY, SELL } from "modules/common/constants";
+import { BUY, SELL, ZERO } from "modules/common/constants";
 import { convertUnixToFormattedDate } from "utils/format-date";
 import {
   selectMarketInfosState,
-  selectMarketTradingHistoryState,
   selectLoginAccountAddress,
-} from "store/select-state";
+  selectFilledOrders,
+} from "appStore/select-state";
 import createCachedSelector from "re-reselect";
 import { selectUserOpenOrders } from "modules/orders/selectors/user-open-orders";
 import { isSameAddress } from "utils/isSameAddress";
+import { formatDaiPrice, formatEther } from "utils/format-number";
 
 function findOrders(
   tradesCreatedOrFilledByThisAccount,
@@ -50,22 +51,20 @@ function findOrders(
         outcome,
         amount,
         price,
-        type,
+        type: orderType,
         timestamp,
         transactionHash,
         marketId,
         logIndex,
+        tradeGroupId: orderTradeGroupId,
       },
     ) => {
-      const foundOrder = order.find(({ id }) => id === orderId);
+      const foundOrder = order.find(({ id, tradeGroupId, type }) => id === orderId || (tradeGroupId === orderTradeGroupId && type == orderType));
       const amountBN = createBigNumber(amount);
       const priceBN = createBigNumber(price);
-      let typeOp = type;
 
       let originalQuantity = amountBN;
       if (isSameAddress(creator, accountId) && !foundOrder) {
-        typeOp = type === BUY ? SELL : BUY; // marketTradingHistory is from filler perspective
-
         const matchingOpenOrder = openOrders.find(
           (openOrder) => openOrder.id === orderId,
         );
@@ -79,19 +78,22 @@ function findOrders(
       }
 
       const timestampFormatted = convertUnixToFormattedDate(timestamp);
-      const marketDescription = marketInfos.description;
+      const { marketType, description: marketDescription } = marketInfos;
       const outcomeValue = marketInfos.outcomes.find(o => o.id === outcome);
       if (foundOrder) {
         foundOrder.trades.push({
+          id: orderId,
           outcome: outcomeValue.description,
           amount: amountBN,
           price: priceBN,
-          type: typeOp,
+          type: orderType,
           timestamp: timestampFormatted,
           transactionHash,
           marketId,
           marketDescription,
+          marketType,
           logIndex,
+          tradeGroupId: orderTradeGroupId,
         });
 
         foundOrder.originalQuantity = foundOrder.originalQuantity.plus(
@@ -99,6 +101,12 @@ function findOrders(
         );
         // amount has been format-number'ed
         foundOrder.amount = createBigNumber(foundOrder.amount).plus(amountBN);
+        foundOrder.price = formatEther(foundOrder.trades
+          .reduce(
+            (p, t) => p.plus(createBigNumber(t.price).times(t.amount)),
+            ZERO
+          )
+          .div(foundOrder.amount).toFixed(8)).formattedValue;
         foundOrder.trades
           .sort((a, b) => b.logIndex - a.logIndex)
           .sort((a, b) => b.timestamp.timestamp - a.timestamp.timestamp);
@@ -108,28 +116,31 @@ function findOrders(
         if (!isSameAddress(creator, accountId)) {
           foundOrder.originalQuantity = foundOrder.amount;
         }
-      } else {
+      } else if (outcomeValue !== undefined) {
         order.push({
           id: orderId,
           timestamp: timestampFormatted,
           outcome: outcomeValue.description,
-          type: typeOp,
+          type: orderType,
           price: priceBN,
           amount: amountBN,
           marketId,
           marketDescription,
+          marketType,
           originalQuantity,
           logIndex,
+          tradeGroupId: orderTradeGroupId,
           trades: [
             {
               outcome: outcomeValue.description,
               amount: amountBN,
               price: priceBN,
-              type: typeOp,
+              type: orderType,
               timestamp: timestampFormatted,
               transactionHash,
               marketId,
               marketDescription,
+              marketType,
               logIndex,
             },
           ],
@@ -149,8 +160,10 @@ function selectMarketsDataStateMarket(state, marketId) {
   return selectMarketInfosState(state)[marketId];
 }
 
-function selectMarketTradingHistoryStateMarket(state, marketId) {
-  return selectMarketTradingHistoryState(state)[marketId];
+function selectMarketUserFilledHistoryState(state: AppState, marketId) {
+  const filledOrders = selectFilledOrders(state);
+  const usersFilled = (filledOrders[state.loginAccount.address] || {})
+  return usersFilled[marketId] || [];
 }
 
 export default function(marketId) {
@@ -159,25 +172,21 @@ export default function(marketId) {
 }
 
 export const selectUserFilledOrders = createCachedSelector(
-  selectMarketTradingHistoryStateMarket,
   selectLoginAccountAddress,
   selectMarketsDataStateMarket,
   selectUserOpenOrders,
-  (marketTradeHistory, accountId, marketInfos, openOrders) => {
+  selectMarketUserFilledHistoryState,
+  (accountId, marketInfos, openOrders, filledMarketOrders) => {
     if (
-      !marketTradeHistory ||
-      marketTradeHistory.length < 1 ||
+      !filledMarketOrders ||
+      filledMarketOrders.length < 1 ||
       marketInfos === undefined
     ) {
       return [];
     }
 
-    const tradesCreatedOrFilledByThisAccount = marketTradeHistory.filter(
-      (trade) => isSameAddress(trade.creator, accountId) || isSameAddress(trade.filler, accountId),
-    );
-
     const orders = findOrders(
-      tradesCreatedOrFilledByThisAccount,
+      filledMarketOrders,
       accountId,
       marketInfos,
       openOrders,

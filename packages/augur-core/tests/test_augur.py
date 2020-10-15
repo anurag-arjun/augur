@@ -2,6 +2,7 @@
 
 from eth_tester.exceptions import TransactionFailed
 from pytest import raises, fixture as pytest_fixture
+from utils import AssertLog, stringToBytes
 
 
 def test_is_known_universe(augur, universe):
@@ -14,7 +15,7 @@ def test_known_universe_child_creation_failure(augur):
 
 def test_trusted_transfer_amount_failure(augur):
     with raises(TransactionFailed):
-        augur.trustedTransfer(augur.address, augur.address, augur.address, 0)
+        augur.trustedCashTransfer(augur.address, augur.address, 0)
 
 def test_log_requires(augur, universe):
     with raises(TransactionFailed):
@@ -26,6 +27,19 @@ def test_log_requires(augur, universe):
 def test_register_non_contract(localFixture, augur):
     with raises(TransactionFailed):
         augur.registerContract("Testing", localFixture.accounts[0])
+
+def test_logs(localFixture, augur):
+    if localFixture.paraAugur:
+        return
+    RegisterContractLog = {
+        "contractAddress": augur.address,
+        "key": stringToBytes("Testing")
+    }
+    with AssertLog(localFixture, "RegisterContract", RegisterContractLog):
+        augur.registerContract("Testing", augur.address)
+
+    with AssertLog(localFixture, "FinishDeployment", {}):
+        augur.finishDeployment()
 
 @pytest_fixture(scope="session")
 def localSnapshot(fixture, kitchenSinkSnapshot):
@@ -41,7 +55,3 @@ def localFixture(fixture, localSnapshot):
 @pytest_fixture
 def augur(localFixture, localSnapshot):
     return localFixture.contracts["Augur"]
-
-@pytest_fixture
-def cash(localFixture, localSnapshot):
-    return localFixture.contracts["Cash"]

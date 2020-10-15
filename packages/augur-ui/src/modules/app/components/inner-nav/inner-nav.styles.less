@@ -1,10 +1,10 @@
 @import (reference) '~assets/styles/shared';
 
+// Used in Betting UI
 .InnerNav {
-  height: 100%;
   overflow: auto;
   position: relative;
-  background: @color-dark-grey;
+  background: @color-module-background;
 }
 
 .InnerNav__menu {
@@ -87,6 +87,7 @@
   border-right: 1px solid @color-module-background;
   position: relative;
   z-index: @mask;
+  padding-bottom: @size-30;
 }
 
 .InnerNav__menu--submenu {
@@ -111,42 +112,71 @@
 
 @media @breakpoint-mobile {
   .InnerNav {
-    height: fit-content;
     left: -100%;
     margin-bottom: 1rem;
     overflow-x: hidden;
     transition: left 0.2s ease-in-out;
     width: 100%;
-    z-index: @mask-above;
+    top: 0;
+    z-index: 100;
+    position: fixed;
+    height: 100%;
+    bottom: 0;
+    min-height: calc(100% + @chrome-address-bar);
+
+    > ul > div:last-of-type {
+      height: @chrome-address-bar;
+    }
 
     &.mobileShow {
       left: 0;
       width: 100%;
 
-      > div {
+      // the header area
+      > div:first-of-type {
+        .text-16-bold;
+
         align-items: center;
-        background: @color-module-background;
+        background: @color-dark-grey;
         border-bottom: 1px solid @color-dark-grey;
-        color: white;
+        color: @color-primary-text;
         display: flex;
         flex-flow: row nowrap;
         height: 50px;
         padding: @size-16;
         width: 100%;
-        z-index: @mask-above;
+        z-index: unset;
+        position: initial;
 
         > span {
+          padding-left: @size-25;
           margin: auto;
         }
 
+        // close button
         > button {
           height: @size-16;
-          margin-right: @size-16;
+          margin-right: @size-9;
           width: @size-16;
         }
 
         > button > svg > path {
           stroke: @color-primary-text;
+        }
+      }
+
+      // Apply button
+      > div:nth-of-type(2) {
+        background: @color-table-header;
+        padding: @size-24;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: @above-all-content-top-layer;
+
+        > button {
+          width: 100%;
         }
       }
     }
@@ -182,9 +212,12 @@
     }
   }
 
+  .ExtraPaddingBottom {
+    padding-bottom: @size-66;
+  }
+
   .InnerNav__menu--main,
   .InnerNav__menu--submenu {
-    height: calc(100vh - 100px);
     overflow-x: hidden;
     overflow-y: auto;
     width: 100%;

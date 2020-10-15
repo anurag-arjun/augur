@@ -1,9 +1,11 @@
-import React, { Component } from "react";
-import classNames from "classnames";
+import React, { Component } from 'react';
+import classNames from 'classnames';
 
-import ModulePane from "modules/market/components/common/module-tabs/module-pane";
-import Styles from "modules/market/components/common/module-tabs/module-tabs.style";
-import { ToggleExtendButton } from "modules/common/buttons";
+import ModulePane from 'modules/market/components/common/module-tabs/module-pane';
+import Styles from 'modules/market/components/common/module-tabs/module-tabs.style.less';
+import { ToggleExtendButton } from 'modules/common/buttons';
+import { HEADER_TYPE, ZEROX_STATUSES_TOOLTIP } from 'modules/common/constants';
+import { StatusDotTooltip } from 'modules/common/labels';
 
 interface ModuleTabsProps {
   className?: string;
@@ -17,113 +19,122 @@ interface ModuleTabsProps {
   scrollOver?: boolean;
   showToggle?: boolean;
   toggle?: Function;
+  status?: string;
 }
 
-export default class ModuleTabs extends Component<ModuleTabsProps> {
-  static defaultProps = {
-    selected: 0,
-    className: "",
-    fillWidth: false,
-    fillForMobile: false,
-    id: "id",
-    noBorder: false,
-    leftButton: null,
-    scrollOver: false
+interface ModuleTabsState {
+  selected?: number;
+}
+
+export default class ModuleTabs extends Component<
+  ModuleTabsProps,
+  ModuleTabsState
+> {
+  state = {
+    selected: this.props.selected,
   };
-
-  constructor(props) {
-    super(props);
-
-    this.state = {
-      selected: props.selected
-    };
-
-    this.handleClick = this.handleClick.bind(this);
-    this.renderTabs = this.renderTabs.bind(this);
-    this.renderContent = this.renderContent.bind(this);
-  }
+  prevOffset: number = 0;
 
   componentDidUpdate(prevProps) {
     if (this.props.selected !== prevProps.selected) {
-      this.setState({selected: this.props.selected});
+      this.setState({ selected: this.props.selected });
     }
   }
 
   handleClick(e, index, onClickCallback) {
     if (e) e.preventDefault();
     this.setState({
-      selected: index
+      selected: index,
     });
     if (onClickCallback) onClickCallback();
   }
 
   renderTabs() {
+    const { selected } = this.state;
+    const {
+      noBorder,
+      fillWidth,
+      leftButton,
+      fillForMobile,
+      children,
+      showToggle,
+      toggle,
+    } = this.props;
+
     function labels(child, index) {
+      const { onClickCallback, headerType, label, isNew, status } =
+        child && child.props;
+
+      const classNameObject = {
+        [Styles.ActiveSpanFill]: selected === index && fillWidth,
+        [Styles.ActiveNoBorder]: selected === index && noBorder,
+        [Styles.IsNew]: isNew,
+      };
+
       return (
         <li
           key={index}
           className={classNames({
-            [Styles.ActiveTab]: this.state.selected === index,
-            [Styles.ActiveTabFill]:
-              this.state.selected === index && this.props.fillWidth
+            [Styles.ActiveTab]: selected === index,
+            [Styles.ActiveTabFill]: selected === index && fillWidth,
           })}
         >
-          <button
-            onClick={e => {
-              this.handleClick(e, index, child.props.onClickCallback);
-            }}
-          >
-            <span
-              className={classNames({
-                [Styles.ActiveSpanFill]:
-                  this.state.selected === index && this.props.fillWidth,
-                [Styles.ActiveNoBorder]:
-                  this.state.selected === index && this.props.noBorder,
-                [Styles.IsNew]: child.props && child.props.isNew,
-              })}
-            >
-              {child.props && child.props.label || ""}
-            </span>
-          </button>
+          <>
+            {status && (
+              <StatusDotTooltip
+                status={status}
+                tooltip={ZEROX_STATUSES_TOOLTIP[status]}
+                title={''}
+              />
+            )}
+            <button onClick={e => this.handleClick(e, index, onClickCallback)}>
+              {headerType === HEADER_TYPE.H1 ? (
+                <h1 className={classNames(classNameObject)}>{label || ''}</h1>
+              ) : (
+                <span className={classNames(classNameObject)}>
+                  {label || ''}
+                </span>
+              )}
+            </button>
+          </>
         </li>
       );
     }
 
     return (
-      <div className={Styles.Headers}>
-        {this.props.leftButton}
+      <div
+        className={classNames(Styles.Headers)}>
+        {leftButton}
         <ul
           className={classNames({
-            [Styles.Fill]: this.props.fillWidth,
-            [Styles.FillWidth]:
-              this.props.fillWidth || this.props.fillForMobile,
-            [Styles.NoBorder]: this.props.noBorder
+            [Styles.Fill]: fillWidth,
+            [Styles.FillWidth]: fillWidth || fillForMobile,
+            [Styles.NoBorder]: noBorder,
           })}
         >
-          {this.props.children.map(labels.bind(this))}
+          {children.map(labels.bind(this))}
         </ul>
-        {this.props.showToggle && this.props.toggle &&
-          <ToggleExtendButton toggle={this.props.toggle} />
-        }
+        {showToggle && toggle && <ToggleExtendButton toggle={toggle} />}
       </div>
     );
   }
 
   renderContent() {
-    return (
-      <div className={Styles.Content}>
-        {this.props.children[this.state.selected]}
-      </div>
-    );
+    const { selected } = this.state;
+    const { children } = this.props;
+
+    return <div className={Styles.Content}>{children[selected]}</div>;
   }
 
   render() {
+    const { className, scrollOver, id } = this.props;
+
     return (
       <div
-        className={classNames(Styles.ModuleTabs, this.props.className, {
-          [Styles.ScrollOver]: this.props.scrollOver
+        className={classNames(Styles.ModuleTabs, className, {
+          [Styles.ScrollOver]: scrollOver,
         })}
-        id={"tabs_" + this.props.id}
+        id={'tabs_' + id}
       >
         {this.renderTabs()}
         {this.renderContent()}

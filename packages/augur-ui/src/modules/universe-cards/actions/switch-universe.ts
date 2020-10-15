@@ -4,11 +4,12 @@ import { loadUniverseForkingInfo } from 'modules/universe/actions/load-forking-i
 import { loadDisputeWindow } from 'modules/auth/actions/load-dispute-window';
 import { switchUniverseState } from 'modules/app/actions/reset-state';
 import { loadAccountData } from 'modules/auth/actions/load-account-data';
-import { AppState } from 'store';
+import { AppState } from 'appStore';
 import makePath from 'modules/routes/helpers/make-path';
 import { MARKETS } from 'modules/routes/constants/views';
 import { loadMarketsByFilter } from 'modules/markets/actions/load-markets';
 import { ALL_MARKETS } from 'modules/common/constants';
+import { setSelectedUniverse } from 'modules/auth/actions/selected-universe-management';
 
 export const switchUniverse = (
   universeId: string,
@@ -22,6 +23,7 @@ export const switchUniverse = (
   dispatch(
     loadUniverseDetails(universeId, account, () => {
       dispatch(switchUniverseState());
+      dispatch(setSelectedUniverse(universeId));
       dispatch(loadUniverseForkingInfo());
       dispatch(loadDisputeWindow());
       dispatch(loadAccountData());
@@ -30,7 +32,7 @@ export const switchUniverse = (
         maxFee: filterSortOptions.maxFee,
         maxLiquiditySpread: filterSortOptions.maxLiquiditySpread,
         includeInvalidMarkets: false,
-        sort: filterSortOptions.marketSort,
+        sort: filterSortOptions.sortBy,
         marketFilter: filterSortOptions.marketFilter,
         categories: [],
         search: '',

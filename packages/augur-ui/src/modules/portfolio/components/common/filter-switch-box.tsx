@@ -22,6 +22,12 @@ export interface FilterBoxProps {
   sortByStyles?: object;
   noBackgroundBottom?: boolean;
   normalOnMobile?: boolean;
+  toggle?: Function;
+  extend?: boolean;
+  hide?: boolean;
+  customClass?: string;
+  showHeaderOnMobile?: boolean;
+  footer?: ReactNode;
 }
 
 interface FilterBoxState {
@@ -40,17 +46,16 @@ export default class FilterSwitchBox extends React.Component<
     view: false,
   };
 
-  UNSAFE_componentWillUpdate(
-    { data }: FilterBoxProps,
-    { search, view }: FilterBoxState
-  ) {
+  componentDidUpdate(prevProps: FilterBoxProps, prevState: FilterBoxState) {
+    const { data } = prevProps;
+    const { view } = prevState;
     if (
       JSON.stringify(data) !== JSON.stringify(this.props.data) ||
       this.state.view !== view
     ) {
-      let filteredData = data;
-      if (search !== '') {
-        filteredData = this.applySearch(search, data);
+      let filteredData = this.props.data;
+      if (this.state.search !== '') {
+        filteredData = this.applySearch(this.state.search, this.props.data);
       }
       this.updateFilteredData(filteredData);
     }
@@ -97,6 +102,9 @@ export default class FilterSwitchBox extends React.Component<
       toggle,
       extend,
       hide,
+      customClass,
+      showHeaderOnMobile,
+      footer,
     } = this.props;
 
     const { search, filteredData } = this.state;
@@ -106,6 +114,7 @@ export default class FilterSwitchBox extends React.Component<
         title={title}
         showFilterSearch={showFilterSearch}
         search={search}
+        customClass={customClass}
         onSearchChange={this.onSearchChange}
         sortByOptions={sortByOptions}
         sortByStyles={sortByStyles}
@@ -116,6 +125,7 @@ export default class FilterSwitchBox extends React.Component<
         toggle={toggle}
         extend={extend}
         hide={hide}
+        showHeaderOnMobile={showHeaderOnMobile}
         content={
           <>
             {filteredData.length === 0 && (
@@ -127,6 +137,7 @@ export default class FilterSwitchBox extends React.Component<
             )}
             {filteredData.length > 0 &&
               filteredData.map(data => renderRows(data))}
+            {footer ? footer : null}
           </>
         }
       />

@@ -3,15 +3,24 @@ import {
   UPDATE_LOGIN_ACCOUNT,
   CLEAR_LOGIN_ACCOUNT,
 } from 'modules/account/actions/login-account';
-import { LoginAccount, BaseAction } from 'modules/types';
+import { LoginAccount, BaseAction, FeePoolBalances } from 'modules/types';
 import { ZERO } from 'modules/common/constants';
-import { formatAttoDai } from 'utils/format-number';
 
 const DEFAULT_STATE: LoginAccount = {
   balances: {
-    eth: 0,
-    rep: 0,
-    dai: 0,
+    weth: '0',
+    eth: '0',
+    rep: '0',
+    dai: '0',
+    legacyRep: '0',
+    attoRep: '0',
+    legacyAttoRep: '0',
+    signerBalances: {
+      eth: null,
+      rep: '0',
+      dai: '0',
+      legacyRep: '0',
+    }
   },
   reporting: {
     profitLoss: ZERO,
@@ -20,14 +29,29 @@ const DEFAULT_STATE: LoginAccount = {
     disputing: null,
     participationTokens: null,
   },
-  allowance: ZERO,
-  allowanceFormatted: formatAttoDai(ZERO),
+  tradingApproved: false,
+  totalOpenOrdersFrozenFunds: '0',
   tradingPositionsTotal: {
-    unrealizedRevenue24hChangePercent: "0",
+    unrealizedRevenue24hChangePercent: '0',
   },
   settings: {
     showInvalidMarketsBannerFeesOrLiquiditySpread: true,
     showInvalidMarketsBannerHideOrShow: true,
+    templateFilter: null,
+    maxFee: null,
+    spread: null,
+    showInvalid: null,
+    marketTypeFilter: null,
+    marketFilter: null,
+    sortBy: null,
+  },
+  timeframeData: {
+    positions: 0,
+    numberOfTrades: 0,
+    marketsCreated: 0,
+    marketsTraded: 0,
+    successfulDisputes: 0,
+    redeemedPositions: 0,
   }
 };
 
@@ -43,7 +67,6 @@ export default function(
       };
     case SWITCH_UNIVERSE:
       delete loginAccount.reporting;
-      delete loginAccount.allowance;
       delete loginAccount.tradingPositionsTotal;
       return {
         ...loginAccount

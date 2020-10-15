@@ -7,9 +7,8 @@ import PositionsTable from 'modules/market/containers/positions-table';
 import FilledOrdersTable from 'modules/market/components/market-orders-positions-table/filled-orders-table';
 import { CancelTextButton } from 'modules/common/buttons';
 
-import Styles from 'modules/market/components/market-orders-positions-table/open-orders-table.styles';
+import Styles from 'modules/market/components/market-orders-positions-table/open-orders-table.styles.less';
 import { MarketData, NodeStyleCallback, UIOrder, DefaultOrderProperties } from 'modules/types';
-import { NumberedList } from 'modules/create-market/components/common';
 
 interface MarketOrdersPositionsTableProps {
   hasPending?: boolean,
@@ -46,7 +45,7 @@ const MarketOrdersPositionsTable: React.FC<MarketOrdersPositionsTableProps> = ({
       toggle={toggle}
     >
       <ModulePane label="Open Orders">
-        <OpenOrdersTable openOrders={openOrders} market={market} />
+        <OpenOrdersTable openOrders={openOrders} marketId={market.marketId} />
         {openOrders.length > 0 && (
           <div className={Styles.Footer}>
             <CancelTextButton
@@ -60,6 +59,7 @@ const MarketOrdersPositionsTable: React.FC<MarketOrdersPositionsTableProps> = ({
       <ModulePane label="My Fills">
         <FilledOrdersTable
           filledOrders={filledOrders}
+          isArchived={market.isArchived}
           scalarDenomination={market.scalarDenomination}
         />
       </ModulePane>

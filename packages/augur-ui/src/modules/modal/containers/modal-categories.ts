@@ -2,7 +2,7 @@ import { connect } from "react-redux";
 import { withRouter } from "react-router-dom";
 import { CreateMarket } from "modules/modal/create-market";
 import { closeModal } from "modules/modal/actions/close-modal";
-import { AppState } from "store";
+import { AppState } from "appStore";
 import { ThunkDispatch } from "redux-thunk";
 import { Action } from "redux";
 
@@ -14,7 +14,7 @@ const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Action>) => ({
   closeModal: () => dispatch(closeModal())
 });
 
-// updateModal should pass: 
+// updateModal should pass:
 // { type: MODAL_CATEGORIES, categoriesList?, category?, save }
 const mergeProps = (sP: any, dP: any, oP: any) => {
   const save = (cat) => sP.modal.save(cat);
@@ -22,7 +22,7 @@ const mergeProps = (sP: any, dP: any, oP: any) => {
   // categoriesList is a dummy data for now, will need to be passed or come
   // from a helper/getter... currently setup to be passed from the updateModal
   // call.
-  const categoriesList = sP.modal.categoriesList || ["Politics", "Sports", "Crypto", "Finance", "Other"];
+  const categoriesList = sP.modal.categoriesList || ["Politics", "Sports", "Crypto", "Economics", "Medical", "Other"];
   return ({
     title: "CHOOSE A SUB-CATEGORY",
     categorySelection: {

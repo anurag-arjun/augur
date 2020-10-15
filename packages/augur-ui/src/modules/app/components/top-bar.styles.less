@@ -1,5 +1,6 @@
 @import (reference) '~assets/styles/shared';
 
+// Used in Betting UI
 .TopBar {
   align-items: center;
   background: @color-dark-grey;
@@ -17,26 +18,37 @@
     height: 100%;
 
     @media @breakpoint-mobile {
-      flex: 0;
-      padding: @size-8 0;
+      padding: 0;
+      max-width: 40%;
     }
 
-
-    > div:last-of-type {
-      @media @breakpoint-mobile {
-        display: none;
-      }
+    > button[class*="SecondaryButton"] {
+      margin: 0 @size-16;
     }
 
-    > div > div:last-of-type {
-      @media @breakpoint-mobile {
-        display: none;
-      }
+    > button[class*="PrimaryButton"] {
+      margin-right: @size-16;
+      margin-left: @size-16;
     }
+  }
 
-    > button {
-      margin-right: @size-12;
+  @media @breakpoint-mobile {
+    > div[class*='statsContainer'] {
+      display: none;
     }
+  }
+}
+
+.AccountActivation > button {
+  .text-11-bold;
+  max-height: 100%;
+
+  @media all and (max-width: @step-4) {
+    .text-10-bold;
+
+    padding: @size-4 @size-8;
+    width: @size-120;
+    white-space: break-spaces;
   }
 }
 
@@ -46,18 +58,22 @@
 
   div {
     width: @size-24;
+  }
 
-    @media @breakpoint-mobile {
-      width: @size-40;
+  @media @breakpoint-tablet {
+    padding: 0 @size-16;
+
+    span {
+      display: none;
     }
   }
 
   @media @breakpoint-mobile {
-    border: 0;
-    display: flex;
-    flex: 2;
-    margin-left: 2.875rem;
-    padding: 0;
+    display: none;
+
+    div {
+      width: @size-40;
+    }
   }
 }
 
@@ -70,12 +86,29 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    padding: @size-6 @size-20;
     width: min-content;
+    padding: @size-6 @size-20;
 
-    > div:first-of-type {
-      > span:last-of-type {
-        .text-10-bold;
+    @media @breakpoint-mobile {
+      padding: 0;
+    }
+
+    > span:first-of-type {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      span label {
+        margin-top: -10px;
+        transform: translateY(10px);
+      }
+
+      span div {
+        margin-top: 10px;
+
+        @media @breakpoint-mobile {
+          margin-top: 0;
+        }
       }
     }
 
@@ -84,12 +117,8 @@
       justify-content: space-between;
       margin-bottom: 0;
 
-      @media @breakpoint-mobile {
-        margin-bottom: @size-2;
-      }
-
       > span {
-        .mono-9-bold;
+        .mono-10-medium;
 
         color: @color-secondary-text;
       }
@@ -98,16 +127,19 @@
         display: none;
       }
 
-      > span:nth-of-type(2),
-      > span:last-of-type {
-          .text-10;
+      > span:first-of-type {
+        margin-right: @size-30;
 
-          color: @color-primary-text;
+        @media @breakpoint-mobile {
+          margin-right: @size-23;
+        }
       }
 
-      > span:nth-of-type(2)::before,
-        span:last-of-type::before {
-        content:'$';
+      > span:nth-of-type(2),
+      > span:last-of-type {
+        .mono-11-medium;
+
+        color: @color-primary-text;
       }
     }
 
@@ -122,8 +154,8 @@
 
   // P/I
   > div:last-of-type {
-    align-items: center;
-    border: 1px solid @color-dark-grey;
+    align-items: flex-start;
+    border: @size-1 solid @color-dark-grey;
     border-bottom: 0;
     border-top: 0;
     display: flex;
@@ -133,7 +165,7 @@
     padding: 0 @size-20;
 
     > span {
-      .mono-9-bold;
+      .mono-10-medium;
 
       color: @color-secondary-text;
       margin-bottom: 2px;
@@ -143,10 +175,24 @@
 
     > div {
       justify-content: flex-start;
+
+      > div {
+        .mono-11-medium;
+      }
     }
 
     @media @breakpoint-mobile {
       display: none;
+    }
+  }
+
+  @media @breakpoint-tablet {
+    > div:first-of-type {
+      padding: @size-6 @size-10;
+    }
+
+    > div:last-of-type {
+      padding: 0 @size-10;
     }
   }
 }
@@ -160,9 +206,17 @@
   padding: @size-16 @size-16 @size-16 @size-24;
   width: unset;
 
+  > svg {
+    width: @size-34;
+  }
+
+  @media @breakpoint-tablet {
+    padding: @size-16 @size-6 @size-16 @size-14;
+  }
+
   @media @breakpoint-mobile {
     border-left: 1px solid @color-module-background;
-    padding: 0 0 0 @size-16;
+    padding: @size-12 @size-10 @size-12 @size-18;
   }
 
   &:hover {

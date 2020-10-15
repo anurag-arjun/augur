@@ -1,9 +1,7 @@
 import { connect } from 'react-redux';
-import { withRouter } from 'react-router-dom';
-import getValue from 'utils/get-value';
-import { AppState } from 'store';
+import { AppState } from 'appStore';
 import * as constants from 'modules/common/constants';
-import { formatShares, formatEther } from 'utils/format-number';
+import { formatDaiPrice, formatMarketShares, formatDai, formatEther } from 'utils/format-number';
 import Row from 'modules/common/row';
 import { ThunkDispatch } from 'redux-thunk';
 import { Action } from 'redux';
@@ -21,7 +19,6 @@ const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Action>) => ({
 
 const mergeProps = (sP: any, dP: any, oP: any) => {
   const order = oP.order;
-
   const columnProperties = [
     {
       key: 'orderName-' + order.outcomeName,
@@ -37,7 +34,7 @@ const mergeProps = (sP: any, dP: any, oP: any) => {
     {
       key: 'quantity',
       columnType: COLUMN_TYPES.VALUE,
-      value: formatShares(order.quantity),
+      value: formatMarketShares(sP.newMarket.marketType, order.quantity),
       keyId: 'order-quantity-' + order.id,
     },
     {

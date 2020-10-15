@@ -1,51 +1,59 @@
-import React, { Component, useState, useEffect } from 'react';
+import type { Getters } from '@augurproject/sdk';
 import classNames from 'classnames';
 
 import ChevronFlip from 'modules/common/chevron-flip';
-import { BigNumber, createBigNumber } from 'utils/create-big-number';
-import { PulseLoader } from 'react-spinners';
 import {
-  RightAngle,
-  SearchIcon,
-  XIcon,
-  CheckMark,
-  OutlineChevron,
-  Ellipsis,
-  EmptyRadio,
-  FilledRadio,
-  EmptyCheckbox,
-  FilledCheckbox,
-  Chevron,
-  DirectionArrow,
-  Calendar,
-  Clock,
-  Arrow,
-  LoadingEllipse,
-  CategorySports,
-} from 'modules/common/icons';
-import debounce from 'utils/debounce';
-import {
+  CATEGORY_PARAM_NAME,
   CUSTOM,
   SCALAR,
   ZERO,
-  REPORTING_STATE,
+  INVALID_OUTCOME_LABEL
 } from 'modules/common/constants';
-import { ExclamationCircle } from 'modules/common/icons';
-import { Subheaders, DisputingButtonView } from 'modules/reporting/common';
-import { formatAttoRep, formatNumber } from 'utils/format-number';
-import ReportingBondsView from 'modules/reporting/containers/reporting-bonds-view';
-import DisputingBondsView from 'modules/reporting/containers/disputing-bonds-view';
 
 import Styles from 'modules/common/form.styles.less';
-import 'react-dates/initialize';
-import 'react-dates/lib/css/_datepicker.css';
+import {
+  Arrow,
+  Calendar,
+  CheckMark,
+  Chevron,
+  Clock,
+  DirectionArrow,
+  Ellipsis,
+  EmptyCheckbox,
+  EmptyRadio,
+  ExclamationCircle,
+  FilledCheckbox,
+  FilledRadio,
+  LoadingEllipse,
+  OutlineChevron,
+  RightAngle,
+  SearchIcon,
+  XIcon,
+} from 'modules/common/icons';
+import MarkdownRenderer from 'modules/common/markdown-renderer';
+import { NameValuePair, SquareDropdown } from 'modules/common/selection';
+import { DisputingButtonView, Subheaders } from 'modules/reporting/common';
+import DisputingBondsView
+  from 'modules/reporting/containers/disputing-bonds-view';
+import ReportingBondsView
+  from 'modules/reporting/containers/reporting-bonds-view';
+import makeQuery from 'modules/routes/helpers/make-query';
+import {
+  DisputeInputtedValues,
+  MarketData,
+  QueryEndpoints,
+  SortedGroup,
+} from 'modules/types';
+import React, { Component, useEffect, useState } from 'react';
 import { SingleDatePicker } from 'react-dates';
-import { SquareDropdown, NameValuePair } from 'modules/common/selection';
+
+import 'react-dates/lib/css/_datepicker.css';
+import { PulseLoader } from 'react-spinners';
+import { BigNumber, createBigNumber } from 'utils/create-big-number';
+import debounce from 'utils/debounce';
+import { formatAttoRep } from 'utils/format-number';
 import { getTimezones, UTC_Default } from 'utils/get-timezones';
 import noop from 'utils/noop';
-import { Getters } from '@augurproject/sdk';
-import { MarketData, DisputeInputtedValues, SortedGroup } from 'modules/types';
-import MarkdownRenderer from 'modules/common/markdown-renderer';
 
 interface CheckboxProps {
   id: string;
@@ -72,6 +80,8 @@ interface DatePickerProps {
   navNext?: any;
   errorMessage?: string;
   condensedStyle?: boolean;
+  openTop?: boolean;
+  readOnly?: boolean;
 }
 
 interface TextInputProps {
@@ -81,10 +91,13 @@ interface TextInputProps {
   placeholder?: string;
   onChange: Function;
   value?: string;
+  maxLength?: number;
   trailingLabel?: string;
   innerLabel?: string;
   autoCompleteList?: SortedGroup[];
   onAutoCompleteListSelected?: Function;
+  hideTrailingOnMobile?: boolean;
+  openTop?: boolean;
 }
 
 interface TextInputState {
@@ -113,6 +126,7 @@ interface FormDropdownProps {
   id?: string;
   onChange: any;
   className?: string;
+  sort?: boolean;
   defaultValue?: string | number;
   options: NameValuePair[];
   staticLabel?: string;
@@ -152,6 +166,7 @@ interface TimezoneDropdownProps {
   timestamp?: number;
   timezone: string;
   condensedStyle?: boolean;
+  openTop?: boolean;
 }
 
 export const TimezoneDropdown = (props: TimezoneDropdownProps) => {
@@ -165,12 +180,18 @@ export const TimezoneDropdown = (props: TimezoneDropdownProps) => {
   }, [props.timezone, props.timestamp]);
 
   return (
-    <section className={classNames(Styles.Timezones, {[Styles.Condensed]: props.condensedStyle})}>
+    <section
+      className={classNames(Styles.Timezones, {
+        [Styles.Condensed]: props.condensedStyle,
+      })}
+    >
       <TextInput
         value={value === UTC_Default ? '' : value}
         placeholder={UTC_Default}
+        disabled={props.disabled}
         autoCompleteList={timezones.timezones}
         onChange={() => {}}
+        openTop={props.openTop}
         onAutoCompleteListSelected={timezone => {
           const parse = /\(UTC (.*)\)/i;
           if (timezone !== '') {
@@ -218,6 +239,7 @@ export interface RadioCardProps extends BaseRadioButtonProp {
   onChange?: Function;
   icon?: JSX.Element;
   useIconColors?: boolean;
+  inverseFill?: boolean;
 }
 
 interface RadioGroupProps {
@@ -273,6 +295,8 @@ export interface ReportingRadioBarProps extends BaseRadioButtonProp {
   userOutcomeCurrentRoundDispute: Getters.Accounts.UserCurrentOutcomeDisputeStake | null;
   hideButton?: boolean;
   isDisputing: boolean;
+  isWarpSync: boolean;
+  availableEthBalance: string;
 }
 
 export interface RadioTwoLineBarProps extends BaseRadioButtonProp {
@@ -367,10 +391,12 @@ export const determineVisible = (
   primaryOptions: NameValuePair[],
   secondaryOptions: NameValuePair[],
   tertiaryOptions: NameValuePair[],
+  disableSubCategory: boolean,
+  disabledTertiary: boolean,
   selected: string[]
 ) => {
   const showSecondaryDropdown = values[0] !== '' && secondaryOptions.length > 0;
-  const showTertiaryDropdown = tertiaryOptions.length > 0 && values[1] !== '';
+  const showTertiaryDropdown = tertiaryOptions.length > 0 && values[1] !== '' && !values[2];
   const customPrimary =
     selected[0] === CUSTOM ||
     (selected[0] &&
@@ -378,13 +404,15 @@ export const determineVisible = (
   const customSecondary =
     selected[1] === CUSTOM ||
     (selected[1] &&
+      !disableSubCategory &&
       !secondaryOptions.map(option => option.value).includes(selected[1])) ||
     (!showSecondaryDropdown && customPrimary && values[0] !== '');
   const customTertiary =
     selected[2] === CUSTOM ||
     (selected[2] &&
+      !disabledTertiary &&
       !tertiaryOptions.map(option => option.value).includes(selected[2])) ||
-    (!showTertiaryDropdown && values[1] !== '');
+    (!showTertiaryDropdown && values[1] !== '') || values[2];
   return {
     showSecondaryDropdown,
     showTertiaryDropdown,
@@ -480,9 +508,12 @@ export const DropdownInputGroup = ({
         placeholder={placeholder}
         autoCompleteList={autoCompleteList}
         onChange={onChangeInput}
+        errorMessage={!showDropdown ? errorMessage : ''}
+        onAutoCompleteListSelected={null}
+        disabled={disabled}
       />
     )}
-    {removable && !disabled && (
+    {removable && !disabled && value !== '' && !showText && (
       <button
         onClick={e => {
           if (showText) {
@@ -651,11 +682,19 @@ export class CategoryMultiSelect extends Component<
       primaryOptions,
       secondaryOptions,
       tertiaryOptions,
+      disableSubCategory,
+      disableTertiaryCategory,
       selected
     );
-
+    const tertiaryDefault = selected[2] || (!disableTertiaryCategory && tertiaryOptions.length > 0) ? (tertiaryOptions[0]?.label || tertiaryOptions[0]) : null;
+    if (tertiaryDefault && !selected[2]) this.onChangeDropdown(tertiaryDefault, 2)
     return (
-      <ul className={Styles.CategoryMultiSelect}>
+      <ul
+        className={classNames(Styles.CategoryMultiSelect, {
+          [Styles.CustomPrimary]: customPrimary,
+          [Styles.CustomTertiary]: customTertiary,
+        })}
+      >
         <DropdownInputGroup
           defaultValue={selected[0]}
           staticLabel="Primary Category"
@@ -663,7 +702,7 @@ export class CategoryMultiSelect extends Component<
           options={primaryOptions}
           errorMessage={errorMessage && errorMessage[0]}
           value={values[0]}
-          placeholder="Custom Primary Category"
+          placeholder="Enter Custom Category"
           onChangeInput={v =>
             this.handleUpdate(selected, getNewValues(v, 0, values))
           }
@@ -693,7 +732,7 @@ export class CategoryMultiSelect extends Component<
         )}
         {(showTertiaryDropdown || customTertiary) && (
           <DropdownInputGroup
-            defaultValue={selected[2]}
+            defaultValue={tertiaryDefault}
             staticLabel="Sub Category"
             onChangeDropdown={choice => this.onChangeDropdown(choice, 2)}
             options={tertiaryOptions}
@@ -748,6 +787,7 @@ interface ReportingRadioGroupProps {
   inputScalarOutcome?: string;
   userCurrentDisputeRound: Getters.Accounts.UserCurrentOutcomeDisputeStake[];
   isDisputing: boolean;
+  availableEthBalance: string;
 }
 
 export const ReportingRadioBarGroup = ({
@@ -762,14 +802,15 @@ export const ReportingRadioBarGroup = ({
   updateScalarOutcome,
   userCurrentDisputeRound,
   isDisputing,
+  availableEthBalance,
 }: ReportingRadioGroupProps) => {
   const { disputeInfo } = market;
   const tentativeWinning = radioButtons.find(
     radioButton => radioButton.stake.tentativeWinning
   );
   let winningStakeCurrent = '0';
-  let disputeAmount = '0';
   let notNewTentativeWinner = false;
+  let remainingState = '0';
   if (tentativeWinning) {
     const winning = disputeInfo.stakes.find(s => s.tentativeWinning);
     const disputeOutcome = disputeInfo.stakes.find(s => s.outcome === selected);
@@ -777,19 +818,31 @@ export const ReportingRadioBarGroup = ({
       notNewTentativeWinner = createBigNumber(winning.stakeCurrent).gt(
         disputeOutcome.bondSizeCurrent
       );
-      disputeAmount = formatAttoRep(disputeOutcome.bondSizeCurrent).formatted;
-      winningStakeCurrent = formatAttoRep(winning.stakeCurrent).formatted;
+      // double pre-filled to make new outcome tentative winner.
+      winningStakeCurrent = formatAttoRep(
+        createBigNumber(winning.stakeCurrent).times(2)
+      ).formatted;
+      remainingState = formatAttoRep(disputeOutcome.stakeRemaining).formatted;
     }
   }
 
+  let headerText = !isDisputing ? 'Outcomes' : 'Other Outcomes';
+  let subheaderText =   !isDisputing
+    ? 'Select which outcome occurred. If you select what is deemed an incorrect outcome, you will lose your stake.'
+    : 'If the Tentative Winning Outcome is incorrect, select the outcome you believe to be correct in order to stake in its favor. You will lose your entire stake if the outcome you select is disputed and does not end up as the winning outcome.';
+  if (market.isForking) {
+    subheaderText = 'Once chosen you will be asked to migrate all your REPv2 across to this outcome’s new universe. Please be aware that migrating REPv2 is a one way operation and once migrated you can not move your REPv2 to another universe generated by the other outcomes of this Fork.';
+    headerText = 'Choose carefully the outcome you believe to be correct.';
+  }
   return (
     <div className={Styles.ReportingRadioBarGroup}>
       {isDisputing && tentativeWinning && (
         <section>
           <span>Tentative Outcome</span>
           <span>
-            Add Pre-emptive stake to Support this outcome if you believe it to
-            be correct.
+            Believe this is the correct outcome? Any REPv2 you stake here will go
+            toward disputing in its favor, in the event that it is no longer the
+            Tentative Winner.
           </span>
           <ReportingRadioBar
             market={market}
@@ -809,24 +862,24 @@ export const ReportingRadioBarGroup = ({
             )}
             hideButton={disputeInfo.disputePacingOn}
             isDisputing={isDisputing}
+            isWarpSync={market.isWarpSync}
+            availableEthBalance={availableEthBalance}
           />
         </section>
       )}
-      <span>{!isDisputing ? 'Outcomes' : 'Other Outcomes'}</span>
+      <span>{headerText}</span>
       <span>
-        {!isDisputing
-          ? 'Select which outcome occurred. If you select what is deemed an incorrect outcome, you will lose your stake.'
-          : 'If the Tentative Winning Outcome is incorrect, select the outcome you believe to be correct in order to stake in its favor. You will lose your entire stake if the outcome you select is disputed and does not end up as the winning outcome.'}
+        {subheaderText}
       </span>
       {isDisputing &&
         notNewTentativeWinner &&
         tentativeWinning.id !== selected && (
           <Error
-            header={`Filling this bond of ${disputeAmount} REP only completes this current round`}
-            subheader={`Tentative Winning outcome has ${winningStakeCurrent} REP already staked for next round. More REP will be needed to make this outcome the Tentative Winner. This will require an additional transaction.`}
+            header={`Filling this bond of ${remainingState} REPv2 only completes this current round`}
+            subheader={`${winningStakeCurrent} additional REPv2 will still be needed to make it Tentative Winning Outcome. This will require an additional transaction.`}
           />
         )}
-      {radioButtons.map(
+      {radioButtons.filter(r => r).map(
         (radio, index) =>
           !radio.isInvalid &&
           (!isDisputing || !radio.stake.tentativeWinning) && (
@@ -847,18 +900,22 @@ export const ReportingRadioBarGroup = ({
                 d => d.outcome === String(radio.value)
               )}
               isDisputing={isDisputing}
+              isWarpSync={market.isWarpSync}
+              availableEthBalance={availableEthBalance}
             />
           )
       )}
-      <span>
-        {!isDisputing
-          ? "Select Invalid if you believe this market's outcome was ambiguous or unverifiable."
-          : 'If you believe this market to be invalid, you can help fill the dispute bond of the official Invalid outcome below to make Invalid the new Tentative Outcome. Please check the resolution details above carefully.'}
-      </span>
-      {radioButtons.map(
+      {!market.isWarpSync && (
+        <span>
+          {!isDisputing
+            ? "Select Invalid if you believe this market's outcome was ambiguous or unverifiable."
+            : 'If you believe this market to be invalid, you can help fill the dispute bond of the official Invalid outcome below to make Invalid the new Tentative Outcome. Please check the resolution details  above carefully.'}
+        </span>
+      )}
+      {radioButtons.filter(r => r).map(
         (radio, index) =>
-          !radio.stake.tentativeWinning &&
-          radio.isInvalid && (
+          ((!market.isForking && !radio.stake.tentativeWinning && radio.isInvalid) ||
+          (market.isForking && radio.isInvalid)) && (
             <ReportingRadioBar
               market={market}
               key={`${index}${radio.value}`}
@@ -876,6 +933,8 @@ export const ReportingRadioBarGroup = ({
                 d => d.outcome === String(radio.value)
               )}
               isDisputing={isDisputing}
+              isWarpSync={market.isWarpSync}
+              availableEthBalance={availableEthBalance}
             />
           )
       )}
@@ -888,9 +947,9 @@ export class RadioBarGroup extends Component<RadioGroupProps, RadioGroupState> {
     selected: this.props.defaultSelected || null,
   };
 
-  UNSAFE_componentWillReceiveProps(nextProps) {
-    if (nextProps.defaultSelected !== this.props.defaultSelected) {
-      this.updateChecked(nextProps.defaultSelected);
+  componentDidUpdate(prevProps: RadioGroupProps, prevState: RadioGroupState) {
+    if (this.props.defaultSelected !== prevProps.defaultSelected) {
+      this.updateChecked(this.props.defaultSelected);
     }
   }
 
@@ -904,7 +963,7 @@ export class RadioBarGroup extends Component<RadioGroupProps, RadioGroupState> {
     const { selected } = this.state;
     return (
       <div className={Styles.RadioBarGroup}>
-        {radioButtons.map(radio => (
+        {radioButtons.filter(r => r).map(radio => (
           <RadioBar
             key={radio.value}
             {...radio}
@@ -938,10 +997,12 @@ export class ReportingRadioBar extends Component<ReportingRadioBarProps, {}> {
       userOutcomeCurrentRoundDispute,
       hideButton,
       isDisputing,
+      isWarpSync,
+      availableEthBalance,
     } = this.props;
 
     let { stake } = this.props;
-    const { disputeInfo, reportingState, marketType } = market;
+    const { disputeInfo, marketType } = market;
     const isScalar = marketType === SCALAR;
     if (isScalar) {
       for (const index in disputeInfo.stakes) {
@@ -954,7 +1015,6 @@ export class ReportingRadioBar extends Component<ReportingRadioBarProps, {}> {
         stake = disputeInfo.stakes.find(s => s.outcome === null);
       }
     }
-    const reportingGasFee = formatNumber('0'); // TODO: get actual gas cost
     if (stake && stake.stakeCurrent === '-') stake.stakeCurrent = '0';
     const fullBond =
       stake && inputtedReportingStake
@@ -973,11 +1033,11 @@ export class ReportingRadioBar extends Component<ReportingRadioBarProps, {}> {
         })}
         role="button"
         onClick={e => {
-          !hideButton && updateChecked(id, isInvalid);
+          !checked && !hideButton && updateChecked(id, isInvalid);
         }}
       >
         {checked ? FilledRadio : EmptyRadio}
-        <h5>{header}</h5>
+        <h5>{isInvalid ? INVALID_OUTCOME_LABEL : header}</h5>
         <div onClick={e => e.stopPropagation()}>
           {isDisputing && ( // for disputing or for scalar
             <>
@@ -1011,12 +1071,25 @@ export class ReportingRadioBar extends Component<ReportingRadioBarProps, {}> {
                 />
               )}
               {stake && stake.tentativeWinning && (
-                <Subheaders
-                  header="pre-filled stake"
-                  subheader={
-                    formatAttoRep(stake.stakeCurrent || ZERO).formatted
-                  }
-                />
+                <div className={Styles.PreFilled}>
+                  <Subheaders
+                    header="pre-filled stake"
+                    subheader={formatAttoRep(stake.stakeCurrent || ZERO).full}
+                    info
+                    tooltipText="Users can add extra support for a Tentative Winning Outcome"
+                  />
+                  {userOutcomeCurrentRoundDispute && (
+                    <Subheaders
+                      header="My contribution:"
+                      subheader={
+                        formatAttoRep(
+                          userOutcomeCurrentRoundDispute.userStakeCurrent ||
+                            ZERO
+                        ).full
+                      }
+                    />
+                  )}
+                </div>
               )}
               {checked && (
                 <DisputingBondsView
@@ -1030,6 +1103,8 @@ export class ReportingRadioBar extends Component<ReportingRadioBarProps, {}> {
                   stakeRemaining={stake && stake.stakeRemaining}
                   tentativeWinning={stake && stake.tentativeWinning}
                   reportAction={reportAction}
+                  isWarpSync={isWarpSync}
+                  availableEthBalance={availableEthBalance}
                 />
               )}
             </>
@@ -1043,7 +1118,7 @@ export class ReportingRadioBar extends Component<ReportingRadioBarProps, {}> {
               reportAction={reportAction}
               inputtedReportingStake={inputtedReportingStake}
               updateInputtedStake={updateInputtedStake}
-              reportingGasFee={reportingGasFee}
+              availableEthBalance={availableEthBalance}
             />
           )}
         </div>
@@ -1068,6 +1143,7 @@ export const RadioBar = ({
 }: RadioBarProps) => (
   <div
     className={classNames(Styles.RadioBar, {
+      [Styles.Checked]: checked,
       [Styles.RadioBarExpanded]: checked && expandable,
       [Styles.RadioBarError]: error,
       [Styles.MultiSelect]: multiSelect,
@@ -1078,7 +1154,7 @@ export const RadioBar = ({
   >
     {multiSelect && <Checkbox isChecked={checked} />}
     {!multiSelect && (checked ? FilledRadio : EmptyRadio)}
-    <h5>{header}</h5>
+    <span>{header}</span>
     {expandable && checked ? (
       <>
         <TextInput
@@ -1100,9 +1176,9 @@ export class RadioTwoLineBarGroup extends Component<
     selected: this.props.defaultSelected || null,
   };
 
-  UNSAFE_componentWillReceiveProps(nextProps) {
-    if (nextProps.defaultSelected !== this.props.defaultSelected) {
-      this.updateChecked(nextProps.defaultSelected);
+  componentDidUpdate(prevProps: RadioGroupProps) {
+    if (this.props.defaultSelected !== prevProps.defaultSelected) {
+      this.updateChecked(this.props.defaultSelected);
     }
   }
 
@@ -1116,7 +1192,7 @@ export class RadioTwoLineBarGroup extends Component<
     const { selected } = this.state;
     return (
       <div>
-        {radioButtons.map(radio => (
+        {radioButtons.filter(r => r).map(radio => (
           <RadioTwoLineBar
             key={radio.value}
             {...radio}
@@ -1141,13 +1217,13 @@ export const RadioTwoLineBar = ({
   error,
   description,
   hideRadioButton,
-  renderMarkdown
+  renderMarkdown,
 }: RadioTwoLineBarProps) => (
   <div
     className={classNames(Styles.RadioTwoLineBar, {
       [Styles.RadioBarError]: error,
       [Styles.HideRadioButton]: hideRadioButton,
-      [Styles.Checked]: hideRadioButton && checked,
+      [Styles.Checked]: checked,
       [Styles.RenderMarkdown]: !!renderMarkdown,
     })}
     role="button"
@@ -1155,7 +1231,9 @@ export const RadioTwoLineBar = ({
   >
     {!hideRadioButton && (checked ? FilledRadio : EmptyRadio)}
     <h5>{header}</h5>
-    {renderMarkdown && <MarkdownRenderer hideLabel noPrewrap text={description} />}
+    {renderMarkdown && (
+      <MarkdownRenderer hideLabel noPrewrap text={description} />
+    )}
     {!renderMarkdown && <p>{description}</p>}
   </div>
 );
@@ -1173,7 +1251,7 @@ export class RadioCardGroup extends Component<
     const { selected } = this.state;
     return (
       <div className={Styles.RadioCardGroup}>
-        {radioButtons.map(radio => (
+        {radioButtons.filter(r => r).map(radio => (
           <RadioCard
             key={radio.value}
             {...radio}
@@ -1198,11 +1276,14 @@ const RadioCard = ({
   checked,
   icon,
   useIconColors = false,
+  inverseFill = false,
 }: RadioCardProps) => (
   <div
     className={classNames(Styles.RadioCard, {
       [Styles.RadioCardActive]: checked,
       [Styles.CustomIcon]: icon && !useIconColors,
+      [Styles.InverseFill]: icon && inverseFill,
+      [Styles.EmptyIcon]: !icon
     })}
     role="button"
     onClick={e => onChange(value)}
@@ -1219,23 +1300,45 @@ interface LocationDisplayProps {
   pages: Array<{}>;
 }
 
-export const LocationDisplay = ({
-  currentStep,
-  pages,
-}: LocationDisplayProps) => (
-  <div className={Styles.LocationDisplay}>
-    {pages.map((page: Object, index: Number) => (
-      <React.Fragment key={index}>
-        <span
-          className={classNames({ [Styles.Selected]: index === currentStep })}
-        >
-          {page.title}
-        </span>
-        {index !== pages.length - 1 && DirectionArrow}
-      </React.Fragment>
-    ))}
-  </div>
-);
+export class LocationDisplay extends React.Component<LocationDisplayProps, {}> {
+  scrollTo: any = null;
+  container: any = null;
+
+  componentDidUpdate() {
+    this.container.scrollLeft = this.scrollTo.offsetLeft / 2;
+  }
+
+  render() {
+    const { pages, currentStep } = this.props;
+
+    return (
+      <div
+        className={Styles.LocationDisplay}
+        ref={container => {
+          this.container = container;
+        }}
+      >
+        {pages.map((page: Object, index: Number) => (
+          <React.Fragment key={index}>
+            <span
+              className={classNames({
+                [Styles.Selected]: index === currentStep,
+              })}
+              ref={scrollTo => {
+                if (index === currentStep) {
+                  this.scrollTo = scrollTo;
+                }
+              }}
+            >
+              {page.title}
+            </span>
+            {index !== pages.length - 1 && DirectionArrow}
+          </React.Fragment>
+        ))}
+      </div>
+    );
+  }
+}
 
 export class TextInput extends React.Component<TextInputProps, TextInputState> {
   static defaultProps = {
@@ -1243,7 +1346,7 @@ export class TextInput extends React.Component<TextInputProps, TextInputState> {
   };
 
   state: TextInputState = {
-    value: !this.props.value ? '' : this.props.value,
+    value: this.props.value === undefined ? '' : this.props.value,
     showList: false,
   };
   refDropdown: any = null;
@@ -1252,10 +1355,10 @@ export class TextInput extends React.Component<TextInputProps, TextInputState> {
     window.addEventListener('click', this.handleWindowOnClick);
   }
 
-  UNSAFE_componentWillReceiveProps(nextProps: TextInputProps) {
-    const { value } = this.props;
-    if (value !== nextProps.value) {
-      this.setState({ value: nextProps.value });
+  componentDidUpdate(prevProps: TextInputProps, prevState: TextInputState) {
+    const { value } = prevProps;
+    if (value !== this.props.value) {
+      this.setState({ value: this.props.value });
     }
   }
 
@@ -1280,13 +1383,24 @@ export class TextInput extends React.Component<TextInputProps, TextInputState> {
         value,
         showList,
       },
-      () => showList && this.props.onAutoCompleteListSelected(value)
+      () => {
+        if (showList) {
+          !!this.props.onAutoCompleteListSelected
+            ? this.props.onAutoCompleteListSelected(value)
+            : this.props.onChange(value);
+        }
+      }
     );
   };
 
+  debounceOnChange = debounce(
+    (value) => this.props.onChange(value),
+    500
+  );
+
   onChange = (e: any) => {
     const value = e.target.value;
-    this.props.onChange(value);
+    this.debounceOnChange(value);
     this.setState({ value });
   };
 
@@ -1306,6 +1420,9 @@ export class TextInput extends React.Component<TextInputProps, TextInputState> {
       type,
       trailingLabel,
       innerLabel,
+      maxLength,
+      hideTrailingOnMobile,
+      openTop,
     } = this.props;
     const { autoCompleteList = [] } = this.props;
     const { showList } = this.state;
@@ -1334,11 +1451,13 @@ export class TextInput extends React.Component<TextInputProps, TextInputState> {
                 onFocus={() => this.toggleList()}
                 placeholder={placeholder}
                 disabled={disabled}
+                maxLength={maxLength}
               />
               {innerLabel && <span className={Styles.Inner}>{innerLabel}</span>}
               <div
                 className={classNames(Styles.AutoCompleteList, {
                   [Styles.active]: showList,
+                  [Styles.OpenTop]: openTop,
                 })}
               >
                 {filteredList.map(item => (
@@ -1362,7 +1481,13 @@ export class TextInput extends React.Component<TextInputProps, TextInputState> {
             />
           )}
           {trailingLabel && (
-            <span className={Styles.Trailing}>{trailingLabel}</span>
+            <span
+              className={classNames(Styles.Trailing, {
+                [Styles.Hide]: hideTrailingOnMobile,
+              })}
+            >
+              {trailingLabel}
+            </span>
           )}
         </div>
         {error && <span className={Styles.ErrorText}>{errorMessage}</span>}
@@ -1381,6 +1506,8 @@ interface TimeSelectorProps {
   errorMessage?: string;
   uniqueKey?: string;
   condensedStyle?: boolean;
+  openTop?: boolean;
+  disabled?: boolean;
 }
 
 export class TimeSelector extends React.Component<TimeSelectorProps, {}> {
@@ -1427,7 +1554,9 @@ export class TimeSelector extends React.Component<TimeSelectorProps, {}> {
       focused,
       errorMessage,
       uniqueKey,
-      condensedStyle
+      condensedStyle,
+      openTop,
+      disabled,
     } = this.props;
     const error =
       errorMessage && errorMessage !== '' && errorMessage.length > 0;
@@ -1435,13 +1564,19 @@ export class TimeSelector extends React.Component<TimeSelectorProps, {}> {
     return (
       <div
         key={`timeSelector${uniqueKey}`}
-        className={classNames(Styles.TimeSelector, {[Styles.Condensed]: condensedStyle})}
+        className={classNames(Styles.TimeSelector, {
+          [Styles.Condensed]: condensedStyle,
+          [Styles.Default]: !hour || !minute || !meridiem,
+          [Styles.OpenTop]: openTop,
+          [Styles.Disabled]: disabled,
+        })}
         ref={timeSelector => {
           this.timeSelector = timeSelector;
         }}
       >
         <button
           onClick={this.toggleSelector}
+          disabled={disabled}
           className={classNames({ [Styles.error]: error })}
         >
           <span>
@@ -1469,7 +1604,7 @@ export class TimeSelector extends React.Component<TimeSelectorProps, {}> {
                 min={0}
                 max={59}
                 onChange={this.onChangeMinutes}
-                value={minute !== null ? minute : '12'}
+                value={minute !== null ? minute : '00'}
               />
               <IndividualTimeSelector
                 label="AM/PM"
@@ -1509,10 +1644,10 @@ class IndividualTimeSelector extends React.Component<
     value: this.props.value,
   };
 
-  UNSAFE_componentWillReceiveProps(nextProps: IndividualTimeSelectorProps) {
-    const { value } = this.props;
-    if (value !== nextProps.value) {
-      this.setState({ value: nextProps.value });
+  componentDidUpdate(prevProps: IndividualTimeSelectorProps) {
+    const { value } = prevProps;
+    if (value !== this.props.value) {
+      this.setState({ value: this.props.value });
     }
   }
 
@@ -1640,6 +1775,7 @@ export const DatePicker = (props: DatePickerProps) => (
   <div
     className={classNames(Styles.DatePicker, {
       [Styles.Condensed]: props.condensedStyle,
+      [Styles.OpenTop]: props.openTop,
       [Styles.error]:
         props.errorMessage &&
         props.errorMessage !== '' &&
@@ -1648,7 +1784,9 @@ export const DatePicker = (props: DatePickerProps) => (
   >
     <SingleDatePicker
       id={props.id}
+      openDirection={props.openTop ? 'up' : 'down'}
       date={props.date}
+      disabled={props.readOnly}
       placeholder={props.placeholder || 'Date (D MMM YYYY)'}
       onDateChange={props.onDateChange}
       isOutsideRange={props.isOutsideRange || (() => false)}
@@ -1660,7 +1798,7 @@ export const DatePicker = (props: DatePickerProps) => (
       navNext={props.navNext || OutlineChevron}
       weekDayFormat="ddd"
       customInputIcon={Calendar}
-      readOnly={true}
+      readOnly={props.readOnly}
     />
     {props.errorMessage &&
       props.errorMessage !== '' &&
@@ -1756,25 +1894,22 @@ export class Input extends Component<InputProps, InputState> {
     window.addEventListener('click', this.handleWindowOnClick);
   }
 
-  UNSAFE_componentWillReceiveProps(nextProps) {
-    const { value } = this.props;
-    if (value !== nextProps.value) {
-      this.setState({ value: nextProps.value });
+  componentDidUpdate(prevProps: InputProps, prevState: InputState) {
+    if (prevProps.value !== this.props.value) {
+      this.setState({ value: this.props.value });
     }
-  }
 
-  UNSAFE_componentWillUpdate(nextProps, nextState) {
     if (
-      nextProps.canToggleVisibility &&
-      !nextState.value &&
-      nextState.isHiddenContentVisible
+      this.props.canToggleVisibility &&
+      !this.state.value &&
+      this.state.isHiddenContentVisible
     ) {
       this.updateIsHiddenContentVisible(false);
     }
 
     if (
-      this.state.isHiddenContentVisible !== nextState.isHiddenContentVisible &&
-      nextState.isHiddenContentVisible
+      prevState.isHiddenContentVisible !== this.state.isHiddenContentVisible &&
+      this.state.isHiddenContentVisible
     ) {
       this.timeoutVisibleHiddenContent();
     }
@@ -2169,6 +2304,7 @@ InputDropdown.defaultProps = {
 };
 
 export interface CategoryRowProps {
+  history: History;
   hasChildren?: boolean;
   handleClick?: Function;
   active?: boolean;
@@ -2179,6 +2315,7 @@ export interface CategoryRowProps {
 }
 
 export const CategoryRow = ({
+  history,
   hasChildren = true,
   handleClick = noop,
   active = false,
@@ -2188,7 +2325,17 @@ export const CategoryRow = ({
   icon,
 }: CategoryRowProps) => (
   <div
-    onClick={() => handleClick()}
+    onClick={() => {
+      const categories = handleClick();
+        const query: QueryEndpoints = {
+          [CATEGORY_PARAM_NAME]: categories,
+        };
+        history.push({
+          pathname: 'markets',
+          search: makeQuery(query),
+        });
+      }
+    }
     className={classNames(Styles.CategoryRow, {
       [Styles.active]: active,
       [Styles.loading]: loading,
@@ -2196,7 +2343,8 @@ export const CategoryRow = ({
     })}
   >
     <span>
-     {icon} {category && category.length <= 3 ? category.toUpperCase() : category}
+      {icon}{' '}
+      {category && category.length <= 3 ? category.toUpperCase() : category}
     </span>
     {loading && <span>{LoadingEllipse}</span>}
     {!loading && <span>{count}</span>}
@@ -2214,22 +2362,18 @@ export const MigrateRepInfo = () => (
       for the other markets that currenty exist. When a fork is innitiated,
       disputing for all other non-resolved markets are put on hold until this
       fork resolves. The forking period is much longer than the usual fee window
-      because the platform needs to provide ample time for REP holders and
+      because the platform needs to provide ample time for REPv2 holders and
       service providers (such as wallets and exchanges) to prepare. A fork’s
       final outcome cannot be disputed.
     </p>
     <p>
-      Every Augur market and all REP tokens exist in some universe. Currently
+      Every Augur market and all REPv2 tokens exist in some universe. Currently
       there is only one universe - the genesis universe - since there has never
-      been a fork. REP tokens can be used to report on outcomes (and thus earn
-      fees) only for markets that exist in the same universe as the REP tokens.
+      been a fork. REPv2 tokens can be used to report on outcomes (and thus earn
+      fees) only for markets that exist in the same universe as the REPv2 tokens.
       When a market forks, new universes are created. Forking creates a new
       child universe for each possible outcome of the forking market (including
       Invalid).
-    </p>
-    <p>
-      NEED TO ADD MORE INFO HERE. POSSIBLY MAKE THIS A SCROLLABLE BOX. CHECKBOX
-      TO CONFIRM THEY HAVE READ IT?
     </p>
   </section>
 );

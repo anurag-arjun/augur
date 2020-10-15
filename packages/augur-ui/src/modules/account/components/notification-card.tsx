@@ -9,39 +9,47 @@ import Styles from "modules/account/components/notification.styles.less";
 
 export interface NotificationProps {
   isImportant: boolean;
+  redIcon?: boolean;
   isNew: boolean;
   title: string;
+  noCounter: boolean;
+  hideCheckbox?: boolean;
   children: React.StatelessComponent | Array<React.StatelessComponent>;
 }
 
-export const NotificationCard = (props: NotificationProps) => (
+export const NotificationCard = ({ isNew, isImportant, redIcon, title, children, noCounter, hideCheckbox }: NotificationProps) => (
   <div
     className={classNames(Styles.NotificationCard, {
-      [Styles.NewNotificationCard]: props.isNew,
+      [Styles.NewNotificationCard]: isNew,
+      [Styles.noCounter]: noCounter,
+      [Styles.HasCheckbox]: hideCheckbox
     })}
   >
     <section>
       <div className={Styles.TitleBar}>
-        {props.isImportant && (
-          <span className={Styles.Importance}>
+        {isImportant && (
+          <span className={classNames(Styles.Importance, {
+            [Styles.ImportantRed]: redIcon,
+          })}
+          >
             {ImmediateImportance}
           </span>
         )}
         <span
           className={classNames(Styles.Title, {
-            [Styles.TitleNew]: props.isNew,
+            [Styles.TitleNew]: isNew,
           })}
         >
-          {props.title}
+          {title}
         </span>
-        {props.isNew && <PillLabel label={constants.NEW} />}
+        {isNew && <PillLabel label={constants.NEW} />}
       </div>
       <div
         className={classNames(Styles.Message, {
-          [Styles.MessageNew]: props.isNew,
+          [Styles.MessageNew]: isNew,
         })}
       >
-        {props.children}
+        {children}
       </div>
     </section>
   </div>

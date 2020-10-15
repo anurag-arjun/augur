@@ -1,6 +1,6 @@
 {
   "name": "@augurproject/test",
-  "version": "2.0.0-alpha.1",
+  "version": "2.1.9",
   "description": "Augur Test",
   "author": "The Augur Developers <team@augur.net>",
   "license": "MIT",
@@ -17,7 +17,8 @@
     "clean": "echo delete database",
     "rebuild": "yarn clean && yarn build",
     "prepush": "yarn lint",
-    "test": "jest"
+    "test": "jest",
+    "generate:data": "node -r ts-node/register src/tests/fixtures/generate-mock-data.ts"
   },
   "repository": {
     "type": "git",
@@ -28,34 +29,32 @@
   },
   "homepage": "https://github.com/AugurProject/augur#readme",
   "dependencies": {
-    "@augurproject/artifacts": "2.0.0-alpha.1",
-    "@augurproject/core": "2.0.0-alpha.1",
-    "@augurproject/ethersjs-provider": "2.0.0-alpha.1",
-    "@augurproject/sdk": "2.0.0-alpha.1",
-    "@augurproject/tools": "2.0.0-alpha.1",
-    "contract-dependencies-ethers": "2.0.0-alpha.1",
-    "ethers": "4.0.37",
+    "@augurproject/artifacts": "^2.1.9",
+    "@augurproject/core": "^2.1.9",
+    "@augurproject/sdk": "^2.1.9",
+    "@augurproject/sdk-lite": "^2.1.9",
+    "@augurproject/tools": "^2.1.9",
+    "ethereumjs-util": "6.1.0",
+    "ethers": "5.0.17",
     "levelup": "4.2.0",
     "memdown": "4.1.0"
   },
   "devDependencies": {
     "@types/argparse": "1.0.36",
-    "@types/jest": "24.0.18",
-    "@types/jest-environment-puppeteer": "4.3.1",
     "@types/node": "10.14.18",
     "@types/supertest": "2.0.8",
-    "ganache-core": "2.8.0",
-    "jest": "24.9.0",
-    "jest-puppeteer": "4.3.0",
-    "pouchdb-adapter-memory": "7.1.1",
-    "puppeteer": "1.20.0",
+    "ganache-core": "2.9.1",
+    "ipfsd-ctl": "3.0.0",
     "supertest": "4.0.2",
-    "ts-jest": "24.0.2",
-    "ts-node": "8.4.1",
-    "tsconfig-paths": "3.9.0"
+    "ts-node": "9.0.0",
+    "tsconfig-paths": "3.9.0",
+    "typescript": "3.9.7"
   },
   "resolutions": {
     "**/sha3": "2.0.1",
     "**/memdown": "4.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

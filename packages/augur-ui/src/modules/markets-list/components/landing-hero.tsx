@@ -7,20 +7,18 @@ export interface LandingHeroProps {
   showSignup: Function;
 }
 
-export const LandingHero = (props: LandingHeroProps) => {
+export const LandingHero = ({showSignup}: LandingHeroProps) => {
   return (
     <section className={Styles.LandingHero}>
-      <img src="images/BGImages.png" />
       <div>
-        <span>The world’s most accessible, no-limit betting platform</span>
+        <h1>Augur<br /><span>Your global, no-limit betting platform</span></h1>
         <span>
-          Bet how much you want, from anywhere in the world, on sports,
-          politics, finance and more.
+          Bet how much you want on sports, economics, world events and more.
         </span>
         <div>
           <PrimaryButton
             text="Sign up to start trading"
-            action={props.showSignup}
+            action={showSignup}
           />
           <ExternalLinkButton
             light
@@ -30,7 +28,9 @@ export const LandingHero = (props: LandingHeroProps) => {
         </div>
       </div>
       <div>
-        <img src="images/Hero_cards.png" />
+        <img src="images/hero-primary.png" />
+        <img src="images/hero-secondary-bitcoin.png" />
+        <img src="images/hero-tertiary.png" />
       </div>
     </section>
   );

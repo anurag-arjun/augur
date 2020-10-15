@@ -8,8 +8,9 @@ import Styles from 'modules/create-market/components/sub-categories.styles.less'
 import {
   getTemplateRadioCards
 } from 'modules/create-market/get-template';
-import { Getters } from '@augurproject/sdk/src';
+import type { Getters } from '@augurproject/sdk';
 import { NewMarket } from 'modules/types';
+import { MARKET_COPY_LIST } from 'modules/create-market/constants';
 
 export interface SubCategoriesProps {
   newMarket: NewMarket;
@@ -24,10 +25,10 @@ export const SubCategories = ({
   nextPage,
   categoryStats,
 }: SubCategoriesProps) => {
-  const { categories } = newMarket;
+  const { navCategories } = newMarket;
   const cats = getTemplateRadioCards(
     {
-      primary: newMarket.categories[0],
+      primary: newMarket.navCategories[0],
       secondary: '',
       tertiary: '',
     },
@@ -42,17 +43,15 @@ export const SubCategories = ({
       />
       <section>
         <RadioCardGroup
-          defaultSelected={categories[1] ? categories[1] : null}
+          defaultSelected={navCategories[1] ? navCategories[1] : null}
           onChange={(value: string) => {
             const updatedNewMarket = { ...newMarket };
-            updatedNewMarket.categories[1] = value;
-            updatedNewMarket.categories[2] = '';
+            updatedNewMarket.navCategories[1] = value;
+            updatedNewMarket.navCategories[2] = '';
             updateNewMarket(updatedNewMarket);
           }}
           radioButtons={cats}
-        >
-          <SmallHeaderLink text="Don't see your category?" link ownLine />
-        </RadioCardGroup>
+        />
       </section>
     </section>
   );

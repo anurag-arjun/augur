@@ -1,137 +1,180 @@
-import { FlashSession } from "./flash";
-import Vorpal from "vorpal";
-import { addScripts } from "./scripts";
-import { addGanacheScripts } from "./ganache-scripts";
-import { Account, ACCOUNTS } from "../constants";
-import { ArgumentParser } from "argparse";
-import { NetworkConfiguration, NETWORKS } from "@augurproject/core";
-import { Addresses } from "@augurproject/artifacts";
-import { computeAddress } from "ethers/utils";
+import { buildConfig } from '@augurproject/artifacts';
 
-interface Args {
-  mode: "interactive"|"run";
-  command?: string;
-  network?: NETWORKS | "none";
-  [commandArgument: string]: string;
-}
+import {
+  mergeConfig,
+  RecursivePartial,
+  SDKConfiguration,
+  validConfigOrDie,
+} from '@augurproject/utils';
+import program from 'commander';
 
-function parse(flash: FlashSession): Args {
-  const parser = new ArgumentParser({
-    version: "1.0.0",
-    description: "Interact with Augur contracts.",
-  });
+import ethereumKeyfileRecognizer from 'ethereum-keyfile-recognizer';
+import { ethers } from 'ethers';
+import * as fs from 'fs';
+import * as readlineSync from 'readline-sync';
+import { Account, ACCOUNTS } from '../constants';
+import { addAMMScripts } from './amm';
+import { FlashSession } from './flash';
+import { addGanacheScripts } from './ganache-scripts';
+import { addParaScripts } from './para';
+import { addScripts } from './scripts';
 
-  const mode = parser.addSubparsers({
-    dest: "mode",
-  });
+import { addWarpSyncScripts } from './warp-sync';
 
-  mode.addParser("interactive");
+async function processAccounts(flash: FlashSession, args: any) {
+    // Figure out which private key to use.
+    if (args.key && args.keyfile) {
+      console.error('ERROR: Cannot specify both --key and --keyfile');
+      process.exit(1);
+    } else if (args.key) {
+      flash.accounts = [ accountFromPrivateKey(args.key) ];
+    } else if (args.keyfile) {
+      let key = await fs.readFileSync(args.keyfile).toString();
 
-  const commandMeta = mode.addParser("run");
-  commandMeta.addArgument(
-    [ '-n', '--network' ],
-    {
-      help: `Name of network to run on. Use "none" for commands that don't use a network.`,
-      defaultValue: "environment", // local node
-    }
-  );
+      try {
+        if (ethereumKeyfileRecognizer(JSON.parse(key))) {
+          const password = readlineSync.question(
+            'Keystore file found! Please enter passphrase: ', {
+              hideEchoBack: true // The typed text on screen is hidden by `*` (default).
+            });
 
-  const commands = commandMeta.addSubparsers({ dest: "command" });
-
-  for (const name of Object.keys(flash.scripts) || []) {
-    const script = flash.scripts[name];
-    const command = commands.addParser(script.name, { description: script.description });
-    for (const opt of script.options || []) {
-      const args = [ `--${opt.name}`];
-      if (opt.abbr) args.push(`-${opt.abbr}`);
-      command.addArgument(
-        args,
-        {
-          help: opt.description || "",
-          required: opt.required || false,
-          action: opt.flag ? "storeTrue" : "store",
-        });
-    }
-
-  }
-
-  return parser.parseArgs();
-}
-
-function makeVorpalCLI(flash: FlashSession): Vorpal {
-  const vorpal = new Vorpal();
-
-  for (const script of Object.values(flash.scripts)) {
-    let v: Vorpal|Vorpal.Command = vorpal;
-    v = v.command(script.name, script.description || "");
-
-    const types = { string: [], boolean: [] };
-    for (const option of script.options || []) {
-      // Vorpal interprets options as boolean (flag) or string,
-      // depending on the structure of its first argument.
-      //   boolean: --foo
-      //   string: --foo <bar>
-      const flag = option.flag || false;
-      const abbr = option.abbr ? `-${option.abbr},` : "";
-      const optionValue = `${abbr}--${option.name}${flag ? "" : ` <arg>`}`;
-      v = v.option(optionValue, option.description);
-      if (flag) {
-        types.boolean.push(option.name);
-        if (option.abbr) types.boolean.push(option.abbr);
-      } else {
-        types.string.push(option.name);
-        if (option.abbr) types.string.push(option.abbr);
+          const wallet = await ethers.Wallet.fromEncryptedJson(key, password);
+          key = wallet.privateKey;
+        }
+      } catch(e) {
+        // If we have a JSON parse error, we continue.
+        if(!(e instanceof  SyntaxError)) {
+          console.error(e);
+          process.exit(1);
+        }
       }
+
+      flash.accounts = [ accountFromPrivateKey(key) ];
+    } else if (process.env.ETHEREUM_PRIVATE_KEY) {
+      flash.accounts = [ accountFromPrivateKey(process.env.ETHEREUM_PRIVATE_KEY) ];
+    } else {
+      flash.accounts = ACCOUNTS;
     }
-    v.types(types);
-    v = v.action(async function(this: Vorpal.CommandInstance, args: Vorpal.Args): Promise<void> {
-      await flash.call(script.name, args.options).catch(console.error);
+
+}
+async function run() {
+  const flash = new FlashSession([]);
+
+  addScripts(flash);
+  addAMMScripts(flash);
+  addGanacheScripts(flash);
+  addParaScripts(flash);
+  addWarpSyncScripts(flash);
+
+  program
+    .name('flash')
+    .storeOptionsAsProperties(false)
+    .passCommandToAction(false)
+    .option('--key <key>', 'Private key to use, Overrides ETHEREUM_PRIVATE_KEY environment variable, if set.')
+    .option('--keyfile <keyfile>', 'File containing private key to use. Overrides ETHEREUM_PRIVATE_KEY environment variable, if set.')
+    .option('--network <network>', `Name of network to run on. Use "none" for commands that don't use a network. Environmental variable "ETHEREUM_PRIVATE_KEY" will take precedence if set.`, 'local')
+    .option('--para <para>', `Cash address of ParaAugur to use instead of core augur.`, 'none')
+    .option('--skip-approval <skipApproval>', 'Do not approve', 'false')
+    .option('--config <config>', 'JSON of configuration')
+    .option('--configFile <configFile>', 'Path to configuration file');
+
+  const scriptNames = Object.keys(flash.scripts) || [];
+  for (const name of scriptNames) {
+    const script = flash.scripts[name];
+    const subcommand = program.command(script.name).description(script.description);
+
+    for (const opt of script.options || []) {
+      const args = [ `--${opt.name} ${opt.flag ? '' : `<${opt.name}>`}`];
+      if (opt.abbr) args.unshift(`-${opt.abbr}`);
+      opt.required
+        ? subcommand.requiredOption(args.join(', '), opt.description)
+        : subcommand.option(args.join(', '), opt.description)
+    }
+    subcommand.action(async (args) => {
+      try {
+        const opts = {...program.opts(), ...args};
+        await processAccounts(flash, opts);
+
+        if (process.env.ETHEREUM_NETWORK) {
+          flash.network = process.env.ETHEREUM_NETWORK;
+        } else {
+          flash.network = opts.network;
+        }
+        if (process.env.PARA_DEPLOY) {
+          flash.para = process.env.PARA_DEPLOY;
+        } else if (opts.para !== 'none') {
+          flash.para = opts.para;
+        }
+
+        let specified: RecursivePartial<SDKConfiguration> = {
+          flash: {
+            skipApproval: Boolean(opts.skipApproval?.toLowerCase() === 'true'),
+          }
+        };
+        if (flash.para) {
+          specified = mergeConfig(specified, { paraDeploy: flash.para })
+        }
+        if (opts.configFile) {
+          specified = mergeConfig(specified, JSON.parse(fs.readFileSync(opts.configFile).toString()));
+        }
+        if (opts.config) {
+          specified = mergeConfig(specified, JSON.parse(opts.config));
+        }
+        flash.config = validConfigOrDie(
+          buildConfig(
+            flash.network,
+            specified,
+          )
+        );
+
+        if (!script.ignoreNetwork && opts.network !== 'none') {
+          flash.provider = flash.makeProvider(flash.config);
+        }
+        await flash.call(script.name, opts);
+      } catch (e) {
+        console.error(e);
+        process.exit(1); // Needed to prevent hanging
+      } finally {
+        process.exit(0); // Needed to prevent hanging
+      }
     });
   }
 
-  vorpal.delimiter("augur$");
+  if (process.argv.length < 3) { // no subcommand
+    program.help();
+  } else if (!intersects(scriptNames, process.argv)) { // no valid subcommand given
+    program.help();
+  } else {
+    await program.parseAsync(process.argv);
+  }
+}
 
-  return vorpal;
+function accountFromPrivateKey(key: string): Account {
+  key = cleanKey(key);
+  return {
+    privateKey: key,
+    address: ethers.utils.computeAddress(key),
+    initialBalance: 0, // not used here; only for ganache premining
+  }
+}
+
+function cleanKey(key: string): string {
+  if (key.slice(0, 2) !== '0x') {
+    key = `0x${key}`;
+  }
+  if (key[key.length - 1] === '\n') {
+    key = key.slice(0, key.length - 1)
+  }
+  return key;
+}
+
+function intersects<T>(arrayA: T[], arrayB: T[]): boolean {
+  for (const element of arrayA) {
+    if (arrayB.indexOf(element) !== -1) return true;
+  }
+  return false;
 }
 
 if (require.main === module) {
-  let accounts: Account[];
-  if (process.env.ETHEREUM_PRIVATE_KEY) {
-    let key = process.env.ETHEREUM_PRIVATE_KEY;
-    if (key.slice(0, 2) !== "0x") {
-      key = `0x${key}`;
-    }
-
-    accounts = [
-      {
-        secretKey: key,
-        publicKey: computeAddress(key),
-        balance: 0,
-      },
-    ];
-  } else {
-    accounts = ACCOUNTS;
-  }
-
-  const flash = new FlashSession(accounts);
-
-  addScripts(flash);
-  addGanacheScripts(flash);
-
-  const args = parse(flash);
-
-  if (args.mode === "interactive") {
-    const vorpal = makeVorpalCLI(flash);
-    flash.setLogger(vorpal.log.bind(vorpal));
-    vorpal.show();
-  } else if (args.network === "none") {
-    flash.call(args.command, args).catch(console.error);
-  } else {
-    flash.network = NetworkConfiguration.create(args.network);
-    flash.provider = flash.makeProvider(flash.network);
-    flash.getNetworkId(flash.provider).then((networkId) => {
-      flash.contractAddresses = Addresses[networkId];
-      return flash.call(args.command, args);
-    }).catch(console.error);
-  }
+  run().catch(console.log);
 }

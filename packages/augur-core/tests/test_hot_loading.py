@@ -5,7 +5,9 @@ from reporting_utils import proceedToDesignatedReporting, proceedToInitialReport
 from constants import BID, ASK, YES, NO, SHORT
 
 def test_market_hot_loading_basic(kitchenSinkFixture, augur, cash, market, categoricalMarket, scalarMarket):
-    hotLoading = kitchenSinkFixture.contracts["HotLoading"]
+    hotLoading = kitchenSinkFixture.contracts["HotLoadingUniversal"] if kitchenSinkFixture.paraAugur else kitchenSinkFixture.contracts["HotLoading"]
+    if kitchenSinkFixture.paraAugur:
+        augur = kitchenSinkFixture.contracts["ParaAugur"]
     fillOrder = kitchenSinkFixture.contracts["FillOrder"]
     orders = kitchenSinkFixture.contracts["Orders"]
     account = kitchenSinkFixture.accounts[0]
@@ -29,7 +31,7 @@ def test_market_hot_loading_basic(kitchenSinkFixture, augur, cash, market, categ
     assert marketData.universe == market.getUniverse()
     assert marketData.numTicks == market.getNumTicks()
     assert marketData.feeDivisor == market.getMarketCreatorSettlementFeeDivisor()
-    assert marketData.affiliateFeeDivisor == market.getAffiliateFeeDivisor()
+    assert marketData.affiliateFeeDivisor == market.affiliateFeeDivisor()
     assert marketData.endTime == market.getEndTime()
     assert marketData.numOutcomes == 3
     universeContract = kitchenSinkFixture.applySignature("Universe", marketData.universe)
@@ -46,11 +48,36 @@ def test_market_hot_loading_basic(kitchenSinkFixture, augur, cash, market, categ
     marketData = getMarketData(hotLoading, augur, scalarMarket, fillOrder, orders)
     assert marketData.marketType == 2 # SCALAR
     assert marketData.numTicks == 400000
-    assert marketData.displayPrices == [-10, 30]
+    assert marketData.displayPrices == [-10 * 10 **18, 30 * 10 ** 18]
 
+def test_hot_loading_bulk(kitchenSinkFixture, augur, cash, categoricalMarket, scalarMarket):
+    hotLoading = kitchenSinkFixture.contracts["HotLoadingUniversal"] if kitchenSinkFixture.paraAugur else kitchenSinkFixture.contracts["HotLoading"]
+    if kitchenSinkFixture.paraAugur:
+        augur = kitchenSinkFixture.contracts["ParaAugur"]
+    fillOrder = kitchenSinkFixture.contracts["FillOrder"]
+    orders = kitchenSinkFixture.contracts["Orders"]
+    account = kitchenSinkFixture.accounts[0]
+
+    markets = [categoricalMarket.address, scalarMarket.address]
+
+    # Get the market hot load data
+    marketsData = getMarketsData(hotLoading, augur, markets, fillOrder, orders)
+
+    marketData = marketsData[0]
+    assert marketData.marketType == 1 # CATEGORICAL
+    assert marketData.numOutcomes == 4
+    outcomeLabel = stringToBytes(" ")
+    assert marketData.outcomes == [outcomeLabel, outcomeLabel, outcomeLabel]
+
+    marketData = marketsData[1]
+    assert marketData.marketType == 2 # SCALAR
+    assert marketData.numTicks == 400000
+    assert marketData.displayPrices == [-10 * 10 **18, 30 * 10 ** 18]
 
 def test_trading(kitchenSinkFixture, augur, cash, market):
-    hotLoading = kitchenSinkFixture.contracts["HotLoading"]
+    hotLoading = kitchenSinkFixture.contracts["HotLoadingUniversal"] if kitchenSinkFixture.paraAugur else kitchenSinkFixture.contracts["HotLoading"]
+    if kitchenSinkFixture.paraAugur:
+        augur = kitchenSinkFixture.contracts["ParaAugur"]
     fillOrder = kitchenSinkFixture.contracts["FillOrder"]
     trade = kitchenSinkFixture.contracts["Trade"]
     orders = kitchenSinkFixture.contracts["Orders"]
@@ -61,26 +88,28 @@ def test_trading(kitchenSinkFixture, augur, cash, market):
 
     tradeGroupID = longTo32Bytes(42)
 
-    creatorCost = fix('2', '60')
-    fillerCost = fix('2', '40')
+    creatorCost = fix('2', '600')
+    fillerCost = fix('2', '400')
 
     # create order
     with BuyWithCash(cash, creatorCost, kitchenSinkFixture.accounts[1], "complete set buy"):
-        orderID = createOrder.publicCreateOrder(BID, fix(2), 60, market.address, YES, longTo32Bytes(0), longTo32Bytes(0), tradeGroupID, nullAddress, sender = kitchenSinkFixture.accounts[1])
+        orderID = createOrder.publicCreateOrder(BID, fix(2), 600, market.address, YES, longTo32Bytes(0), longTo32Bytes(0), tradeGroupID, nullAddress, sender = kitchenSinkFixture.accounts[1])
     # take order
     with BuyWithCash(cash, fillerCost, kitchenSinkFixture.accounts[2], "fill order"):
-        assert trade.publicTrade(SHORT, market.address, YES, fix(2), 60, "0", "0", tradeGroupID, 6, longTo32Bytes(11), nullAddress, sender=kitchenSinkFixture.accounts[2])
+        assert trade.publicTrade(SHORT, market.address, YES, fix(2), 600, "0", "0", tradeGroupID, 6, longTo32Bytes(11), nullAddress, sender=kitchenSinkFixture.accounts[2])
 
     marketData = getMarketData(hotLoading, augur, market, fillOrder, orders)
 
-    assert marketData.volume == fix(2, 100)
-    assert marketData.openInterest == fix(2, 100)
-    assert marketData.lastTradedPrices == [0, 0, 60]
-    assert marketData.outcomeVolumes == [0, 0, fix(2, 100)]
+    assert marketData.volume == fix(2, 1000)
+    assert marketData.openInterest == fix(2, 1000)
+    assert marketData.lastTradedPrices == [0, 0, 600]
+    assert marketData.outcomeVolumes == [0, 0, fix(2, 1000)]
     
 
 def test_reporting(kitchenSinkFixture, augur, cash, market):
-    hotLoading = kitchenSinkFixture.contracts["HotLoading"]
+    hotLoading = kitchenSinkFixture.contracts["HotLoadingUniversal"] if kitchenSinkFixture.paraAugur else kitchenSinkFixture.contracts["HotLoading"]
+    if kitchenSinkFixture.paraAugur:
+        augur = kitchenSinkFixture.contracts["ParaAugur"]
     fillOrder = kitchenSinkFixture.contracts["FillOrder"]
     orders = kitchenSinkFixture.contracts["Orders"]
     account = kitchenSinkFixture.accounts[0]
@@ -127,7 +156,9 @@ def test_reporting(kitchenSinkFixture, augur, cash, market):
     assert marketData.reportingState == 6
 
 def test_dispute_window_hot_loading(kitchenSinkFixture, augur, cash, universe, reputationToken):
-    hotLoading = kitchenSinkFixture.contracts["HotLoading"]
+    hotLoading = kitchenSinkFixture.contracts["HotLoadingUniversal"] if kitchenSinkFixture.paraAugur else kitchenSinkFixture.contracts["HotLoading"]
+    if kitchenSinkFixture.paraAugur:
+        augur = kitchenSinkFixture.contracts["ParaAugur"]
     account = kitchenSinkFixture.accounts[0]
 
     disputeWindowData = getDisputeWindowData(hotLoading, augur, universe)
@@ -167,24 +198,15 @@ def test_dispute_window_hot_loading(kitchenSinkFixture, augur, cash, universe, r
     assert disputeWindowData.fees == 0
 
 def test_validity_bonds(kitchenSinkFixture, augur, cash, market, categoricalMarket, scalarMarket):
-    hotLoading = kitchenSinkFixture.contracts["HotLoading"]
+    hotLoading = kitchenSinkFixture.contracts["HotLoadingUniversal"] if kitchenSinkFixture.paraAugur else kitchenSinkFixture.contracts["HotLoading"]
+    if kitchenSinkFixture.paraAugur:
+        augur = kitchenSinkFixture.contracts["ParaAugur"]
     account = kitchenSinkFixture.accounts[0]
 
     totalValidityBonds = hotLoading.getTotalValidityBonds([market.address, categoricalMarket.address, scalarMarket.address])
 
     expectedTotal = sum(m.getValidityBondAttoCash() for m in [market, categoricalMarket, scalarMarket])
 
-    assert totalValidityBonds == expectedTotal
-
-    # Add to a markets total and see it reflected
-    additionalAmount = 100
-    cash.faucet(additionalAmount)
-    cash.approve(market.address, additionalAmount)
-    assert market.increaseValidityBond(additionalAmount)
-    
-    expectedTotal += additionalAmount
-
-    totalValidityBonds = hotLoading.getTotalValidityBonds([market.address, categoricalMarket.address, scalarMarket.address])
     assert totalValidityBonds == expectedTotal
 
 
@@ -216,6 +238,10 @@ class MarketData:
 
 def getMarketData(hotLoading, augur, market, fillOrder, orders):
     return MarketData(hotLoading.getMarketData(augur.address, market.address, fillOrder.address, orders.address))
+
+def getMarketsData(hotLoading, augur, markets, fillOrder, orders):
+    rawMarketsData = hotLoading.getMarketsData(augur.address, markets, fillOrder.address, orders.address)
+    return [MarketData(rawMarketData) for rawMarketData in rawMarketsData]
 
 class DisputeWindowData:
 

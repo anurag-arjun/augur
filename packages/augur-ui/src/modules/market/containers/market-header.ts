@@ -8,21 +8,22 @@ import {
 } from 'modules/common/constants';
 import { selectMarket } from 'modules/markets/selectors/market';
 import { toggleFavorite } from 'modules/markets/actions/update-favorites';
+import { marketLinkCopied } from 'services/analytics/helpers';
+import { isSameAddress } from 'utils/isSameAddress';
+import { augurSdkLite } from 'services/augursdklite';
 
 const mapStateToProps = (state, ownProps) => {
   const market = ownProps.market || selectMarket(ownProps.marketId);
-
+  const userAccount = state.loginAccount.address;
   const { reportingState, consensusFormatted: consensus } = market;
   let reportingBarShowing = false;
-  const isDesignatedReporter =
-    market.designatedReporter === state.loginAccount.address;
 
   if (
     consensus ||
     reportingState === REPORTING_STATE.CROWDSOURCING_DISPUTE ||
     reportingState === REPORTING_STATE.OPEN_REPORTING ||
     (reportingState === REPORTING_STATE.DESIGNATED_REPORTING &&
-      isDesignatedReporter)
+      isSameAddress(market.designatedReporter, userAccount))
   ) {
     reportingBarShowing = true;
   }
@@ -41,11 +42,18 @@ const mapStateToProps = (state, ownProps) => {
     isFavorite: !!state.favorites[ownProps.marketId],
     currentAugurTimestamp: state.blockchain.currentAugurTimestamp,
     reportingBarShowing,
+    preview: ownProps.preview,
+    userAccount
   };
 };
 
 const mapDispatchToProps = dispatch => ({
   toggleFavorite: marketId => dispatch(toggleFavorite(marketId)),
+  marketLinkCopied: (marketId, location) => dispatch(marketLinkCopied(marketId, location)),
+  loadAffiliateFee: (id: string) => {
+    const augurLite = augurSdkLite.get();
+    return augurLite.hotloadMarket(id);
+  }
 });
 
 const MarketHeaderContainer = withRouter(

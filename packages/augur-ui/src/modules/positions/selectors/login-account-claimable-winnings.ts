@@ -1,10 +1,10 @@
 import { createSelector } from 'reselect';
 
-import store from 'store';
+import store from 'appStore';
 import {
   selectAccountPositionsState,
   selectMarketInfosState,
-} from 'store/select-state';
+} from 'appStore/select-state';
 import { selectMarket } from 'modules/markets/selectors/market';
 import { createBigNumber } from 'utils/create-big-number';
 import { ZERO } from 'modules/common/constants';
@@ -36,6 +36,7 @@ const getLoginAccountPositionsMarkets = createSelector(
           const {
             unclaimedProfit,
             unclaimedProceeds,
+            fee,
           } = marketPosition.tradingPositionsPerMarket;
           const market = selectMarket(marketId);
           if (market === null) return p;
@@ -48,12 +49,16 @@ const getLoginAccountPositionsMarkets = createSelector(
               totalUnclaimedProceeds: p.totals.totalUnclaimedProceeds.plus(
                 unclaimedProceeds
               ),
+              totalFees: p.totals.totalFees.plus(
+                fee
+              )
             },
             positions: {
               ...p.positions,
               [market.id]: {
                 unclaimedProfit,
                 unclaimedProceeds,
+                fee,
               },
             },
           };
@@ -66,6 +71,7 @@ const getLoginAccountPositionsMarkets = createSelector(
         totals: {
           totalUnclaimedProfit: ZERO,
           totalUnclaimedProceeds: ZERO,
+          totalFees: ZERO,
         },
         positions: {},
       }

@@ -1,7 +1,7 @@
-import React from "react";
-import classNames from "classnames";
+import React from 'react';
+import classNames from 'classnames';
 
-import { createBigNumber } from 'utils/create-big-number';
+import { createBigNumber, BigNumber } from 'utils/create-big-number';
 import getValue from 'utils/get-value';
 import findInsufficientFunds, { InsufficientFunds } from 'modules/markets/helpers/insufficient-funds';
 import {
@@ -15,37 +15,44 @@ import {
   DateTimeHeaders,
   PreviewMarketTitleHeader
 } from "modules/create-market/components/common";
-import { LinearPropertyLabel, LinearPropertyLabelTooltip } from "modules/common/labels";
+import { LinearPropertyLabel, TransactionFeeLabel } from "modules/common/labels";
 import {
   SCALAR,
   CATEGORICAL,
   DESIGNATED_REPORTER_SELF,
   ETH,
   DAI,
-  REP
-} from "modules/common/constants";
-import { MARKET_TYPE_NAME } from "modules/create-market/constants";
+  REP,
+  GWEI_CONVERSION
+} from 'modules/common/constants';
+import { MARKET_TYPE_NAME, MARKET_COPY_LIST } from 'modules/create-market/constants';
 import { getCreateMarketBreakdown } from 'modules/contracts/actions/contractCalls';
 import {
   formatEtherEstimate,
   formatGasCostToEther,
-  formatDai,
+  formatDaiPrice,
   formatEther,
+  formatDai,
 } from 'utils/format-number';
 import { NewMarket, FormattedNumber } from 'modules/types';
 
-import Styles from "modules/create-market/components/review.styles.less";
-import { buildResolutionDetails } from "modules/create-market/get-template";
+import Styles from 'modules/create-market/components/review.styles.less';
+import { buildResolutionDetails } from 'modules/create-market/get-template';
+import { displayGasInDai } from 'modules/app/actions/get-ethToDai-rate';
+import { ActivateWalletButton } from 'modules/reporting/common';
 
 interface ReviewProps {
   newMarket: NewMarket;
-  updateNewMarket: Function;
   address: string;
   gasPrice: string;
   availableRepFormatted: FormattedNumber;
   availableEthFormatted: FormattedNumber;
   availableDaiFormatted: FormattedNumber;
   estimateSubmitNewMarket: Function;
+  GsnEnabled: boolean;
+  setDisableCreate: Function;
+  setIsApproved: Function;
+  showAddFundsModal: Function;
 }
 
 interface ReviewState {
@@ -77,7 +84,7 @@ export default class Review extends React.Component<
         formatGasCostToEther(
           this.props.newMarket.initialLiquidityGas,
           { decimalsRounded: 4 },
-          this.props.gasPrice
+          createBigNumber(GWEI_CONVERSION).multipliedBy(this.props.gasPrice)
         )
       ),
     };
@@ -90,12 +97,13 @@ export default class Review extends React.Component<
 
     if (
       newMarket.initialLiquidityDai !== prevProps.newMarket.initialLiquidityDai
-    )
+    ) {
       this.setState({
         formattedInitialLiquidityDai: formatEtherEstimate(
           prevProps.newMarket.initialLiquidityDai
         ),
       });
+    }
     if (
       newMarket.initialLiquidityGas !==
       prevProps.newMarket.initialLiquidityGas ||
@@ -107,7 +115,7 @@ export default class Review extends React.Component<
             formatGasCostToEther(
               prevProps.newMarket.initialLiquidityGas,
               { decimalsRounded: 4 },
-              gasPrice
+              createBigNumber(GWEI_CONVERSION).multipliedBy(gasPrice)
             )
           ),
         },
@@ -135,8 +143,8 @@ export default class Review extends React.Component<
   }
 
 
-  getInsufficientFundsAmounts(testWithLiquidity = false): InsufficientFunds {
-    const { availableEthFormatted, availableRepFormatted, availableDaiFormatted } = this.props;
+  getInsufficientFundsAmounts(): InsufficientFunds {
+    const { availableEthFormatted, availableRepFormatted, availableDaiFormatted, GsnEnabled } = this.props;
     const s = this.state;
     let insufficientFunds: InsufficientFunds = null;
 
@@ -164,7 +172,7 @@ export default class Review extends React.Component<
         createBigNumber(availableDaiFormatted.value || '0'),
         formattedInitialLiquidityGas || '0',
         formattedInitialLiquidityDai || '0',
-        testWithLiquidity
+        GsnEnabled
       );
     }
 
@@ -176,7 +184,7 @@ export default class Review extends React.Component<
   }
 
   async calculateMarketCreationCosts() {
-    const { newMarket, gasPrice } = this.props;
+    const { newMarket, gasPrice, GsnEnabled } = this.props;
 
     const marketCreationCostBreakdown = await getCreateMarketBreakdown();
     this.setState(
@@ -197,18 +205,15 @@ export default class Review extends React.Component<
           newMarket,
           (err, gasEstimateValue) => {
             if (err) console.error(err);
+            const gasCost = gasEstimateValue;
+
+
             this.setState(
               {
-                gasCost: formatEtherEstimate(
-                  formatGasCostToEther(
-                    gasEstimateValue || '0',
-                    { decimalsRounded: 4 },
-                    gasPrice
-                  )
-                ),
+                gasCost,
               },
               () => {
-                this.updateFunds(this.getInsufficientFundsAmounts(true));
+                this.updateFunds(this.getInsufficientFundsAmounts());
               }
             );
           }
@@ -223,13 +228,15 @@ export default class Review extends React.Component<
       availableEthFormatted,
       availableDaiFormatted,
       availableRepFormatted,
+      GsnEnabled,
+      showAddFundsModal,
+      gasPrice,
     } = this.props;
     const s = this.state;
 
     const {
       categories,
       marketType,
-      description,
       detailsText,
       designatedReporterType,
       designatedReporterAddress,
@@ -242,18 +249,26 @@ export default class Review extends React.Component<
       affiliateFee,
       endTimeFormatted,
       timezone,
-      template
+      template,
     } = newMarket;
+    const totalDai = formatEther(createBigNumber(s.validityBond ? s.validityBond.value : 0));
+    const totalWETH = formatEther(createBigNumber(s.formattedInitialLiquidityDai ? s.formattedInitialLiquidityDai.value : 0));
 
-    const totalDai = formatDai(createBigNumber(s.validityBond ? s.validityBond.value : 0).plus(createBigNumber(s.formattedInitialLiquidityDai ? s.formattedInitialLiquidityDai.value : 0)));
-    const totalEth = formatEther(createBigNumber(s.formattedInitialLiquidityGas ? s.formattedInitialLiquidityGas.value : 0).plus(createBigNumber(s.gasCost ? s.gasCost.value : 0)));
+    // Total Gas in ETH
+    const gasCost = createBigNumber(s.gasCost ? s.gasCost : 0);
+    const totalEth = formatEtherEstimate(
+      formatGasCostToEther(
+        gasCost,
+        { decimalsRounded: 4 },
+        createBigNumber(GWEI_CONVERSION).multipliedBy(gasPrice)
+      )
+    );
 
     const noEth = s.insufficientFunds[ETH];
     const noRep = s.insufficientFunds[REP];
     const noDai = s.insufficientFunds[DAI];
-
+    this.props.setDisableCreate(noEth || noRep || noDai);
     const resolutionDetails = template ? buildResolutionDetails(detailsText, template.resolutionRules) : detailsText;
-
     return (
       <div className={classNames(Styles.Review, {[Styles.Scalar]: marketType === SCALAR, [Styles.Categorical]: marketType === CATEGORICAL})}>
         <Header text="Market details" />
@@ -283,7 +298,7 @@ export default class Review extends React.Component<
         <LineBreak />
         <Header text="Resolution information" />
         <div>
-          <DateTimeHeaders header="Event expiration date and time" timezone={timezone} subheader={endTimeFormatted && endTimeFormatted.formattedUtc} timezoneDateTime={endTimeFormatted && endTimeFormatted.formattedTimezone} />
+          <DateTimeHeaders header="Event expiration date and time" timezone={timezone} subheader={endTimeFormatted && endTimeFormatted.formattedUtc} timezoneDateTime={endTimeFormatted && endTimeFormatted.formattedLocalShortDateTimeWithTimezone} />
           <SmallSubheaders header="resolution details" renderMarkdown subheader={resolutionDetails === "" ? "–" : resolutionDetails} />
           <SmallSubheaders
             header="Designated Reporter"
@@ -296,51 +311,53 @@ export default class Review extends React.Component<
         <LineBreak />
         <Header text="Funds required" />
         <div>
-          <Subheaders header="Validity bond" subheader={"The bond is paid in ETH and is refunded to the Market Creator if the Final Outcome of the Market is not Invalid. The Validity Bond is a dynamic amount based on the percentage of Markets in Augur that are being Finalized as Invalid."} link />
+          <Subheaders copyType={MARKET_COPY_LIST.VALIDITY_BOND} header="Validity bond" subheader={"The bond is paid in DAI and is refunded to the Market Creator if the Final Outcome of the Market is not Invalid. The Validity Bond is a dynamic amount based on the percentage of Markets in Augur that are being Finalized as Invalid."} link />
           <span>
             <LinearPropertyLabel
-              label={"Valididty Bond"}
+              label={"Validity Bond"}
               value={s.validityBond && s.validityBond.formattedValue + " DAI"}
             />
           </span>
 
-          <Subheaders header="No-show bond" subheader={"A “no-show” bond must be put up by the market creator which is lost if the designated reporter doesn’t show up on time (within 3 days of the market end time) to put forth the initial tentative outcome."} link />
+          <Subheaders copyType={MARKET_COPY_LIST.NO_SHOW_BOND} header="No-show bond" subheader={"A “no-show” bond must be put up by the market creator which is lost if the designated reporter doesn’t show up on time (within 1 day of the market end time) to put forth the initial tentative outcome."} link />
           <span>
             <LinearPropertyLabel
               label={"No-Show Bond"}
-              value={s.designatedReportNoShowReputationBond && s.designatedReportNoShowReputationBond.formattedValue + " REP"}
+              value={s.designatedReportNoShowReputationBond && s.designatedReportNoShowReputationBond.formattedValue + " REPv2"}
             />
           </span>
 
-          <Subheaders header="Initial liquidity" subheader={"The total of the initial batch of orders you added on the previous step."} />
-          <span>
-            <LinearPropertyLabel
-              label={"Initial Liquidity"}
-              value={s.formattedInitialLiquidityDai.formattedValue + " DAI"}
-            />
-            <LinearPropertyLabelTooltip
-              label={"Estimated Gas Cost"}
-              value={s.formattedInitialLiquidityGas.formattedValue + " ETH"}
-            />
-          </span>
+          { s.formattedInitialLiquidityDai.value > 0 &&
+          <>
+            <Subheaders header="Initial liquidity" subheader={"The total of the initial liquidity of orders you added on the previous step. These orders can be approved and sent after the market is created"} />
+            <span>
+              <LinearPropertyLabel
+                label={"Initial Liquidity"}
+                value={s.formattedInitialLiquidityDai.formattedValue + " WETH"}
+              />
+            </span>
+          </>}
 
-          <Subheaders header="Totals" subheader={"Sum total of DAI, ETH and REP required to create this market"} />
+          <Subheaders header="Totals" subheader={GsnEnabled ? "Sum total of DAI, WETH and REPv2 required to create this market" : "Sum total of DAI, WETH, ETH and REPv2 required to create this market"} />
           <span>
             <LinearPropertyLabel
               label={"Total DAI"}
               value={totalDai.formattedValue + " DAI"}
             />
             <LinearPropertyLabel
-              label={"Total ETH"}
-              value={totalEth.formattedValue + " ETH"}
+              label={"Total WETH"}
+              value={totalWETH.formattedValue + " WETH"}
             />
+            <TransactionFeeLabel gasEstimate={gasCost} />
             <LinearPropertyLabel
-              label={"TOTAL REP"}
-              value={s.designatedReportNoShowReputationBond && s.designatedReportNoShowReputationBond.formattedValue + " REP"}
+              label={"TOTAL REPv2"}
+              value={s.designatedReportNoShowReputationBond && s.designatedReportNoShowReputationBond.formattedValue + " REPv2"}
             />
+
           </span>
           <NoFundsErrors
             noEth={noEth}
+            showAddFundsModal={showAddFundsModal}
             noRep={noRep}
             noDai={noDai}
             availableDaiFormatted={availableDaiFormatted}
@@ -349,7 +366,9 @@ export default class Review extends React.Component<
             totalDai={totalDai}
             totalEth={totalEth}
             totalRep={s.designatedReportNoShowReputationBond}
+            GsnEnabled={GsnEnabled}
           />
+          <ActivateWalletButton />
         </div>
       </div>
     );

@@ -1,188 +1,261 @@
-const path = require("path");
-const webpack = require("webpack");
-const HtmlWebpackPlugin = require("html-webpack-plugin");
-const CopyWebpackPlugin = require("copy-webpack-plugin");
+const path = require('path');
+const webpack = require('webpack');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const WorkerPlugin = require('worker-plugin');
-
-const GitRevisionPlugin = require("git-revision-webpack-plugin");
-const gitRevisionPlugin = new GitRevisionPlugin();
+const GitRevisionPlugin = require('git-revision-webpack-plugin');
+const { buildConfig } = require('@augurproject/artifacts');
 
 const PATHS = {
-  BUILD: path.resolve(__dirname, "../build"),
-  APP: path.resolve(__dirname, "../src"),
-  TEST: path.resolve(__dirname, "../test"),
-  ORBIT: path.resolve(__dirname, "../../orbit-web"),
+  APP: path.resolve(__dirname, '../src'),
+  BUILD: path.resolve(__dirname, '../build'),
+  TEST: path.resolve(__dirname, '../test'),
+  WASM: path.resolve(__dirname, '../../../node_modules/@0x/mesh-browser/wasm'),
+  ROOT_MONOREPO: path.resolve(__dirname, "../../../"),
+  ROOT_UI: path.resolve(__dirname, '../'),
+  SITEMAP: path.resolve(__dirname, '../src/modules/sitemap'),
+  ORBIT: path.resolve(__dirname, '../../orbit-web'),
 };
 
+const AUGUR_ENV = process.env.AUGUR_ENV || process.env.ETHEREUM_NETWORK || 'local';
+const config = buildConfig(AUGUR_ENV);
+
+// Unset REPORTING_ONLY if CI passes in 'false'.
+if(process.env.REPORTING_ONLY === 'false') delete process.env.REPORTING_ONLY;
+
+if(!process.env.CURRENT_COMMITHASH || !process.env.CURRENT_VERSION) {
+  const gitRevisionPlugin = new GitRevisionPlugin({
+    branch: false
+  });
+  process.env.CURRENT_COMMITHASH = process.env.CURRENT_COMMITHASH || gitRevisionPlugin.commithash();
+  process.env.CURRENT_VERSION = process.env.CURRENT_VERSION || gitRevisionPlugin.version();
+}
+
 module.exports = {
-  mode: "development",
+  mode: 'development',
   entry: {
     // 'assets/styles/styles': `${PATHS.APP}/styles`,
     augur: [
-      'regenerator-runtime/runtime',
       `${PATHS.APP}/web-workers-exit`,
-      "react",
-      "react-dom",
-      "redux",
-      "redux-thunk",
-      "moment",
-      "react-datetime",
-      `${PATHS.APP}/main`
+      'react-dates/initialize',
+      'react',
+      'react-dom',
+      'redux',
+      'redux-thunk',
+      'react-datetime',
+      `${PATHS.APP}/main`,
     ],
   },
   output: {
-    filename: "[name].[chunkhash].js",
-    chunkFilename: "[name].[chunkhash].js",
+    pathinfo: false,
+    filename: '[name].[chunkhash].js',
+    chunkFilename: '[name].[chunkhash].js',
     path: PATHS.BUILD,
-    publicPath: ""
+    publicPath: '',
   },
   resolve: {
-    modules: ["node_modules", PATHS.APP],
-    extensions: [".html", ".less", ".json", ".js", ".jsx", ".ts", ".tsx"],
+    modules: ['node_modules', PATHS.APP],
+    extensions: ['.html', '.less', '.json', '.js', '.jsx', '.ts', '.tsx'],
     alias: {
-      assets: path.resolve(PATHS.APP, "assets"),
-      config: path.resolve(PATHS.APP, "config"),
-      modules: path.resolve(PATHS.APP, "modules"),
-      reducers: path.resolve(PATHS.APP, "reducers"),
-      services: path.resolve(PATHS.APP, "services"),
-      store: path.resolve(PATHS.APP, "store"),
-      utils: path.resolve(PATHS.APP, "utils"),
+      assets: path.resolve(PATHS.APP, 'assets'),
+      config: path.resolve(PATHS.APP, 'config'),
+      modules: path.resolve(PATHS.APP, 'modules'),
+      reducers: path.resolve(PATHS.APP, 'reducers'),
+      services: path.resolve(PATHS.APP, 'services'),
+      utils: path.resolve(PATHS.APP, 'utils'),
       test: PATHS.TEST,
-      assertions: path.resolve(PATHS.TEST, "assertions")
+      assertions: path.resolve(PATHS.TEST, 'assertions'),
     },
-    symlinks: false
+    symlinks: false,
   },
   module: {
-    rules: rules = [
+    rules: (rules = [
       {
         test: /\.tsx?$/,
-        loader: "ts-loader",
+        loader: 'ts-loader',
         options: {
+          experimentalWatchApi: true,
           projectReferences: true,
-          transpileOnly: (process.env.TYPE_CHECKING !== "true")
-        }
+          transpileOnly: process.env.TYPE_CHECKING !== 'true',
+        },
       },
-      {
-        test: /\.js$/,
-        use: ["source-map-loader"],
-        enforce: "pre",
-        include: /@augurproject\/.*/
-      },
+      //{
+      //  test: /\.js$/,
+      //  use: ["source-map-loader"],
+      //  enforce: "pre",
+      //  include: /@augurproject\/.*/,
+      //  exclude: /node_modules\/.*/,
+      //},
       {
         test: /npm-cli|node-hid/,
-        loader: "null-loader"
+        loader: 'null-loader',
       },
       {
         test: /\.(woff(2)?|ttf|eot|svg)(\?v=\d+\.\d+\.\d+)?$/,
         use: [
           {
-            loader: "file-loader",
+            loader: 'file-loader',
             options: {
-              name: "[name].[ext]",
-              outputPath: "fonts/"
-            }
-          }
-        ]
+              name: '[name].[ext]',
+              outputPath: 'fonts/',
+            },
+          },
+        ],
+      },
+      {
+        test: /\.(mp3|png)$/,
+        loader: 'file-loader',
       },
       {
         test: /\.less$/,
         use: [
-          "style-loader",
+          'style-loader',
           {
-            loader: "typings-for-css-modules-loader",
+            loader: 'typings-for-css-modules-loader',
             options: {
-              camelCase:true,
+              camelCase: true,
               modules: true,
               namedExport: true,
-              localIdentName: "[name]_[local]"
-            }
+              localIdentName: '[name]_[local]',
+            },
           },
-          "postcss-loader",
-          "less-loader"
-        ]
+          'postcss-loader',
+          'less-loader',
+        ],
+      },
+      {
+        test: /\.s[ac]ss$/i,
+        use: [
+          // Creates `style` nodes from JS strings
+          'style-loader',
+          // Translates CSS into CommonJS
+          'css-loader',
+          // Compiles Sass to CSS
+          'sass-loader',
+        ],
       },
       {
         test: /\.css$/,
         use: [
-          "style-loader",
-          "postcss-loader"
-        ]
-      }
-    ]
+          {
+            loader: 'style-loader',
+          },
+          {
+            loader: 'postcss-loader',
+            options: {
+              config: {
+                path: PATHS.ROOT_UI,
+              },
+            },
+          },
+        ],
+      },
+      {
+        test: /\.(js|jsx)$/,
+        exclude: /.*(node_modules|orbit-web).*/,
+        include: PATHS.SITEMAP,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: ['@babel/preset-env'],
+          },
+        },
+      },
+    ]),
+  },
+  optimization: {
+    // https://webpack.js.org/configuration/optimization/#optimization-usedexports
+    // `unusedExports: true` is required by DeadCodePlugin
+    usedExports: true,
+    splitChunks: {
+      maxSize: 7 * 1024 * 1024,
+    },
   },
   plugins: [
     new WorkerPlugin({
-      globalObject: 'self'
+      globalObject: 'self',
     }),
     new CleanWebpackPlugin(),
     new CopyWebpackPlugin([
       {
-        from: path.resolve(PATHS.APP, "config/manifest.json"),
-        to: path.resolve(PATHS.BUILD, "config")
+        from: path.resolve(PATHS.APP, 'StableIPFSLoader.html'),
+        to: path.resolve(PATHS.BUILD, 'StableIPFSLoader.html'),
       },
       {
-        from: path.resolve(PATHS.APP, "favicon.ico"),
-        to: PATHS.BUILD
+        from: path.resolve(PATHS.ROOT_MONOREPO, 'zerox.wasm'),
+        to: path.resolve(PATHS.BUILD, 'zerox.wasm'),
       },
       {
-        from: path.resolve(PATHS.APP, "assets/fonts"),
-        to: path.resolve(PATHS.BUILD, "fonts")
+        from: path.resolve(PATHS.APP, 'config/manifest.json'),
+        to: path.resolve(PATHS.BUILD, 'config'),
       },
       {
-        from: path.resolve(PATHS.APP, "assets/images"),
-        to: path.resolve(PATHS.BUILD, "images")
+        from: path.resolve(PATHS.APP, 'favicon.ico'),
+        to: PATHS.BUILD,
       },
       {
-        from: path.resolve(PATHS.APP, "sitemap.xml"),
-        to: PATHS.BUILD
+        from: path.resolve(PATHS.APP, 'assets/fonts'),
+        to: path.resolve(PATHS.BUILD, 'fonts'),
       },
       {
-        from: path.resolve(PATHS.APP, "robots.txt"),
-        to: PATHS.BUILD
+        from: path.resolve(PATHS.APP, 'assets/images'),
+        to: path.resolve(PATHS.BUILD, 'images'),
       },
       {
-        from: path.resolve(PATHS.ORBIT, "dist"),
-        to: path.resolve(PATHS.BUILD, "chat")
+        from: path.resolve(PATHS.APP, 'assets/videos'),
+        to: path.resolve(PATHS.BUILD, 'videos'),
+      },
+      {
+        from: path.resolve(PATHS.APP, 'sitemap.xml'),
+        to: PATHS.BUILD,
+      },
+      {
+        from: path.resolve(PATHS.APP, 'robots.txt'),
+        to: PATHS.BUILD,
+      },
+      {
+        from: path.resolve(PATHS.ORBIT, 'dist'),
+        to: path.resolve(PATHS.BUILD, 'chat'),
       },
     ]),
     new HtmlWebpackPlugin({
-      template: path.resolve(PATHS.APP, "index.ejs"),
+      template: path.resolve(PATHS.APP, 'index.ejs'),
       environment: process.env.NODE_ENV,
       chunksSortMode: (a, b) => {
         const order = [
-          "web-workers-exit",
-          "common",
-          "assets/scripts/vendor",
-          "assets/styles/styles",
-          "main"
+          'web-workers-exit',
+          'common',
+          'assets/scripts/vendor',
+          'assets/styles/styles',
+          'main',
         ];
 
         return order.indexOf(b.names[0]) + order.indexOf(a.names[0]);
-      }
+      },
     }),
-    new GitRevisionPlugin({
-      branch: true
-    }),
-    new webpack.DefinePlugin({
-      "process.env": {
-        GETH_PASSWORD: JSON.stringify(process.env.GETH_PASSWORD),
-        ETHEREUM_NETWORK: JSON.stringify(process.env.ETHEREUM_NETWORK || "dev"),
-        AUTO_LOGIN: process.env.AUTO_LOGIN || false,
+    new webpack.EnvironmentPlugin({
+        AUGUR_ENV: null,
+        AUTO_LOGIN: false,
+        CURRENT_COMMITHASH: null,
+        CURRENT_VERSION: null,
+        ETHEREUM_NETWORK: AUGUR_ENV,
+        IPFS_STABLE_LOADER_HASH: null,
 
         // Set this var to remove code that is problematic for us to host.
         // Will need to be negated in the relevant conditionals.
-        AUGUR_HOSTED: process.env.AUGUR_HOSTED || false,
-        ENABLE_MAINNET: process.env.ENABLE_MAINNET || false,
-        CURRENT_BRANCH: JSON.stringify(gitRevisionPlugin.branch())
-      }
-    })
+        AUGUR_HOSTED: false,
+        ENABLE_MAINNET: false,
+        REPORTING_ONLY: false,
+        CONFIGURATION: config,
+        PARA_DEPLOY_TOKEN_NAME: null,
+    }),
   ],
   node: {
-    fs: "empty",
-    net: "empty",
-    tls: "empty",
-    child_process: "empty"
+    fs: 'empty',
+    net: 'empty',
+    tls: 'empty',
+    child_process: 'empty',
   },
-  devtool: "eval"
+  devtool: 'source-map',
 };

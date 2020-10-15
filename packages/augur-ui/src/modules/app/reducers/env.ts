@@ -1,12 +1,8 @@
-import { EnvObject, BaseAction } from "modules/types";
-import { UPDATE_ENV } from "modules/app/actions/update-env";
+import type { SDKConfiguration } from '@augurproject/artifacts';
+import { BaseAction } from 'modules/types';
+import { UPDATE_ENV } from 'modules/app/actions/update-env';
 
-const DEFAULT_STATE: EnvObject = {
-  useWeb3Transport: true,
-  universe: undefined,
-};
-
-export default function(env = DEFAULT_STATE, { type, data }: BaseAction): EnvObject {
+export default function(env = process.env.CONFIGURATION, { type, data }: BaseAction): SDKConfiguration {
   switch (type) {
     case UPDATE_ENV:
       return data.env;

@@ -1,17 +1,18 @@
-import { EthersProvider } from "@augurproject/ethersjs-provider";
-import { ContractAddresses } from "@augurproject/artifacts";
-import { NetworkConfiguration } from "@augurproject/core";
+import { ethers } from 'ethers';
+import { EthersProvider } from '@augurproject/ethersjs-provider';
+import { Connectors, createClient } from '@augurproject/sdk';
+import { NewBlock, SubscriptionEventName } from '@augurproject/sdk-lite';
+import { configureDexieForNode } from '@augurproject/sdk/build/state/utils/DexieIDBShim';
+import {
+  mergeConfig,
+  RecursivePartial,
+  SDKConfiguration,
+  validConfigOrDie,
+} from '@augurproject/utils';
+import { ContractAPI, makeSigner, providerFromConfig, Seed } from '..';
+import { Account } from '../constants';
 
-import { ContractAPI } from "../libs/contract-api";
-import { Account } from "../constants";
-import { providers } from "ethers";
-import { Connectors, Events, SubscriptionEventName } from "@augurproject/sdk";
-import { API } from "@augurproject/sdk/build/state/getter/API";
-import { PouchDBFactory } from "@augurproject/sdk/build/state/db/AbstractDB";
-import { IBlockAndLogStreamerListener } from "@augurproject/sdk/build/state/db/BlockAndLogStreamerListener";
-import { DB } from "@augurproject/sdk/build/state/db/DB";
-import { EmptyConnector } from "@augurproject/sdk";
-import { BaseConnector } from "@augurproject/sdk/build/connector";
+configureDexieForNode(true);
 
 export interface FlashOption {
   name: string;
@@ -27,44 +28,32 @@ export interface FlashArguments {
 
 export interface FlashScript {
   name: string;
+  ignoreNetwork?: boolean;
+  syncDatabase?: boolean;
   description?: string;
   options?: FlashOption[];
-  call(this: FlashSession, args: FlashArguments): Promise<any>;
+  call(this: FlashSession, args: FlashArguments): Promise<void>;
 }
-
-type Logger = (s: string) => void;
 
 export class FlashSession {
   // Configuration
-  accounts: Account[];
-  user?: ContractAPI;
-  api?: API;
-  db?: Promise<DB>;
   readonly scripts: { [name: string]: FlashScript } = {};
-  log: Logger = console.log;
-  network?: NetworkConfiguration;
 
   // Node miscellanea
   provider?: EthersProvider;
-  contractAddresses?: ContractAddresses;
-  account?: string;
 
-  // Other values to store. This exists because e.g. Ganache can't exist in all environments.
-  [key: string]: any;
-
-  constructor(accounts: Account[]) {
-    this.accounts = accounts;
-  }
+  constructor(
+    public accounts: Account[],
+    public network?: string,
+    public para?: string,
+    public config?: SDKConfiguration,
+  ) {}
 
   addScript(script: FlashScript) {
     this.scripts[script.name] = script;
   }
 
-  setLogger(logger: Logger) {
-    this.log = logger;
-  }
-
-  async call(name: string, args: FlashArguments): Promise<any> {
+  async call(name: string, args: FlashArguments): Promise<void> {
     const script = this.scripts[name];
 
     const readyArgs: FlashArguments = {};
@@ -84,7 +73,7 @@ export class FlashSession {
 
       if (option.required) {
         if (typeof arg === 'undefined') {
-          this.log(`ERROR: Must specify "--${optionName}"`);
+          console.log(`must specify "--${optionName}"`);
           return;
         }
       }
@@ -95,8 +84,8 @@ export class FlashSession {
 
   noProvider() {
     if (typeof this.provider === 'undefined') {
-      this.log(
-        'ERROR: Must first connect to node. Consider running `ganache`.'
+      console.error(
+        'must first connect to node. Consider running `ganache`'
       );
       return true;
     }
@@ -105,123 +94,90 @@ export class FlashSession {
   }
 
   noAddresses() {
-    if (typeof this.contractAddresses === 'undefined') {
-      this.log(
-        'ERROR: Must first load contract addresses.'
-      );
+    if (typeof this.config?.addresses === 'undefined') {
+      console.error('must first load contract addresses');
       return true;
     }
 
     return false;
   }
 
-  usingSdk = false;
-  sdkReady = false;
-  async ensureUser(
-    network?: NetworkConfiguration,
-    wireUpSdk = null,
-    approveCentralAuthority = true,
-    accountAddress = null,
-  ): Promise<ContractAPI> {
-    if (typeof this.contractAddresses === 'undefined') {
-      throw Error('ERROR: Must load contract addresses first.');
-    }
-
-    if (this.user && (wireUpSdk === null || wireUpSdk === this.usingSdk)) {
-      return this.user;
-    }
-
-    if (wireUpSdk) this.usingSdk = true;
-
-    const connector: BaseConnector = wireUpSdk ? new Connectors.DirectConnector() : new EmptyConnector();
-
-    this.user = await ContractAPI.userWrapper(
-      this.getAccount(accountAddress),
-      this.provider,
-      this.contractAddresses,
-      connector
-    );
-
-    if (wireUpSdk) {
-      network = network || this.network;
-      if (!network) throw Error('Cannot wire up sdk if network is not set.');
-      await this.user.augur.connect(network.http, this.getAccount().publicKey);
-      await this.user.augur.on(SubscriptionEventName.NewBlock, this.sdkNewBlock);
-      this.db = this.makeDB();
-      this.api = new API(this.user.augur, this.db);
-    }
-
-    if (approveCentralAuthority) {
-      await this.user.approveCentralAuthority();
-    }
-
-    return this.user;
+  deriveConfig(overwrite: RecursivePartial<SDKConfiguration>): SDKConfiguration {
+    return validConfigOrDie(mergeConfig(this.config, overwrite));
   }
 
-  sdkNewBlock = (log: Events.NewBlock) => {
+  _configs: SDKConfiguration[] = [];
+  pushConfig(overwrite: RecursivePartial<SDKConfiguration>): SDKConfiguration {
+    this._configs.push(this.config);
+    const newConfig = validConfigOrDie(mergeConfig(this.config, overwrite));
+    this.config = newConfig;
+    return newConfig;
+  }
+  popConfig(): SDKConfiguration {
+    const oldConfig = this._configs.pop();
+    if (!oldConfig) throw Error('Cannot pop config when no configs are pushed');
+    return this.config;
+  }
+
+  sdkReady = false;
+  async createUser(
+    account: Account,
+    config: SDKConfiguration,
+  ): Promise<ContractAPI> {
+    const provider = await providerFromConfig(config);
+    const connector = new Connectors.SingleThreadConnector();
+    const signer : ethers.Signer = await makeSigner(account, provider);
+    const client = await createClient(config, connector, signer, provider);
+    const user = new ContractAPI(client, provider, account, signer);
+
+    if (!config.flash?.skipApproval) {
+      await user.approveIfNecessary();
+    }
+
+    if (config.flash?.syncSDK) {
+      await user.augur.connector.connect(this.config);
+      // NB(pg): Augur#on should *not* be asynchronous and needs to be refactored
+      // at another time.
+      await user.augur.on(
+        SubscriptionEventName.NewBlock,
+        this.sdkNewBlock
+      );
+    }
+
+    return user;
+  }
+
+  sdkNewBlock = (log: NewBlock) => {
     if (log.blocksBehindCurrent === 0) {
       this.sdkReady = true;
     } else {
-      this.log(`sdk ${log.blocksBehindCurrent} block behind`);
+      console.log(`sdk ${log.blocksBehindCurrent} block behind`);
     }
   };
 
-  getAccount(address: string = null): Account {
-    let useAccount = this.accounts[0];
-    if (address) {
-      const found = this.accounts.find(a => a.publicKey.toLowerCase() === address.toLowerCase());
-      if (found) useAccount = found;
-    }
-    if (this.account) {
-      const findAccount = this.accounts.find(
-        a => a.publicKey.toLowerCase() === this.account.toLowerCase()
-      );
-      if (findAccount) useAccount = findAccount;
-    }
-    return useAccount;
+  getAccount(): Account {
+    return this.accounts[0];
   }
 
   async contractOwner(): Promise<ContractAPI> {
-    if (typeof this.contractAddresses === 'undefined') {
+    if (typeof this.config?.addresses === 'undefined') {
       throw Error('ERROR: Must load contract addresses first.');
     }
 
     return ContractAPI.userWrapper(
       this.accounts[0],
       this.provider,
-      this.contractAddresses
+      this.config,
     );
   }
 
-  makeProvider(config: NetworkConfiguration): EthersProvider {
-    const provider = new providers.JsonRpcProvider(config.http);
-    const ethersProvider = new EthersProvider(provider, 5, 0, 40);
-    ethersProvider.overrideGasPrice = config.gasPrice;
-    ethersProvider.gasLimit = config.gasLimit;
-    return ethersProvider;
+  makeProvider(config: SDKConfiguration): EthersProvider {
+    return providerFromConfig(config);
   }
 
   async getNetworkId(provider: EthersProvider): Promise<string> {
     return (await provider.getNetwork()).chainId.toString();
   }
 
-
-  async makeDB(): Promise<DB> {
-    const listener = {
-      listenForBlockRemoved: () => {},
-      listenForBlockAdded: () => {},
-      listenForEvent: () => {},
-      startBlockStreamListener: () => {},
-    } as unknown as IBlockAndLogStreamerListener;
-
-    return DB.createAndInitializeDB(
-      Number(this.user.augur.networkId),
-      0,
-      0,
-      [this.user.account.publicKey],
-      this.user.augur,
-      PouchDBFactory({adapter: 'memory'}),
-      listener
-    );
-  }
+  seeds: {[name: string]: Seed} = {};
 }

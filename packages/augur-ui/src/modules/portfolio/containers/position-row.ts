@@ -1,15 +1,18 @@
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router-dom';
-import { AppState } from 'store';
+import { AppState } from 'appStore';
 import * as constants from 'modules/common/constants';
 import Row from 'modules/common/row';
 import { Properties } from 'modules/common/row-column';
 import { ThunkDispatch } from 'redux-thunk';
 import { Action } from 'redux';
+import { calcPercentageFromPrice } from 'utils/format-number';
 
 const { COLUMN_TYPES, SHORT, BUY, SELL } = constants;
 
-const mapStateToProps = (state: AppState) => ({});
+const mapStateToProps = (state: AppState) => ({
+  marketInfos: state.marketInfos,
+});
 
 const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Action>) => ({});
 
@@ -22,7 +25,26 @@ const mergeProps = (sP: any, dP: any, oP: any) => {
     showExpandedToggleOnMobile,
     updateSelectedOrderProperties,
   } = oP;
+  let lastPrice = position.lastPrice;
+  let purchasePrice = position.purchasePrice;
 
+  const market = sP.marketInfos[position.marketId];
+  const usePercent = position.outcomeId === constants.INVALID_OUTCOME_ID && market.marketType === constants.SCALAR;
+  if (usePercent) {
+    const lastPricePercent = calcPercentageFromPrice(
+      String(lastPrice.value),
+      market.minPrice,
+      market.maxPrice
+    );
+    lastPrice = { ...lastPrice, percent: `${lastPricePercent}%` };
+
+    const purchasePricePercent = calcPercentageFromPrice(
+      String(purchasePrice.value),
+      market.minPrice,
+      market.maxPrice
+    );
+    purchasePrice = { ...purchasePrice, percent: `${purchasePricePercent}%` };
+  }
   const columnProperties: Array<Properties> = [
     {
       key: 'orderName',
@@ -43,14 +65,19 @@ const mergeProps = (sP: any, dP: any, oP: any) => {
       action: () => {
         updateSelectedOrderProperties({
           orderQuantity: position.quantity.value,
-          selectedNav: position.type === SHORT ? SELL : BUY,
+          selectedNav: position.type === SHORT ? BUY : SELL,
+          orderPrice: ''
         });
       },
     },
     {
-      key: 'orderQuantity',
+      key: 'averagePrice',
       columnType: COLUMN_TYPES.VALUE,
-      value: position.purchasePrice,
+      value: purchasePrice,
+      usePercent: purchasePrice && !!purchasePrice.percent,
+      useFull: market?.marketType === constants.SCALAR ? false : true,
+      showFullPrecision: market?.marketType === constants.SCALAR? true : false,
+      showDenomination: market?.marketType === constants.SCALAR ? true : false,
       keyId: 'position-price-' + position.id,
     },
     {
@@ -58,6 +85,7 @@ const mergeProps = (sP: any, dP: any, oP: any) => {
       key: 'totalCost',
       columnType: COLUMN_TYPES.VALUE,
       value: position.totalCost,
+      useFull: true,
       keyId: 'position-totalCost-' + position.id,
     },
     {
@@ -65,47 +93,51 @@ const mergeProps = (sP: any, dP: any, oP: any) => {
       key: 'totalValue',
       columnType: COLUMN_TYPES.VALUE,
       value: position.totalValue,
+      useFull: true,
       keyId: 'position-totalValue-' + position.id,
     },
     {
       hide: extendedView,
       key: 'lastPrice',
       columnType: COLUMN_TYPES.VALUE,
-      value: position.lastPrice,
+      value: lastPrice,
+      usePercent: lastPrice && !!lastPrice.percent,
+      useFull: true,
       keyId: 'position-lastPrice-' + position.id,
     },
   ];
   if (!showPercent) {
     columnProperties.push({
       key: 'totalPercent',
-      showPercent: true,
+      useFull: true,
       showBrackets: true,
       showPlusMinus: true,
-      showColors: true,
-      size: 'medium',
       hide: extendedView,
       columnType: COLUMN_TYPES.MOVEMENT_LABEL,
-      value: position.totalPercent.roundedFormatted,
+      value: position.totalPercent,
     });
   } else {
     columnProperties.push({
       key: 'totalReturns',
       hide: extendedView,
-      columnType: COLUMN_TYPES.PLAIN,
-      value: position.totalReturns.formatted,
+      columnType: COLUMN_TYPES.VALUE,
+      useFull: true,
+      value: position.totalReturns,
     });
   }
   columnProperties.push({
     key: 'unrealizedNet',
     hide: !extendedView,
-    columnType: COLUMN_TYPES.PLAIN,
-    value: position.unrealizedNet.formatted,
+    columnType: COLUMN_TYPES.VALUE,
+    useFull: true,
+    value: position.unrealizedNet,
   });
   columnProperties.push({
     key: 'realizedNet',
     hide: !extendedView,
-    columnType: COLUMN_TYPES.PLAIN,
-    value: position.realizedNet.formatted,
+    columnType: COLUMN_TYPES.VALUE,
+    useFull: true,
+    value: position.realizedNet,
   });
   return {
     ...oP,

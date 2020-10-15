@@ -2,11 +2,12 @@ import { connect } from 'react-redux';
 import { withRouter } from 'react-router-dom';
 import { Onboarding } from 'modules/modal/onboarding';
 import { closeModal } from 'modules/modal/actions/close-modal';
-import { AppState } from 'store';
+import { AppState } from 'appStore';
 import { ThunkDispatch } from 'redux-thunk';
 import { Action } from 'redux';
 import makePath from 'modules/routes/helpers/make-path';
 import { MARKETS } from 'modules/routes/constants/views';
+import { TestBet } from 'modules/modal/common';
 
 const mapStateToProps = (state: AppState) => ({});
 
@@ -15,9 +16,10 @@ const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Action>) => ({
 });
 
 const mergeProps = (sP: any, dP: any, oP: any) => ({
-  largeHeader: 'Welcome to our test market',
+  icon: TestBet,
+  largeHeader: 'Run a test bet!',
   condensed: true,
-  smallHeader: "Here we're going to take you through each step of placing a trade on Augur. You can exit this walkthrough at any time and access it again via the help menu",
+  smallHeader: "Learn how betting works on Augur by placing a test bet. Get tips and guidance and start betting for real today.",
   buttons: [
     {
       text: 'Lets go!',

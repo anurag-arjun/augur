@@ -1,77 +1,73 @@
-import logError from 'utils/log-error';
-import { AppState } from 'store';
-import { ThunkDispatch } from 'redux-thunk';
-import { Action } from 'redux';
-import { NodeStyleCallback } from 'modules/types';
-import getUserOpenOrder from 'modules/orders/selectors/select-user-open-order';
-import {
-  cancelOpenOrders,
-  cancelOpenOrder,
-} from 'modules/contracts/actions/contractCalls';
+import { TXEventName } from '@augurproject/sdk-lite';
 import { addAlert } from 'modules/alerts/actions/alerts';
-import { CANCELORDER } from 'modules/common/constants';
+import { BUY, CANCELORDERS } from 'modules/common/constants';
+import { cancelZeroXOpenBatchOrders, cancelZeroXOpenOrder, } from 'modules/contracts/actions/contractCalls';
+import { addCanceledOrder } from 'modules/pending-queue/actions/pending-queue-management';
+import { Action } from 'redux';
+import { ThunkDispatch } from 'redux-thunk';
 
-export const cancelAllOpenOrders = (orders: any, cb: NodeStyleCallback) => (
-  dispatch: ThunkDispatch<void, any, Action>,
-  getState: () => AppState
+const BATCH_CANCEL_MAX = 4;
+
+export const cancelAllOpenOrders = orders => async (
+  dispatch: ThunkDispatch<void, any, Action>
 ) => {
-  // TODO: need to figure out max number of orders that can be cancelled at one time
-  cancelOpenOrders(orders.map(o => o.id));
-  if (cb) cb(null);
+  let orderHashes = orders.map(order => order.id);
+
+  try {
+    orders.forEach((order) => {
+      sendCancelAlert(order, dispatch);
+    });
+    if (orderHashes.length > BATCH_CANCEL_MAX) {
+      let i = 0;
+      while (i < orderHashes.length) {
+        let orderHashesToCancel = orderHashes.slice(i, Math.min(i + BATCH_CANCEL_MAX, orderHashes.length));
+        dispatch(setCancelOrderStatus(orderHashesToCancel));
+        await cancelZeroXOpenBatchOrders(orderHashesToCancel);
+        i += BATCH_CANCEL_MAX;
+      }
+    } else {
+      dispatch(setCancelOrderStatus(orderHashes));
+      await cancelZeroXOpenBatchOrders(orderHashes);
+    }
+  } catch (error) {
+    console.error('Error canceling batch orders', error);
+    dispatch(setCancelOrderStatus(orders.map(o => o.id), TXEventName.Failure));
+    throw error;
+  }
 };
 
-export const cancelOrder = (
-  { orderId, marketId, outcome, orderTypeLabel }: any,
-  callback: NodeStyleCallback = logError
-) => (dispatch: ThunkDispatch<void, any, Action>, getState: () => AppState) => {
-  const { userOpenOrders } = getState();
-  const order = getUserOpenOrder(
-    orderId,
-    marketId,
-    outcome,
-    orderTypeLabel,
-    userOpenOrders
-  );
-  if (order) {
-    // TODO: we'll update state using pending tx events.
-    dispatch(
-      addAlert({
-        id: orderId,
-        uniqueId: orderId,
-        name: CANCELORDER,
-        status: '',
-        params: {
-          marketId,
-          outcomeId: outcome,
-          orderTypeLabel,
-          order,
-        },
-      })
-    );
-    cancelOpenOrder(orderId);
+export const cancelOrder = order => async (
+  dispatch: ThunkDispatch<void, any, Action>
+) => {
+  try {
+    const { id } = order;
+    dispatch(setCancelOrderStatus([id]));
+    sendCancelAlert(order, dispatch);
+    await cancelZeroXOpenOrder(id);
+  } catch (error) {
+    console.error('Error canceling order', error);
+    throw error;
   }
+};
 
-  if (!order) {
-    console.log('order not found need to do something in UI');
-  }
-  if (callback) callback(null);
-  /*
-  const market = marketInfos[marketId];
-  if (
-    order &&
-    market
-  ) {
-    const updateStatus = (status: string | null) => {
-      dispatch(
-        updateOrderStatus({
-          orderId,
-          status,
-          marketId,
-          outcome,
-          orderTypeLabel,
-        }),
-      );
-    };
-    updateStatus(CLOSE_DIALOG_PENDING);
-    */
+const sendCancelAlert = (order, dispatch) => {
+  const { id, marketDescription, outcomeId, type } = order;
+  const buyOrSell = type === BUY ? 0 : 1;
+  const alert = {
+    id: id,
+    uniqueId: id,
+    name: CANCELORDERS,
+    status: TXEventName.Pending,
+    description: marketDescription,
+    params: {
+      ...order,
+      outcome: '0x0'.concat(String(outcomeId)),
+      orderType: buyOrSell,
+    },
+  };
+  dispatch(addAlert(alert));
+};
+
+const setCancelOrderStatus = (ids: string[], status: string = TXEventName.Pending) => dispatch => {
+  ids.map(id => dispatch(addCanceledOrder(id, status, null)))
 };

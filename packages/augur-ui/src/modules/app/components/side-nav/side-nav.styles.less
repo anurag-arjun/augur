@@ -1,5 +1,6 @@
 @import (reference) '~assets/styles/shared';
 
+// Close icon is not part of SideNav
 .SideNav {
   display: none;
 
@@ -8,14 +9,27 @@
     flex-flow: column nowrap;
     height: 100vh;
     left: -100%;
+    top: 0;
     overflow: auto;
     position: fixed;
-    transition: left 0.2s ease-in-out;
-    width: calc(100% - 52px);
+    width: 100%;
     z-index: @mask-modal;
 
+    > div:first-of-type {
+      z-index: @above-all-content;
+
+      > div:first-of-type {
+        border-right: 1px solid @color-module-background;
+      }
+
+      > div:last-of-type {
+        padding: @size-6 @size-12 @size-6 @size-16;
+      }
+    }
+
     > div {
-      background: @color-module-background;
+      // Background for close icon and help icon when AccountFunds is closed.
+      background: @color-dark-grey;
       display: flex;
       justify-content: flex-end;
 
@@ -24,18 +38,18 @@
         display: flex;
 
         > div:first-of-type {
-          background: @color-page-background;
-          border-bottom: 1px solid @color-dark-grey;
+          // Background for close icon and help icon when AccountFunds is opened.
+          background: @color-dark-grey;
+          border-bottom: @size-1 solid @color-dark-grey;
           display: flex;
           justify-content: flex-end;
           width: 100%;
         }
       }
 
+      // ConnectAccount
       > div:nth-of-type(2) {
-
         > div:first-of-type {
-          background: @color-page-background;
           display: flex;
           justify-content: flex-end;
           width: 100%;
@@ -45,6 +59,45 @@
 
     &.showNav {
       left: 0;
+    }
+  }
+}
+
+.SideNavMigrateRep {
+  button {
+    .mono-12-bold;
+  }
+}
+
+.SideNavMigrateTooltipHint {
+  display: inline;
+  position: relative;
+  top: @size-3;
+  left: @size-10;
+
+  > svg {
+    max-height: @size-16;
+    max-width: @size-16;
+
+    > circle {
+      fill: @color-secondary-action;
+      stroke: @color-secondary-text;
+    }
+
+    > path {
+      fill: @color-secondary-text;
+    }
+  }
+
+  &:hover {
+    > svg {
+      > circle {
+        stroke: @color-primary-text;
+      }
+
+      > path {
+        fill: @color-primary-text;
+      }
     }
   }
 }
@@ -66,11 +119,19 @@
   }
 
   > div > ul {
-    background: @color-page-background;
+    background: @color-active-background;
     height: calc(100vh - @top-bar-height-mobile);
-    margin-top: @top-bar-height-mobile;
+    margin-top: @side-bar-top-menu-height-mobile;
     padding-bottom: @top-bar-height-mobile;
-    padding-top: 1.6875rem;
+
+    > div {
+      display: flex;
+      margin-top: @size-10;
+      margin-right: @size-12;
+      align-items: center;
+      margin-left: auto;
+      justify-content: space-between;
+    }
 
     &.accountDetailsOpen {
       margin-top: 0;
@@ -83,84 +144,81 @@
       }
 
       &.selected {
-        span {
-          .text-11-bold;
+        a {
+          padding: @size-21 @size-16 @size-14;
+        }
 
-          border-bottom: 2px solid @color-primary-action;
+        span {
+          .text-12-semi-bold;
+
+          border-bottom: @size-2 solid @color-primary-action;
           padding-bottom: @size-5;
           color: @color-primary-text;
           width: fit-content;
+        }
+
+        svg {
+          margin-bottom: @size-12;
         }
       }
 
       a,
       button {
         display: flex;
-        padding: @size-21 @size-24;
+        padding: @size-21 @size-16;
+        align-items: center;
 
         > span {
-          .text-11-bold;
+          .text-12-semi-bold;
 
           align-items: center;
-          color: @color-inactive-text;
+          color: @color-secondary-text;
           display: flex;
-          margin-left: @size-8;
           text-transform: uppercase;
         }
+
+        > svg {
+          height: @size-4;
+          width: @size-4;
+          fill: none;
+          margin-left: @size-4;
+          margin-bottom: @size-4;
+
+          > circle {
+            fill: @color-outcome-five;
+          }
+        }
       }
+
+      button {
+        padding: @size-8 @size-12;
+      }
+    }
+
+    > div {
+      margin-left: @size-16;
     }
   }
 
   > div > footer {
     align-items: center;
-    background: @color-module-background;
-    bottom: 0px;
+    background: @color-active-background;
+    bottom: 0;
     display: flex;
     height: @top-bar-height-mobile;
     justify-content: flex-start;
-    padding: 0 @size-22;
+    padding: 0 @size-18 @size-16;
     position: fixed;
-    width: calc(100% - 52px);
+    width: 100%;
 
-    > div:nth-of-type(2) {
-      .mono-10;
-
-      display: flex;
-      color: @color-primary-text;
-      cursor: pointer;
-      text-transform: uppercase;
-      order: 1;
-
-      > svg {
-        width: @size-9;
-        height: @size-13;
+    > div {
+      > span {
+        padding: 0;
       }
     }
 
-    > .GlobalChat {
-      background: @color-dark-grey;
+    > button {
       margin-left: auto;
-      order: 2;
-
-      // Closed global chat window
-      > button {
-        .mono-9-bold;
-
-        align-items: center;
-        background: @color-module-background;
-        color: @color-primary-text;
-        display: flex;
-        flex-direction: row-reverse;
-        text-transform: uppercase;
-
-        > svg {
-          fill: @color-primary-text;
-          height: @size-12;
-          margin-left: @size-8;
-          transform: rotate(180deg);
-          width: @size-12;
-        }
-      }
     }
   }
 }

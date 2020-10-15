@@ -1,27 +1,30 @@
-import React, { useState } from 'react';
-
-import { SecondaryButton } from 'modules/common/buttons';
-import { Chevron, Close } from 'modules/common/icons';
-
+import React from 'react';
+import { Close } from 'modules/common/icons';
 import Styles from 'modules/modal/modal.styles.less';
+import classNames from 'classnames';
 
 export interface ModalGlobalChatProps {
-  numberOfPeers: number;
   closeModal: Function;
+  whichChatPlugin: string;
 }
 
-export const ModalGlobalChat = (props: ModalGlobalChatProps) => {
-  return (
-    <div className={Styles.ModalGlobalChat}>
+export const ModalGlobalChat = ({
+  closeModal,
+  whichChatPlugin,
+}: ModalGlobalChatProps) => (
+  <div
+    className={classNames({
+      [Styles.ModalOrbitChat]: whichChatPlugin === 'orbit',
+    })}
+  >
+    <div>
       <div>
-        <div>
-          <span>Global Chat</span>
-          <button onClick={() => props.closeModal()}>
-            {Close}
-          </button>
-        </div>
-        <iframe src='./chat/index.html#/channel/augur' />
+        <span>Global Chat</span>
+        <button onClick={() => closeModal()}>{Close}</button>
       </div>
+      {whichChatPlugin === 'orbit' && (
+        <iframe src="./chat/index.html#/channel/augur" />
+      )}
     </div>
-  );
-};
+  </div>
+);

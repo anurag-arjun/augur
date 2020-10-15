@@ -3,8 +3,9 @@ import {
   REMOVE_PENDING_ORDER,
   UPDATE_PENDING_ORDER,
 } from 'modules/orders/actions/pending-orders-management';
-import { PendingOrders, BaseAction, UIOrder } from 'modules/types';
+import { PendingOrders, BaseAction } from 'modules/types';
 import { RESET_STATE } from 'modules/app/actions/reset-state';
+import { CLEAR_LOGIN_ACCOUNT } from 'modules/account/actions/login-account';
 
 const DEFAULT_STATE: PendingOrders = {};
 
@@ -24,13 +25,14 @@ export default function(
       };
     }
     case UPDATE_PENDING_ORDER: {
-      const { id, marketId, status, hash } = data;
+      const { id, marketId, status, hash, blockNumber } = data;
       const orders = pendingOrders[marketId];
       if (!orders) return pendingOrders;
       const order = orders.find(o => o.id === id);
       if (!order) return pendingOrders;
       order.status = status;
       order.hash = hash;
+      order.blockNumber = blockNumber;
       return pendingOrders;
     }
     case REMOVE_PENDING_ORDER: {
@@ -47,6 +49,9 @@ export default function(
         ...pendingOrders,
       };
     }
+    case RESET_STATE:
+    case CLEAR_LOGIN_ACCOUNT:
+      return DEFAULT_STATE;
     default:
       return pendingOrders;
   }

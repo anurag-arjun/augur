@@ -11,6 +11,81 @@
   &:disabled {
     cursor: @button-cursor-disabled;
   }
+
+  &.Phantom {
+    border: unset;
+    border-radius: unset;
+    background: unset;
+
+    &:hover:enabled {
+      background: unset;
+    }
+    &:focus:enabled {
+      background: unset;
+    }
+    &:active:enabled {
+      background: unset;
+    }
+    > svg {
+      > path {
+        fill: @color-primary-text;
+      }
+    }
+  }
+
+  &.Confirmed {
+    color: @color-primary-text;
+    background: fade(@color-positive, 20%);
+    border: 1px solid @color-positive;
+    border-radius: @border-radius-default;
+    &:hover:enabled {
+      background: fade(@color-positive, 20%);
+    }
+
+    &:focus:enabled {
+      background: fade(@color-positive, 20%);
+    }
+
+    &:active:enabled {
+      background: fade(@color-positive, 20%);
+    }
+    > svg {
+      width: @size-8;
+      height: @size-8;
+      margin-left: @size-8;
+
+      > path {
+        stroke: @color-primary-text;
+      }
+    }
+  }
+
+  &.Failed {
+    color: @color-primary-text;
+    background: fade(@color-error, 20%);
+    border: 1px solid @color-error;
+    border-radius: @border-radius-default;
+    &:hover:enabled {
+      background: fade(@color-error, 20%);
+    }
+
+    &:focus:enabled {
+      background: fade(@color-error, 20%);
+    }
+
+    &:active:enabled {
+      background: fade(@color-error, 20%);
+    }
+    > svg {
+      width: @size-8;
+      height: @size-8;
+      margin-left: @size-8;
+
+      > path {
+        stroke: @color-primary-text;
+      }
+    }
+  }
 }
 
 .PrimaryButton {
@@ -124,7 +199,7 @@
   .Button;
 
   background: transparent;
-  border: 1px solid @color-secondary-action-outline;
+  border: @size-1 solid @color-secondary-action-outline;
   color: @color-primary-text;
   padding: @size-12 @size-24;
 
@@ -177,26 +252,27 @@
 .SecondaryButton {
   .Button;
 
-  background: transparent;
-  border: 1px solid @color-secondary-action-outline;
+  background: @color-module-background;
+  border: @size-1 solid @color-secondary-action-outline;
   color: @color-primary-text;
   max-height: @button-height-default;
   padding: @size-8 @size-12;
 
   &:disabled {
-    background: @color-inactive-text;
+    background: fade(@color-secondary-hover, 25%);
+    color: fade(@color-primary-text, 25%);
   }
 
   &:hover:enabled {
-    background: fade(@color-primary-action, 5%);
+    background: lighten(@color-module-background, 5%);
   }
 
   &:focus:enabled {
-    background: fade(@color-primary-action, 10%);
+    background: lighten(@color-module-background, 10%);
   }
 
   &:active:enabled {
-    background: fade(@color-primary-action, 15%);
+    background: lighten(@color-module-background, 15%);
   }
 
   &.Small {
@@ -204,17 +280,31 @@
 
     padding: @size-6 @size-12;
   }
+
+  > svg {
+    height: @size-12;
+    width: @size-12;
+
+    > rect {
+      fill: @color-primary-text;
+      height: 1px;
+      width: @size-8;
+    }
+  }
 }
 
 .BuyOrderButton {
   .Button;
+  .mono-12-semi-bold;
 
   background: fade(@color-positive, 10%);
   border-color: @color-positive;
+  border-width: @size-2;
   color: @color-positive;
   height: @button-height-default;
   max-height: @button-height-default;
-  padding: @button-padding-orders;
+  text-transform: uppercase;
+  width: 100%;
 
   &:disabled {
     background: fade(@color-positive, 5%);
@@ -223,20 +313,21 @@
   }
 
   &:hover:enabled {
-    background: fade(@color-positive, 60%);
+    background: fade(@color-positive, 20%);
   }
 }
 
 .ToggleExtendButton {
   display: flex;
-  margin-left: @size-4;
+  margin-left: @size-16;
 
   > svg {
-    width: @size-12;
-    height: @size-15;
+    align-self: center;
+    width: @size-6;
+    height: @size-12;
 
     > path {
-      fill: @color-secondary-text;
+      stroke: @color-secondary-text;
     }
   }
 
@@ -245,7 +336,7 @@
 
     > svg {
       > path {
-        fill: @color-primary-text;
+        stroke: @color-primary-text;
       }
     }
   }
@@ -257,13 +348,16 @@
 
 .SellOrderButton {
   .Button;
+  .mono-12-semi-bold;
 
   background: fade(@color-negative, 10%);
   border-color: @color-negative;
+  border-width: @size-2;
   color: @color-negative;
   height: @button-height-default;
   max-height: @button-height-default;
-  padding: @button-padding-orders;
+  text-transform: uppercase;
+  width: 100%;
 
   &:disabled {
     background: fade(@color-negative, 5%);
@@ -272,10 +366,37 @@
   }
 
   &:hover:enabled {
-    background: fade(@color-negative, 60%);
+    background: fade(@color-negative, 20%);
   }
 }
 
+.ChatButton {
+  .mono-10-semi-bold;
+
+  padding: @size-9;
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  text-transform: uppercase;
+  color: @color-primary-text;
+  background: @color-secondary-action;
+  cursor: pointer;
+  border: @size-1 solid @color-secondary-action-outline;
+  border-radius: @border-radius-default;
+
+  > svg {
+    width: @size-10;
+    height: @size-10;
+    fill: @color-primary-text;
+    margin-left: @size-4;
+    transform: rotate(180deg);
+
+    path {
+      fill: @color-primary-text;
+    }
+  }
+}
+// Used in Betting UI
 .FavoriteButton {
   .text-12;
 
@@ -291,9 +412,9 @@
   }
 
   > svg > path {
-    fill: @color-primary-text;
+    fill: @color-secondary-text;
     fill-opacity: 0.1;
-    stroke: @color-primary-text;
+    stroke: @color-secondary-text;
   }
 
   &:disabled {
@@ -334,52 +455,61 @@
   }
 }
 
-.FavoriteButton__small {
+.FavoriteButton_small {
   > svg {
-    height: 1rem;
-    width: 1rem;
+    height: @size-16;
+    width: @size-16;
   }
 }
 
 .CompactButton {
   .Button;
-  .mono-9;
+  .mono-9-bold;
 
   border: @border-default;
+  background: @color-secondary-action;
   border-color: @color-secondary-action-outline;
   border-radius: @size-3;
-  color: @color-inactive-text;
+  color: @color-primary-text;
   line-height: @size-10;
   padding: @size-2 @size-4;
   text-transform: uppercase;
 
   &:hover:enabled {
-    background: @color-secondary-action;
-    color: @color-primary-text;
+    color: @color-dismissable-notice-background;
   }
 }
 
 .CancelTextButton {
-  .mono-9;
+  .Button;
+  .mono-10-semi-bold;
 
   align-items: center;
   display: flex;
   flex-flow: row nowrap;
   text-transform: uppercase;
   background: @color-secondary-action;
-  border: 1px solid @color-secondary-action-outline;
+  border: @size-1 solid @color-secondary-action-outline;
   border-radius: @size-3;
   color: @color-primary-text;
-  padding: @size-1 @size-4;
+  padding: @size-4 @size-6;
+  white-space: nowrap;
+
+  &.IconButton {
+    padding: @size-2;
+  }
+
+  &:disabled {
+    color: fade(@color-primary-text, 20%);
+  }
 
   > svg {
     fill: none;
-    height: 0.5rem;
-    margin-right: 0.25rem;
-    width: 0.5rem;
+    height: @size-8;
+    width: @size-8;
 
     > path {
-      stroke: @color-inactive-text;
+      stroke: @color-secondary-text;
     }
   }
 
@@ -430,19 +560,28 @@
 
     &:hover {
       color: fade(@color-primary-text, 20%);
+      font-weight: normal;
     }
+  }
+
+  &.Failed {
+    color: @color-error;
+  }
+
+  &.Confirmed {
+    color: @color-positive;
   }
 }
 
 .DaiPercentButton {
   display: flex;
   justify-content: center;
-  padding: 0.1875rem;
+  padding: @size-3 @size-5;
 
   > svg {
     fill: none;
-    height: 0.5rem;
-    width: 0.5rem;
+    height: @size-10;
+    width: @size-10;
 
     > path {
       fill: @color-inactive-text;
@@ -460,20 +599,21 @@
   .Button;
 
   align-content: center;
-  background: @color-secondary-action;
-  border: 1px solid @color-secondary-action-outline;
+  // background: @color-secondary-action;
+  background: transparent;
+  border: @size-1 solid @color-secondary-action-outline;
   color: @color-primary-text;
   display: flex;
   flex-flow: row nowrap;
   justify-content: center;
   line-height: @size-16;
   max-height: @button-height-default;
-  padding: @size-12 @size-24;
+  padding: @size-12;
 
   > svg {
     fill: none;
     height: @size-16;
-    margin: auto @size-8 auto 0;
+    margin: auto 0 auto @size-8;
     width: @size-16;
 
     > path {
@@ -498,15 +638,15 @@
   }
 
   &:hover:enabled {
-    background: fade(@color-primary-action, 5%);
+    background: @color-secondary-hover;
   }
 
   &:focus:enabled {
-    background: fade(@color-primary-action, 10%);
+    background: @color-secondary-hover;
   }
 
   &:active:enabled {
-    background: fade(@color-primary-action, 15%);
+    background: @color-secondary-hover;
   }
 }
 
@@ -550,15 +690,11 @@
   .ViewTransactionsButton;
 
   height: 100%;
-  padding: 0 @size-24;
-
-  > span {
-    padding: @size-12 0;
-  }
+  padding: @size-12;
 
   > svg {
-    height: @size-22;
-    width: @size-20;
+    height: @size-16;
+    width: @size-16;
 
     > path {
       &:nth-child(odd) {
@@ -585,32 +721,42 @@
 }
 
 .ViewTransactionDetailsButton {
-  .mono-10;
+  .mono-9-bold;
 
+  background: @color-secondary-action;
+  border: @size-1 solid @color-secondary-action-outline;
+  border-radius: @border-radius-default;
   align-items: center;
-  color: @color-primary-action;
+  color: @color-primary-text;
   cursor: pointer;
   display: flex;
   justify-content: center;
   text-transform: uppercase;
+  padding: @size-2 @size-4;
 
-  > svg {
+  > span > a {
+    display: flex;
+  }
+
+  > span > a > svg,
+  > span > span > svg {
     fill: none;
     height: @size-10;
-    margin-right: @size-4;
+    margin-left: @size-4;
     width: @size-10;
 
     > path:nth-child(odd) {
-      fill: @color-primary-action;
+      fill: @color-secondary-text;
     }
 
     > path:nth-child(even) {
-      stroke: @color-primary-action;
+      stroke: @color-secondary-text;
     }
   }
 
   > span > a {
-    color: @color-primary-action;
+    color: @color-primary-text;
+    white-space: nowrap;
   }
 
   &:hover {
@@ -630,12 +776,9 @@
   }
 
   &.Light {
-    .mono-9;
+    .mono-9-bold;
 
-    background: @color-secondary-action;
-    border-radius: @size-3;
     padding: @size-4;
-    border: 1px solid @color-dark-grey;
 
     > span > span,
     > span > a {
@@ -653,6 +796,27 @@
         }
       }
     }
+  }
+}
+
+.ExternalLinkText {
+  .text-14;
+
+  @media @breakpoint-mobile {
+    .text-12;
+  }
+
+  color: @color-primary-text;
+  display: inline-flex;
+
+  > a {
+    color: @color-primary-text;
+  }
+
+  > svg {
+    height: @size-12;
+    margin-left: @size-4;
+    margin-top: @size-2;
   }
 }
 
@@ -676,6 +840,9 @@
 
   > svg {
     margin-left: @size-4;
+    height: @size-10;
+    width: @size-10;
+
     > path {
       &:nth-child(odd) {
         fill: @color-primary-action;
@@ -726,6 +893,7 @@
 
     > path {
       stroke: @color-inactive-text;
+      fill: none;
     }
   }
 
@@ -747,13 +915,16 @@
 
   align-items: center;
   line-height: @size-15;
+  max-height: @size-32;
   min-width: 9rem;
+  padding: 0 @size-24;
   white-space: nowrap;
 
   > svg {
     fill: none;
     height: @size-14;
     width: @size-10;
+    margin: 0 @size-1 0 @size-8;
 
     > path {
       stroke: @color-primary-text;
@@ -777,7 +948,7 @@
     width: @size-8;
 
     > path {
-      fill: @color-inactive-text;
+      fill: @color-secondary-text;
 
       &:hover {
         fill: @color-primary-text;
@@ -800,24 +971,22 @@
 
 .FilterButton {
   .Button;
-  .text-12;
+  .text-12-bold;
 
   align-items: center;
-  border: 2px solid @color-secondary-action-outline;
+  border: @size-1 solid @color-secondary-action-outline;
   border-radius: @border-radius-default;
   color: @color-primary-text;
   display: flex;
   flex-flow: row nowrap;
-  height: @size-40;
   justify-content: center;
-  max-height: @size-40;
-  max-width: 130px;
-  width: 130px;
+  height: @size-32;
+  width: @size-165;
 
   > svg {
-    height: @size-24;
-    margin-left: @size-12;
-    width: @size-24;
+    height: @size-10;
+    width: @size-10;
+    margin-left: @size-9;
 
     > path {
       fill: @color-primary-text;
@@ -827,8 +996,8 @@
 
 .CategoryButtons {
   display: grid;
-  grid-template-columns: repeat(5, 168px);
-  grid-column-gap: 17px;
+  grid-template-columns: repeat(5, @size-168);
+  grid-column-gap: @size-17;
   justify-content: center;
 
   @media @breakpoint-mobile {
@@ -845,17 +1014,17 @@
 
     align-items: center;
     background: @color-secondary-action;
-    border: 1px solid @color-secondary-action-outline;
+    border: @size-1 solid @color-secondary-action-outline;
     border-radius: @size-3;
     color: @color-primary-text;
     cursor: pointer;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    max-height: 178px;
-    max-width: 168px;
-    min-height: 178px;
-    min-width: 168px;
+    max-height: @size-178;
+    max-width: @size-168;
+    min-height: @size-178;
+    min-width: @size-168;
 
     > div:first-of-type {
       > svg {
@@ -882,7 +1051,7 @@
         animation-direction: alternate-reverse;
         background-color: @color-secondary-action-outline;
         height: @size-16;
-        width: 80px;
+        width: @size-80;
       }
     }
   }

@@ -1,19 +1,19 @@
 import React from 'react';
 import { buildMarketDescription } from 'modules/create-market/get-template';
 import { convertUnixToFormattedDate } from 'utils/format-date';
-import {
+import type {
   TemplateInput,
-  TemplateInputType,
   Template,
-} from '@augurproject/artifacts';
+} from '@augurproject/templates';
+import {
+  TemplateInputType,
+} from '@augurproject/templates';
 import Styles from 'modules/market/components/common/market-common.styles.less';
 import { NewMarket } from 'modules/types';
 
 interface PreviewMarketTitleProps {
   market: NewMarket;
 }
-
-const wrapMarketName = (marketName: string) => <span>{`"${marketName}"`}</span>;
 
 const PreviewMarketTitle: React.FC<PreviewMarketTitleProps> = ({ market }) =>
   market.template ? (
@@ -36,7 +36,7 @@ const MarketTemplateTitle: React.FC<MarketTemplateTitleProps> = ({
     let userInput = i.userInput;
     if (i.type === TemplateInputType.ESTDATETIME) {
       userInput = convertUnixToFormattedDate(Number(i.userInput))
-        .formattedShortTimezone;
+        .formattedLocalShortDateTimeWithTimezone;
     }
 
     return {
@@ -55,7 +55,7 @@ const MarketTemplateTitle: React.FC<MarketTemplateTitleProps> = ({
     <div className={Styles.MarketTemplateTitle}>
       <span>{question}</span>
       {estDateTime && (
-        <span>Estimated sheduled start time: {estDateTime.userInput}</span>
+        <span>Estimated scheduled start time: {estDateTime.userInput}</span>
       )}
     </div>
   );

@@ -1,6 +1,6 @@
-import React, { Component } from 'react';
-import classNames from 'classnames';
+import React, { useEffect, useState } from 'react';
 
+import classNames from 'classnames';
 import ModalSignTransaction from 'modules/modal/containers/modal-sign-transaction';
 import ModalReporting from 'modules/modal/containers/modal-reporting';
 import ModalConfirm from 'modules/modal/components/modal-confirm';
@@ -10,7 +10,7 @@ import ModalCreateMarket from 'modules/modal/containers/modal-create-market';
 import ModalDaiFaucet from 'modules/modal/containers/modal-dai-faucet';
 import ModalCreationHelp from 'modules/modal/containers/modal-creation-help';
 import ModalDeposit from 'modules/modal/containers/modal-deposit';
-import ModalWithdraw from 'modules/modal/containers/modal-withdraw';
+import ModalWithdraw from 'modules/modal/containers/modal-transfer';
 import ModalMigrateRep from 'modules/modal/containers/modal-migrate-rep';
 import ModalNetworkDisabled from 'modules/modal/containers/modal-network-disabled';
 import ModalTransactions from 'modules/modal/containers/modal-transactions';
@@ -23,12 +23,11 @@ import ModalBuyDai from 'modules/modal/containers/modal-buy-dai';
 import ModalDiscard from 'modules/modal/containers/modal-discard';
 import ModalMarketReview from 'modules/modal/containers/modal-market-review';
 import ModalClaimFees from 'modules/modal/containers/modal-claim-fees';
-import ModalParticipate from 'modules/modal/containers/modal-participate';
+import ModalStaking from 'modules/modal/containers/modal-staking';
 import ModalNetworkConnect from 'modules/modal/containers/modal-network-connect';
 import ModalDisclaimer from 'modules/modal/containers/modal-disclaimer';
 import ModalGasPrice from 'modules/modal/containers/modal-gas-price';
 import ModalClaimMarketsProceeds from 'modules/modal/containers/modal-claim-markets-proceeds';
-import ModalTradingOverlay from 'modules/modal/components/modal-trading-overlay';
 import ModalOpenOrders from 'modules/modal/containers/modal-open-orders';
 import ModalMarketLoading from 'modules/modal/containers/modal-market-loading';
 import ModalContent from 'modules/modal/containers/modal-content';
@@ -38,17 +37,25 @@ import ModalDrQuickGuide from 'modules/modal/containers/modal-dr-quick-guide';
 import ModalMigrateMarket from 'modules/modal/containers/modal-migrate-market';
 import ModalAddFunds from 'modules/modal/containers/modal-add-funds';
 import ModalSignin from 'modules/modal/containers/modal-signin';
-import ModalConnect from 'modules/modal/containers/modal-connect';
+import ModalHardwareWallet from 'modules/modal/containers/modal-hardware-wallet';
 import ModalLoading from 'modules/modal/containers/modal-loading';
 import ModalUniverseSelector from 'modules/modal/containers/modal-universe-selector';
 import ModalTestBet from 'modules/modal/containers/modal-test-bet';
+import ModalAugurP2P from 'modules/modal/containers/modal-p2p-trading';
 import ModalGlobalChat from 'modules/modal/containers/modal-global-chat';
 import ModalAccountCreated from 'modules/modal/containers/modal-account-created';
 import ModalWalletError from 'modules/modal/containers/modal-wallet-error';
 import ModalAugurUsesDai from 'modules/modal/containers/modal-augur-uses-dai';
 import ModalTutorialOutro from 'modules/modal/containers/modal-tutorial-outro';
 import ModalTutorialIntro from 'modules/modal/containers/modal-tutorial-intro';
-
+import ModalScalar from 'modules/modal/containers/modal-scalar';
+import ModalInvalidMarketRules from 'modules/modal/containers/modal-invalid-market-rules';
+import ModalInitializeAccounts from 'modules/modal/containers/modal-initialize-account';
+import ModalHelp from 'modules/modal/containers/modal-help';
+import ModalMarketNotFound from 'modules/modal/containers/modal-market-not-found';
+import FrozenFundsBreakdown from 'modules/modal/containers/modal-frozen-funds-breakdown';
+import ModalTutorialVideo from 'modules/modal/containers/modal-tutoria-video';
+import ModalFeePoolClaiming from 'modules/modal/containers/modal-feepool-claiming';
 import * as TYPES from 'modules/common/constants';
 
 import Styles from 'modules/modal/components/common/common.styles.less';
@@ -90,10 +97,10 @@ function selectModal(type, props, closeModal, modal) {
     case TYPES.MODAL_DAI_FAUCET:
       return <ModalDaiFaucet />;
     case TYPES.MODAL_CREATION_HELP:
-      return <ModalCreationHelp />;
+      return <ModalCreationHelp {...modal} />;
     case TYPES.MODAL_DEPOSIT:
       return <ModalDeposit />;
-    case TYPES.MODAL_WITHDRAW:
+    case TYPES.MODAL_TRANSFER:
       return <ModalWithdraw />;
     case TYPES.MODAL_MIGRATE_REP:
       return <ModalMigrateRep />;
@@ -106,8 +113,8 @@ function selectModal(type, props, closeModal, modal) {
       return <ModalSignTransaction {...modal} />;
     case TYPES.MODAL_REPORTING:
       return <ModalReporting {...modal} />;
-    case TYPES.MODAL_PARTICIPATE:
-      return <ModalParticipate />;
+    case TYPES.MODAL_STAKE_TOKENS:
+      return <ModalStaking  {...modal} />;
     case TYPES.MODAL_NETWORK_MISMATCH:
       return <ModalNetworkMismatch {...modal} />;
     case TYPES.MODAL_NETWORK_DISABLED:
@@ -132,26 +139,30 @@ function selectModal(type, props, closeModal, modal) {
       return <ModalClaimFees {...modal} />;
     case TYPES.MODAL_DISCLAIMER:
       return <ModalDisclaimer {...modal} />;
-    case TYPES.MODAL_TRADING_OVERLAY:
-      return <ModalTradingOverlay {...modal} closeModal={closeModal} />;
     case TYPES.MODAL_MARKET_LOADING:
       return <ModalMarketLoading />;
+    case TYPES.MODAL_MARKET_NOT_FOUND:
+      return <ModalMarketNotFound />;
     case TYPES.MODAL_DR_QUICK_GUIDE:
       return <ModalDrQuickGuide />;
     case TYPES.MODAL_MIGRATE_MARKET:
       return <ModalMigrateMarket {...modal} />;
     case TYPES.MODAL_LOGIN:
       return <ModalSignin {...props} isLogin />;
+    case TYPES.MODAL_HELP:
+      return <ModalHelp {...props} />;
     case TYPES.MODAL_SIGNUP:
       return <ModalSignin {...props} isLogin={false} />;
-    case TYPES.MODAL_CONNECT:
-      return <ModalConnect />;
+    case TYPES.MODAL_HARDWARE_WALLET:
+      return <ModalHardwareWallet {...props} />;
     case TYPES.MODAL_LOADING:
       return <ModalLoading />;
     case TYPES.MODAL_UNIVERSE_SELECTOR:
       return <ModalUniverseSelector />;
     case TYPES.MODAL_TEST_BET:
       return <ModalTestBet />;
+    case TYPES.MODAL_AUGUR_P2P:
+      return <ModalAugurP2P />;
     case TYPES.MODAL_TUTORIAL_OUTRO:
       return <ModalTutorialOutro {...modal} />;
     case TYPES.MODAL_TUTORIAL_INTRO:
@@ -162,8 +173,22 @@ function selectModal(type, props, closeModal, modal) {
       return <ModalAccountCreated />
     case TYPES.MODAL_AUGUR_USES_DAI:
       return <ModalAugurUsesDai />
-    case TYPES.MODA_WALLET_ERROR:
+    case TYPES.MODAL_ERROR:
       return <ModalWalletError />
+    case TYPES.MODAL_SCALAR_MARKET:
+      return <ModalScalar {...modal} />
+    case TYPES.MODAL_INVALID_MARKET_RULES:
+      return <ModalInvalidMarketRules />;
+    case TYPES.MODAL_INITIALIZE_ACCOUNT:
+      return <ModalInitializeAccounts />;
+    case TYPES.MODAL_FROZEN_FUNDS:
+      return <FrozenFundsBreakdown />;
+    case TYPES.MODAL_REPORTING_ONLY:
+      return <ModalDisclaimer {...modal} isReportingOnly={true} />;
+    case TYPES.MODAL_TUTORIA_VIDEO:
+      return <ModalTutorialVideo />
+    case TYPES.FEE_POOL_CLAIMING:
+      return <ModalFeePoolClaiming />
     default:
       return <div />;
   }
@@ -175,57 +200,76 @@ interface ModalViewProps {
     type: string;
   };
   closeModal: Function;
+  trackModalViewed: Function;
+  history: History;
 }
 
-export default class ModalView extends Component<ModalViewProps> {
-  constructor(props) {
-    super(props);
-
-    this.handleKeyDown = this.handleKeyDown.bind(this);
-  }
-
-  componentDidMount() {
-    const { closeModal } = this.props;
-    window.onpopstate = () => {
-      closeModal();
-    };
-
-    window.addEventListener('keydown', this.handleKeyDown);
-  }
-
-  componentWillUnmount() {
-    window.removeEventListener('keydown', this.handleKeyDown);
-  }
-
-  handleKeyDown(e) {
-    const { modal, closeModal } = this.props;
-
+const ModalView = ({
+  modal,
+  closeModal,
+  trackModalViewed,
+  history,
+}: ModalViewProps) => {
+  const [locationKeys, setLocationKeys] = useState([]);
+  const handleKeyDown = e => {
     if (e.keyCode === ESCAPE_KEYCODE) {
       if (modal && modal.cb) {
         modal.cb();
       }
       closeModal();
     }
-  }
+  };
 
-  render() {
-    const { closeModal, modal } = this.props;
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
 
-    const Modal = selectModal(modal.type, this.props, closeModal, modal);
+    trackModalViewed(modal.type, {
+      modal: modal.type,
+      from: window.location.href,
+    });
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
-    return (
-      <section className={Styles.ModalView}>
-        <div
-          className={classNames({
-            [`${Styles['ModalView__content--taller']}`]:
-              modal.type === TYPES.MODAL_DISCLAIMER,
-            [`${Styles['ModalView__content--full']}`]:
-              modal.type === TYPES.MODAL_TRADING_OVERLAY,
-          })}
-        >
-          {Modal}
-        </div>
-      </section>
-    );
-  }
-}
+
+  useEffect(() => {
+    return history.listen(location => {
+      if (history.action === 'PUSH') {
+        setLocationKeys([location.key]);
+      }
+
+      if (history.action === 'POP') {
+        if (locationKeys[1] === location.key) {
+          setLocationKeys(([_, ...keys]) => keys);
+
+          closeModal();
+        } else {
+          setLocationKeys(keys => [location.key, ...keys]);
+
+          closeModal();
+        }
+      }
+    });
+  }, [locationKeys]);
+
+  const Modal = selectModal(
+    modal.type,
+    { modal, closeModal, trackModalViewed },
+    closeModal,
+    modal
+  );
+
+  return (
+    <section className={Styles.ModalView}>
+      <div
+        className={classNames({
+          [`${Styles['ModalView__content--taller']}`]:
+            modal.type === TYPES.MODAL_DISCLAIMER,
+        })}
+      >
+        {Modal}
+      </div>
+    </section>
+  );
+};
+
+export default ModalView;

@@ -3,63 +3,93 @@ import React from 'react';
 import QuadBox from 'modules/portfolio/components/common/quad-box';
 import {
   DepositButton,
+  TransferButton,
   WithdrawButton,
   ViewTransactionsButton,
   REPFaucetButton,
   DAIFaucetButton,
-  ApprovalButton,
+  ExternalLinkButton,
+  WrapUnwrapEthAddfunds,
 } from 'modules/common/buttons';
+import { AccountAddressDisplay } from 'modules/modal/common';
+import { toChecksumAddress } from 'ethereumjs-util';
 import Styles from 'modules/account/components/transactions.styles.less';
 
 interface TransactionsProps {
-  isMainnet: boolean;
+  showFaucets: boolean;
   repFaucet: Function;
   daiFaucet: Function;
   deposit: Function;
-  withdraw: Function;
+  transfer: Function;
   transactions: Function;
   approval: Function;
   addFunds: Function;
   legacyRepFaucet: Function;
+  cashOut: Function;
+  targetAddress: string;
+  signingEth: number;
+  signingWalletNoEth: boolean;
+  localLabel: string;
+  wrapUnwrapEth: Function;
 }
 
 export const Transactions = ({
   transactions,
   addFunds,
-  withdraw,
-  isMainnet,
+  transfer,
+  showFaucets,
   repFaucet,
   daiFaucet,
   legacyRepFaucet,
+  cashOut,
+  targetAddress,
+  signingEth,
+  signingWalletNoEth,
+  localLabel,
+  wrapUnwrapEth
 }: TransactionsProps) => (
   <QuadBox
     title="Transactions"
     content={
       <div className={Styles.Content}>
-        <p>Your transactions history</p>
-        <ViewTransactionsButton action={transactions} />
-        <p>Your account</p>
-        <DepositButton action={addFunds} />
-        <WithdrawButton action={withdraw} />
-        {!isMainnet && (
+        <div>
+          <h4>Your transactions history</h4>
+          <ViewTransactionsButton action={transactions} />
+        </div>
+        <div>
+          <h4>Your funds</h4>
+          <DepositButton action={addFunds} />
+          <TransferButton action={transfer} />
+          <WrapUnwrapEthAddfunds action={wrapUnwrapEth} />
+        </div>
+        {showFaucets && (
           <div>
-            <p>REP for test net</p>
+            <h4>REPv2 for test net</h4>
+            <h4>DAI for test net</h4>
             <REPFaucetButton action={repFaucet} />
+            <DAIFaucetButton action={daiFaucet} />
           </div>
         )}
-        {!isMainnet && (
+        {showFaucets && (
           <div>
-            <p>Legacy REP</p>
+            <h4>Legacy REP</h4>
             <REPFaucetButton
               title="Legacy REP Faucet"
               action={legacyRepFaucet}
             />
           </div>
         )}
-        {!isMainnet && (
+        {showFaucets && signingWalletNoEth && (
           <div>
-            <p>DAI for test net</p>
-            <DAIFaucetButton action={daiFaucet} />
+            <ExternalLinkButton
+              URL={!localLabel ? "https://faucet.kovan.network/" : null}
+              showNonLink={!!localLabel}
+              label={localLabel ? localLabel : "faucet.kovan.network"}
+            />
+            <AccountAddressDisplay
+              copyable
+              address={targetAddress ? toChecksumAddress(targetAddress) : 'loading...'}
+            />
           </div>
         )}
       </div>

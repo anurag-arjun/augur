@@ -1,33 +1,31 @@
-import { API } from '@augurproject/sdk/build/state/getter/API';
-import { DB } from '@augurproject/sdk/build/state/db/DB';
-import { makeDbMock, makeProvider } from '../../../libs';
-import { ContractAPI, ACCOUNTS, loadSeedFile, defaultSeedPath } from '@augurproject/tools';
-import { stringTo32ByteHex } from '../../../libs/Utils';
-import { BigNumber } from 'bignumber.js';
 import { ContractInterfaces } from '@augurproject/core';
-import { PlatformActivityStatsResult } from '@augurproject/sdk/build/state/getter/Platform';
-import { fork } from '@augurproject/tools';
-
-const mock = makeDbMock();
+import {
+  ACCOUNTS,
+  ContractAPI,
+  defaultSeedPath,
+  fork,
+  loadSeed,
+} from '@augurproject/tools';
+import { TestContractAPI } from '@augurproject/tools';
+import { stringTo32ByteHex } from '@augurproject/tools/build/libs/Utils';
+import { BigNumber } from 'bignumber.js';
+import { makeProvider } from '../../../libs';
 
 describe('State API :: get-platform-activity-stats :: ', () => {
-  let db: Promise<DB>;
-  let api: API;
-  let john: ContractAPI;
-  let mary: ContractAPI;
+  let john: TestContractAPI;
+  let mary: TestContractAPI;
 
   beforeAll(async () => {
-    const seed = await loadSeedFile(defaultSeedPath);
+    const seed = await loadSeed(defaultSeedPath);
     const provider = await makeProvider(seed, ACCOUNTS);
+    const config = provider.getConfig();
 
-    john = await ContractAPI.userWrapper(ACCOUNTS[0], provider, seed.addresses);
-    mary = await ContractAPI.userWrapper(ACCOUNTS[1], provider, seed.addresses);
+    john = await TestContractAPI.userWrapper(ACCOUNTS[0], provider, config);
+    mary = await TestContractAPI.userWrapper(ACCOUNTS[1], provider, config);
 
-    db = mock.makeDB(john.augur, ACCOUNTS);
-    api = new API(john.augur, db);
-    await john.approveCentralAuthority();
-    await mary.approveCentralAuthority();
-  }, 120000);
+    await john.approve();
+    await mary.approve();
+  });
 
   test('getPlatformActivityStats', async () => {
     // Create markets with multiple users
@@ -43,13 +41,13 @@ describe('State API :: get-platform-activity-stats :: ', () => {
     const bid = new BigNumber(0);
     const outcome2 = new BigNumber(2);
     const numShares = new BigNumber(10).pow(12);
-    const price = new BigNumber(22);
-    const cost = numShares.times(78).div(10);
+    const price = new BigNumber(220);
+    const cost = numShares.times(780).div(10);
 
-    await john.faucet(new BigNumber(1e18));
-    await mary.faucet(new BigNumber(1e18));
-    mary.repFaucet(new BigNumber(1e18).multipliedBy(1000000));
-    john.repFaucet(new BigNumber(1e18).multipliedBy(1000000));
+    await john.faucetCash(new BigNumber(1e18));
+    await mary.faucetCash(new BigNumber(1e18));
+    mary.faucetRep(new BigNumber(1e18).multipliedBy(1000000));
+    john.faucetRep(new BigNumber(1e18).multipliedBy(1000000));
 
     // Trade
     await placeOrders(john, yesNoMarket, numShares, price);
@@ -60,7 +58,7 @@ describe('State API :: get-platform-activity-stats :: ', () => {
     await fillOrders(mary, scalarMarket, numShares, cost);
 
     // Cancel an order
-    await john.cancelOrder(
+    await john.cancelNativeOrder(
       await john.getBestOrderId(bid, scalarMarket.address, outcome2)
     );
 
@@ -69,47 +67,35 @@ describe('State API :: get-platform-activity-stats :: ', () => {
     await john.buyCompleteSets(yesNoMarket, numberOfCompleteSets);
     await john.sellCompleteSets(yesNoMarket, numberOfCompleteSets);
 
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
-    const markets = await api.route('getMarketsInfo', { marketIds: [yesNoMarket.address]});
-    await fork(john, markets[0]);
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
-    const stats = await getPlatformActivityStats(john, db, api, universe);
-    expect(stats).toMatchObject({
-      activeUsers: 2,
-      disputedMarkets: 1,
-      marketsCreated: 3,
-      numberOfTrades: 3,
+    await john.sync();
+    const market = john.augur.contracts.marketFromAddress(yesNoMarket.address);
+    await fork(john, market);
+    await john.sync();
+
+    const stats = await john.api.route('getPlatformActivityStats', {
+      universe: universe.address,
     });
-    expect(stats.amountStaked.toString()).toEqual('4650537188053131103515648');
-    expect(stats.openInterest.toString()).toEqual('2040000000000000');
-    expect(stats.volume.toString()).toEqual('0.006093');
-  }, 200000);
+
+    expect(stats).toMatchObject({
+      activeUsers: 3, // john, mary, and the warp sync market creator
+      disputedMarkets: 1,
+      marketsCreated: 4, // includes initial warp sync market
+      numberOfTrades: 9,
+    });
+    expect(stats.amountStaked).toEqual('900612735601043701171200');
+    expect(stats.openInterest).toEqual('2400000000000000');
+    expect(stats.volume).toEqual('0.00693');
+  });
 });
 
-async function getPlatformActivityStats(
-  user: ContractAPI,
-  db: Promise<DB>,
-  api: API,
-  universe: ContractInterfaces.Universe,
-  startTime?: number,
-  endTime?: number
-): Promise<PlatformActivityStatsResult> {
-  const params: any = { universe: universe.address };
-  if (startTime) params.startTime = startTime;
-  if (endTime) params.endTime = endTime;
-
-  await (await db).sync(user.augur, mock.constants.chunkSize, 0);
-  return api.route('getPlatformActivityStats', params);
-}
-
 async function placeOrders(
-  user: ContractAPI,
+  user: TestContractAPI,
   market: ContractInterfaces.Market,
   numShares: BigNumber,
   price: BigNumber
 ): Promise<void> {
   const bid = new BigNumber(0);
-  const outcomes = [0, 1, 2].map((n) => new BigNumber(n));
+  const outcomes = [0, 1, 2].map(n => new BigNumber(n));
 
   for (const outcome of outcomes) {
     await user.placeOrder(
@@ -132,13 +118,13 @@ async function fillOrders(
   cost: BigNumber
 ): Promise<void> {
   const bid = new BigNumber(0);
-  const outcomes = [0, 1, 2].map((n) => new BigNumber(n));
+  const outcomes = [0, 1, 2].map(n => new BigNumber(n));
   const variation = [2, 3, 3];
 
   for (let i = 0; i < outcomes.length; i++) {
     const outcome = outcomes[i];
     const vary = variation[i];
-    const tradeGroupId = String(40 + vary);
+    const tradeGroupId = Math.floor(Math.random() * 10 ** 12).toFixed();
     const sharesMultiply = vary;
     await user.fillOrder(
       await user.getBestOrderId(bid, market.address, outcome),
@@ -153,20 +139,14 @@ async function dispute(
   user: ContractAPI,
   market: ContractInterfaces.Market
 ): Promise<void> {
-  const noPayoutSet = [
-    new BigNumber(0),
-    new BigNumber(100),
-    new BigNumber(0),
-  ];
-  const yesPayoutSet = [
-    new BigNumber(0),
-    new BigNumber(0),
-    new BigNumber(100),
-  ];
+  const noPayoutSet = [new BigNumber(0), new BigNumber(100), new BigNumber(0)];
+  const yesPayoutSet = [new BigNumber(0), new BigNumber(0), new BigNumber(100)];
   const SOME_REP = new BigNumber(1e18).times(6e7);
 
   for (let i = 0; i < 20; i++) {
-    const disputeWindow = user.augur.contracts.disputeWindowFromAddress(await market.getDisputeWindow_());
+    const disputeWindow = user.augur.contracts.disputeWindowFromAddress(
+      await market.getDisputeWindow_()
+    );
     // Enter the dispute window.
     const disputeWindowStartTime = await disputeWindow.getStartTime_();
     await user.setTimestamp(disputeWindowStartTime.plus(1));

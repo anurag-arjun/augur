@@ -1,12 +1,13 @@
 import { connect } from "react-redux";
 import { withRouter } from "react-router-dom";
 import { Transactions } from "modules/modal/transactions";
-import { AppState } from "store";
+import { AppState } from "appStore";
 import { closeModal } from "modules/modal/actions/close-modal";
 import { ThunkDispatch } from "redux-thunk";
 import { NodeStyleCallback } from "modules/types";
 import { augurSdk } from "services/augursdk";
-import { Getters } from "@augurproject/sdk";
+import type { Getters } from "@augurproject/sdk";
+import { Action } from "redux";
 
 const mapStateToProps = (state: AppState) => ({
   modal: state.modal,
@@ -15,7 +16,7 @@ const mapStateToProps = (state: AppState) => ({
   universe: state.universe.id,
 });
 
-const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Getters.Accounts.Action>) => ({
+const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Action>) => ({
   closeModal: () => dispatch(closeModal()),
 });
 
@@ -28,7 +29,7 @@ const mergeProps = (sP: any, dP: any, oP: any) => ({
     endTime: number,
     coin: string,
     action: string,
-    cb: NodeStyleCallback,
+    cb: Function,
   ) => {
     const Augur = augurSdk.get();
     const result = await Augur.getAccountTransactionHistory({

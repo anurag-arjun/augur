@@ -1,30 +1,34 @@
-import { Callback, SubscriptionType } from '../events';
-import { BaseConnector } from './baseConnector';
-import { SubscriptionEventName } from '../constants';
+import { SDKConfiguration } from '@augurproject/utils';
+import {
+  SubscriptionEventName,
+  SubscriptionType,
+} from '@augurproject/sdk-lite';
 import WebSocket from 'isomorphic-ws';
 import WebSocketAsPromised from 'websocket-as-promised';
+import { Callback } from '../events';
+import { BaseConnector } from './base-connector';
 
 export class WebsocketConnector extends BaseConnector {
   private socket: WebSocketAsPromised;
 
-  constructor(readonly endpoint: string) {
+  constructor() {
     super();
   }
 
-  async connect(ethNodeUrl: string, account?: string): Promise<any> {
-    this.socket = new WebSocketAsPromised(this.endpoint, {
-      packMessage: (data: any) => JSON.stringify(data),
-      unpackMessage: (message: string) => JSON.parse(message),
+  async connect(config: SDKConfiguration, account?: string): Promise<void> {
+    this.socket = new WebSocketAsPromised(config.sdk.ws, {
+      packMessage: JSON.stringify,
+      unpackMessage: JSON.parse,
       attachRequestId: (data: any, requestId: number) =>
         Object.assign({ id: requestId }, data),
-      extractRequestId: (data: any) => data && data.id,
+      extractRequestId: (data: any) => data?.id,
       createWebSocket: (url: string) => new WebSocket(url),
     } as any);
 
     this.socket.onMessage.addListener((message: string) => {
       try {
         const response = JSON.parse(message);
-        this.messageReceived(response.result);
+        this.messageReceived(response);
       } catch (error) {
         console.error('Bad JSON RPC response: ' + message);
       }
@@ -35,23 +39,16 @@ export class WebsocketConnector extends BaseConnector {
       console.log(message);
     });
 
-    return this.socket.open();
+    await this.socket.open();
   }
 
-  async syncUserData(account: string): Promise<any> {
-    return this.socket.sendRequest({
-      method: 'syncUserData',
-      params: [account],
-      jsonrpc: '2.0',
-    });
-  }
+  messageReceived(message) {
+    if (!message?.result?.eventName) return; // TODO throw an error?
+    const { result, eventName } = message.result;
 
-  messageReceived(message: any) {
-    if (message.result) {
-      if (this.subscriptions[message.eventName]) {
-        this.subscriptions[message.eventName].callback(message.result);
-      }
-    }
+    if (!this.subscriptions[eventName]) return; // TODO throw an error?
+
+    this.subscriptions[eventName].callback(result);
   }
 
   async disconnect(): Promise<any> {
@@ -62,11 +59,12 @@ export class WebsocketConnector extends BaseConnector {
     f: (db: any, augur: any, params: P) => Promise<R>
   ): (params: P) => Promise<R> {
     return async (params: P): Promise<R> => {
-      return this.socket.sendRequest({
+      const response = await this.socket.sendRequest({
         method: f.name,
         params,
         jsonrpc: '2.0',
       });
+      return response?.result;
     };
   }
 
@@ -74,7 +72,7 @@ export class WebsocketConnector extends BaseConnector {
     eventName: SubscriptionEventName | string,
     callback: Callback
   ): Promise<void> {
-    const response: any = await this.socket.sendRequest({
+    const response = await this.socket.sendRequest({
       method: 'subscribe',
       eventName,
       jsonrpc: '2.0',
@@ -82,7 +80,7 @@ export class WebsocketConnector extends BaseConnector {
     });
     this.subscriptions[eventName] = {
       id: response.result.subscription,
-      callback: super.callbackWrapper(callback),
+      callback: super.callbackWrapper(eventName, callback),
     };
   }
 

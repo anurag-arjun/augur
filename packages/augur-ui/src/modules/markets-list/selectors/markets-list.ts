@@ -1,12 +1,11 @@
 import { createSelector } from 'reselect';
-import { selectMarketsListsState } from 'store/select-state';
+import { selectMarketsListsState } from 'appStore/select-state';
 import {
   POPULAR_CATEGORIES,
   POPULAR_CATEGORIES_ICONS,
   REPORTING_STATE,
 } from 'modules/common/constants';
 import { selectMarkets } from 'modules/markets/selectors/markets-all';
-import marketsList from '../reducers/markets-list';
 
 export const selectPopularCategories = createSelector(
   selectMarketsListsState,
@@ -22,7 +21,7 @@ export const selectPopularCategories = createSelector(
         );
         return {
           category,
-          icon: POPULAR_CATEGORIES_ICONS[idx],
+          icon: POPULAR_CATEGORIES_ICONS[category],
           count: marketLists.meta.categories[item].count,
           children: marketLists.meta.categories[item].children,
         };
@@ -46,7 +45,7 @@ export const selectPopularCategories = createSelector(
 
           return {
             category,
-            icon: POPULAR_CATEGORIES_ICONS[idx],
+            icon: POPULAR_CATEGORIES_ICONS[category],
             count: 0,
             children: null,
           };
@@ -56,7 +55,7 @@ export const selectPopularCategories = createSelector(
       return POPULAR_CATEGORIES.map((category, idx) => {
         return {
           category,
-          icon: POPULAR_CATEGORIES_ICONS[idx],
+          icon: POPULAR_CATEGORIES_ICONS[category],
           count: null,
           children: null,
         };

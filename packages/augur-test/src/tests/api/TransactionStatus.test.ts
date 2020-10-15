@@ -1,31 +1,43 @@
-import { BigNumber } from "bignumber.js";
-import { ContractAPI, loadSeedFile, ACCOUNTS, defaultSeedPath, Account, blockchain } from "@augurproject/tools";
-import { TransactionStatus, TransactionMetadata } from "contract-dependencies-ethers";
-import { makeProvider } from "../../libs";
-import { Getters, TXEventName } from "@augurproject/sdk";
-import { EthersProvider } from "@augurproject/ethersjs-provider";
-import { EthersFastSubmitWallet } from "@augurproject/core";
+import {
+  TransactionMetadata,
+  TransactionStatus,
+} from '@augurproject/contract-dependencies-ethers';
+import {
+  ACCOUNTS,
+  defaultSeedPath,
+  loadSeed,
+  TestContractAPI,
+} from '@augurproject/tools';
+import { BigNumber } from 'bignumber.js';
+import { makeProvider } from '../../libs';
 
-let john: ContractAPI;
+let john: TestContractAPI;
 
 beforeAll(async () => {
-  const seed = await loadSeedFile(defaultSeedPath);
+  const seed = await loadSeed(defaultSeedPath);
   const provider = await makeProvider(seed, ACCOUNTS);
 
-  john = await ContractAPI.userWrapper(ACCOUNTS[0], provider, seed.addresses);
-  await john.approveCentralAuthority();
+  john = await TestContractAPI.userWrapper(
+    ACCOUNTS[0],
+    provider,
+    provider.getConfig()
+  );
+  await john.approve();
 });
 
-test("TransactionStatus :: transaction status updates", async () => {
-  const transactions: Array<TransactionMetadata> = [];
-  const statuses: Array<TransactionStatus> = [];
+test('TransactionStatus :: transaction status updates', async () => {
+  const transactions: TransactionMetadata[] = [];
+  const statuses: TransactionStatus[] = [];
   const hashes: Array<string | undefined> = [];
-  john.augur.registerTransactionStatusCallback("Test", (transaction, status, hash) => {
-    if (transaction.name != "createYesNoMarket") return;
-    transactions.push(transaction);
-    statuses.push(status);
-    hashes.push(hash);
-  });
+  john.augur.registerTransactionStatusCallback(
+    'Test',
+    (transaction, status, hash) => {
+      if (transaction.name != 'createYesNoMarket') return;
+      transactions.push(transaction);
+      statuses.push(status);
+      hashes.push(hash);
+    }
+  );
 
   await john.createReasonableYesNoMarket();
 
@@ -41,9 +53,8 @@ test("TransactionStatus :: transaction status updates", async () => {
   await expect(transactions[1]).toEqual(transactions[2]);
 
   const tx = transactions[0];
-  await expect(tx.name).toEqual("createYesNoMarket");
+  await expect(tx.name).toEqual('createYesNoMarket');
   await expect(tx.params._affiliateFeeDivisor).toEqual(new BigNumber(25));
-
 });
 
 /*
@@ -65,7 +76,7 @@ test("TransactionStatus :: transaction status events", async () => {
 }, 15000);
 
 test("TransactionStatus :: transaction status events failure", async (done) => {
-  const seed = await loadSeedFile(defaultSeedPath);
+  const seed = await loadSeed(defaultSeedPath);
   const provider = await makeProvider(seed, ACCOUNTS);
 
   const awaitingSigning = jest.fn();
@@ -89,7 +100,6 @@ test("TransactionStatus :: transaction status events failure", async (done) => {
         data: "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
         logIndex: 0,
         blockHash: "0x691568428d9171d2d3d415fc816944b3324d47635c1f3f5ea7e0a7e78f045c75",
-        transactionLogIndex: 0,
       }],
     })
     .mockReturnValueOnce({ status: 2, logs: [] });
@@ -108,8 +118,8 @@ test("TransactionStatus :: transaction status events failure", async (done) => {
     return wallet;
   });
 
-  john = await ContractAPI.userWrapper(ACCOUNTS[0], provider, seed.addresses);
-  await john.approveCentralAuthority();
+  john = await TestContractAPI.userWrapper(ACCOUNTS[0], provider, seed.addresses);
+  await john.approve();
 
   john.augur.on(TXEventName.Failure, failure);
   john.augur.on(TXEventName.Pending, pending);
@@ -119,7 +129,7 @@ test("TransactionStatus :: transaction status events failure", async (done) => {
     endTime: (await john.getTimestamp()).minus(Getters.Markets.SECONDS_IN_A_DAY),
     feePerCashInAttoCash: new BigNumber(10).pow(18).div(20), // 5% creator fee
     affiliateFeeDivisor: new BigNumber(0),
-    designatedReporter: john.account.publicKey,
+    designatedReporter: john.account.address,
     extraInfo:
       '{"categories": ["yesNo category 1"], "description": "yesNo description 1", "longDescription": "yesNo longDescription 1", "tags": ["yesNo tag1-1", "yesNo tag1-2", "yesNo tag1-3"]}',
   }).catch((e) => { });

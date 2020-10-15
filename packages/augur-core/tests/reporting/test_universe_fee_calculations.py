@@ -45,27 +45,63 @@ def test_floating_amount_calculation(numWithCondition, targetWithConditionPerHun
     assert newAmount == expectedValue
 
 def test_reporter_fees(contractsFixture, universe, market, cash):
-    defaultValue = 100
-    shareToken = contractsFixture.contracts['ShareToken']
+    defaultValue = 10000
+    shareToken = contractsFixture.getShareToken()
 
-    assert universe.getOrCacheReportingFeeDivisor() == defaultValue
+    OIUniverse = universe
+    if contractsFixture.paraAugur:
+        paraAugur = contractsFixture.contracts["ParaAugur"]
+        OIUniverse = contractsFixture.applySignature("ParaUniverse", paraAugur.getParaUniverse(universe.address))
 
-    # Generate OI
-    assert universe.getOpenInterestInAttoCash() == 0
-    cost = 10 * market.getNumTicks()
+    assert OIUniverse.getOrCacheReportingFeeDivisor() == defaultValue
+
+    account = contractsFixture.accounts[0]
+    reputationTokenAddress = universe.getReputationToken()
+    reputationToken = contractsFixture.applySignature('TestNetReputationToken', reputationTokenAddress)
+
+    # Initialize the Uniswap oracle
+    if contractsFixture.paraAugur:
+        oracleAddress = contractsFixture.contracts["OINexus"].oracle()
+        oracle = contractsFixture.applySignature("ParaOracle", oracleAddress)
+        repExchange = contractsFixture.applySignature("UniswapV2Pair", oracle.getExchange(reputationTokenAddress))
+        cashExchange =  contractsFixture.applySignature("UniswapV2Pair", oracle.getExchange(cash.address))
+        weth = contractsFixture.applySignature("WETH9", oracle.weth())
+        wethAmount = 1 * 10**18
+        repAmount = 25 * 10**18
+        addLiquidityWETH(repExchange, weth, reputationToken, wethAmount, repAmount, account)
+        addLiquidityWETH(repExchange, weth, reputationToken, wethAmount, repAmount, account)
+
+        wethAmount = 1 * 10**18
+        cashAmount = 350 * 10**18
+        addLiquidityWETH(cashExchange, weth, cash, wethAmount, cashAmount, account)
+        addLiquidityWETH(cashExchange, weth, cash, wethAmount, cashAmount, account)
+    else:
+        repOracle = contractsFixture.contracts["ParaRepOracle"] if contractsFixture.paraAugur else contractsFixture.contracts["RepOracle"]
+        repExchange = contractsFixture.applySignature("UniswapV2Pair", repOracle.getExchange(reputationTokenAddress))
+        account = contractsFixture.accounts[0]
+        cashAmount = 20 * 10**18
+        repAmount = 1 * 10**18
+        addLiquidity(repExchange, cash, reputationToken, cashAmount, repAmount, account)
+
+    # Generate an enormous amount of OI
+    assert contractsFixture.getOpenInterestInAttoCash(universe) == 0
+    cost = market.getNumTicks() * 10**30
     with BuyWithCash(cash, cost, contractsFixture.accounts[1], "buy complete set"):
-        shareToken.publicBuyCompleteSets(market.address, 10, sender = contractsFixture.accounts[1])
-    assert universe.getOpenInterestInAttoCash() > 0
+        shareToken.publicBuyCompleteSets(market.address, 10**30, sender = contractsFixture.accounts[1])
+    assert contractsFixture.getOpenInterestInAttoCash(universe) > 0
 
-    # Move dispute window forward
-    disputeWindow = contractsFixture.applySignature('DisputeWindow', universe.getOrCreateCurrentDisputeWindow(False))
-    contractsFixture.contracts["Time"].setTimestamp(disputeWindow.getEndTime() + 1)
+    if contractsFixture.paraAugur:
+        contractsFixture.contracts["Time"].incrementTimestamp(3 * 24 * 60 * 60)
+    else:
+        # Move dispute window forward
+        disputeWindow = contractsFixture.applySignature('DisputeWindow', universe.getOrCreateCurrentDisputeWindow(False))
+        contractsFixture.contracts["Time"].setTimestamp(disputeWindow.getEndTime() + 1)
 
     reportingFeeChangedLog = {
         "universe": universe.address,
     }
     with AssertLog(contractsFixture, "ReportingFeeChanged", reportingFeeChangedLog):
-        assert universe.getOrCacheReportingFeeDivisor() != defaultValue
+        assert OIUniverse.getOrCacheReportingFeeDivisor() < defaultValue
 
 def test_validity_bond_up(contractsFixture, universe, market):
     initialValidityBond = universe.getOrCacheValidityBond()
@@ -74,7 +110,7 @@ def test_validity_bond_up(contractsFixture, universe, market):
     proceedToInitialReporting(contractsFixture, market)
 
     # The DR will admit the market is invalid
-    payoutNumerators = [100, 0, 0]
+    payoutNumerators = [1000, 0, 0]
     assert market.doInitialReport(payoutNumerators, "", 0)
 
     # Move time forward to finalize the market
@@ -101,7 +137,7 @@ def test_validity_bond_min(contractsFixture, universe, market):
     proceedToInitialReporting(contractsFixture, market)
 
     # The DR will report the market had a normal resolution
-    payoutNumerators = [0, 0, 100]
+    payoutNumerators = [0, 0, 1000]
     assert market.doInitialReport(payoutNumerators, "", 0)
 
     # Move time forward to finalize the market
@@ -122,7 +158,7 @@ def test_validity_bond_down(contractsFixture, universe, market, scalarMarket, ca
     proceedToInitialReporting(contractsFixture, market)
 
     # The DR will admit the market is invalid
-    payoutNumerators = [100, 0, 0]
+    payoutNumerators = [1000, 0, 0]
     assert market.doInitialReport(payoutNumerators, "", 0)
 
     # Move time forward into the dispute window
@@ -474,3 +510,21 @@ def reportingSnapshot(fixture, kitchenSinkSnapshot):
 def reportingFixture(fixture, reportingSnapshot):
     fixture.resetToSnapshot(reportingSnapshot)
     return fixture
+
+def addLiquidity(exchange, cash, reputationToken, cashAmount, repAmount, address):
+    cash.faucet(cashAmount)
+    reputationToken.faucet(repAmount)
+
+    cash.transfer(exchange.address, cashAmount)
+    reputationToken.transfer(exchange.address, repAmount)
+
+    exchange.mint(address)
+
+def addLiquidityWETH(exchange, weth, token, wethAmount, tokenAmount, address):
+    weth.deposit(value=wethAmount)
+    token.faucet(tokenAmount)
+
+    weth.transfer(exchange.address, wethAmount)
+    token.transfer(exchange.address, tokenAmount)
+
+    exchange.mint(address)

@@ -2,11 +2,11 @@
 
 from eth_tester.exceptions import TransactionFailed
 from pytest import raises, fixture as pytest_fixture
-from utils import nullAddress, TokenDelta, PrintGasUsed
+from utils import nullAddress, TokenDelta, PrintGasUsed, AssertLog
 from reporting_utils import proceedToDesignatedReporting, proceedToInitialReporting, proceedToFork, finalize
 
 
-def test_warp_sync(contractsFixture, augur, universe, reputationToken, warpSync):
+def test_warp_sync(contractsFixture, augur, universe, reputationToken, warpSync, cash):
     account = contractsFixture.accounts[0]
     time = contractsFixture.contracts["Time"]
 
@@ -28,16 +28,22 @@ def test_warp_sync(contractsFixture, augur, universe, reputationToken, warpSync)
     # Finalize the warp sync market with some value
     proceedToDesignatedReporting(contractsFixture, market)
     numTicks = market.getNumTicks()
-    assert warpSync.doInitialReport(universe.address, [0,0,numTicks], "", 0)
+    assert warpSync.doInitialReport(universe.address, [0,0,numTicks], "")
     disputeWindow = contractsFixture.applySignature("DisputeWindow", market.getDisputeWindow())
 
     time.setTimestamp(disputeWindow.getEndTime())
 
     # Finalizing the warp sync market will award the finalizer REP based on time since it became finalizable
     expectedFinalizationReward = warpSync.getFinalizationReward(market.address)
-    with PrintGasUsed(contractsFixture, "WS Market Finalization Cost", 0):
-        with TokenDelta(reputationToken, expectedFinalizationReward, account, "REP reward not minted for finalizer"):
-            assert market.finalize()
+    WarpSyncDataUpdatedLog = {
+        "universe": universe.address,
+        "warpSyncHash": numTicks,
+        "marketEndTime": market.getEndTime()
+    }
+    with AssertLog(contractsFixture, "WarpSyncDataUpdated", WarpSyncDataUpdatedLog):
+        with PrintGasUsed(contractsFixture, "WS Market Finalization Cost", 0):
+            with TokenDelta(reputationToken, expectedFinalizationReward, account, "REP reward not minted for finalizer"):
+                assert market.finalize()
 
     # Check Warp Sync contract for universe and see existing value
     assert warpSync.data(universe.address) == [numTicks, market.getEndTime()]
@@ -93,7 +99,12 @@ def test_warp_sync_finalization_reward(contractsFixture, augur, universe, reputa
     finalizationReward = warpSync.getFinalizationReward(market.address)
     assert finalizationReward == expectedFinalizationReward
 
-def test_warp_sync_fork(contractsFixture, augur, universe, reputationToken, warpSync):
+    # We limit the maximum growth time to a week
+    time.incrementTimestamp(1 * day)
+    finalizationReward = warpSync.getFinalizationReward(market.address)
+    assert finalizationReward == expectedFinalizationReward
+
+def test_warp_sync_gets_forked(contractsFixture, augur, universe, reputationToken, warpSync):
     account = contractsFixture.accounts[0]
     time = contractsFixture.contracts["Time"]
 
@@ -143,6 +154,32 @@ def test_warp_sync_fork(contractsFixture, augur, universe, reputationToken, warp
     # See new warp sync market
     newWarpSyncMarket = contractsFixture.applySignature("Market", warpSync.markets(shortUniverse.address))
     assert newWarpSyncMarket.address != shortUniverseMarket.address
+
+def test_warp_sync_in_fork(contractsFixture, augur, universe, reputationToken, warpSync, market):
+    account = contractsFixture.accounts[0]
+    time = contractsFixture.contracts["Time"]
+
+    # Get warp sync market
+    warpSync.initializeUniverse(universe.address)
+    warpMarket = contractsFixture.applySignature("Market", warpSync.markets(universe.address))
+
+    # Fork the standard market
+    proceedToFork(contractsFixture, market, universe)
+    finalize(contractsFixture, market, universe)
+
+    # See that we cannot migrate the warp sync market
+    numTicks = market.getNumTicks()
+    with raises(TransactionFailed):
+        assert warpMarket.migrateThroughOneFork([0, 0, numTicks], "")
+
+    # Instead we just create a new warp sync market as usual for the new universe
+    winningUniverse = universe.getChildUniverse(market.getWinningPayoutDistributionHash())
+    warpSync.initializeUniverse(winningUniverse)
+
+    # The market now exists
+    assert not warpSync.markets(winningUniverse) == nullAddress
+
+
 
 @pytest_fixture
 def warpSync(contractsFixture):

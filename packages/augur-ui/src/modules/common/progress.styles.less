@@ -1,41 +1,35 @@
 @import (reference) '~assets/styles/shared';
 
+// Used in Betting UI
 .ProgressLabel {
-  .mono-9-bold;
+  .mono-10-medium;
 
   align-items: baseline;
-  color: @color-inactive-text;
+  color: @color-secondary-text;
   display: flex;
   flex-flow: column nowrap;
   white-space: nowrap;
+  text-transform: capitalize;
 
   > span:first-of-type {
     margin-right: @size-4;
-    text-transform: uppercase;
   }
 
   @media @breakpoint-mobile {
-    .mono-9;
-
-    color: @color-secondary-text;
-
     > span:first-of-type {
       margin-right: 0;
-      text-transform: uppercase;
     }
   }
 
   > span:last-of-type {
-    .mono-10;
+    .mono-12-medium;
 
     color: @color-primary-text;
     text-align: left;
     width: 100%;
     margin-top: @size-3;
-
-    @media @breakpoint-mobile {
-      .mono-10;
-    }
+    text-transform: uppercase;
+    line-height: @size-13;
   }
 
   &.FirstBreakpoint {
@@ -52,11 +46,15 @@
 
   &.Finished {
     > span:last-of-type {
-      color: @color-inactive-text;
+      color: @color-secondary-text;
     }
   }
 
   &.AlignRight {
+    > span:first-of-type {
+      margin-right: 0;
+    }
+
     > span:last-of-type {
       text-align: right;
     }
@@ -134,57 +132,22 @@
   }
 }
 
-.MarketTimeline {
-  height: 100%;
-  width: 100%;
-
-  > div {
-    display: flex;
-    justify-content: space-between;
-    line-height: @size-10;
-  }
-
-  > div:last-of-type {
-    > span > span {
-      .mono-10;
-
-      color: @color-primary-text;
-    }
-
-    > span:last-of-type {
-      text-align: right;
-    }
-  }
-
-  > div.fade:last-of-type {
-    > span:first-of-type {
-      > span {
-        color: @color-inactive-text;
-      }
-    }
-  }
-}
-
 .WindowProgress {
   background: @color-module-background;
   border: 1px solid @color-dark-grey;
   border-radius: @border-radius-default;
-  height: 214px;
+  height: @size-178;
   padding: @size-24;
   width: 100%;
-  max-width: 480px;
   min-width: 344px;
 
-  @media @breakpoint-max-desktop-min {
-    height: 161px;
-    padding: @size-16;
-    max-width: 376px;
-    min-width: 344px;
+  @media @breakpoint-tablet {
+    min-width: unset;
+    height: unset;
   }
 
-  @media @breakpoint-mobile-new {
-    width: 100%;
-    max-width: 100%;
+  @media @breakpoint-mobile {
+    height: unset;
   }
 
   > span {
@@ -231,7 +194,7 @@
 
     color: @color-secondary-text;
     text-align: center;
-    margin: auto;
+    margin-bottom: @size-12;
     text-transform: uppercase;
 
     &:first-of-type {
@@ -249,13 +212,6 @@
 
     color: @color-reporting;
     text-align: center;
-
-    &:first-of-type {
-      .text-12;
-
-      color: @color-secondary-text;
-      text-align: left;
-    }
 
     @media @breakpoint-max-desktop-min {
       .mono-9;

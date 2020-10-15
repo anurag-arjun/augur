@@ -1,44 +1,67 @@
 import React, { useState } from 'react';
-import { EVENT_EXPIRATION_TOOLTIP, SCALAR } from 'modules/common/constants';
+import {
+  EVENT_EXPIRATION_TOOLTIP,
+  SCALAR,
+} from 'modules/common/constants';
 import Styles from 'modules/market/components/core-properties/core-properties.styles.less';
-import getValue from 'utils/get-value';
 import { PropertyLabel, TimeLabel } from 'modules/common/labels';
 import {
   formatPercent,
-  formatDai,
-  formatNone,
-  formatNumber,
+  formatDaiPrice,
   formatRep,
   formatAttoRep,
+  formatNumber,
+  formatEther,
 } from 'utils/format-number';
 import MarketScalarOutcomeDisplay from '../market-scalar-outcome-display/market-scalar-outcome-display';
 import ChevronFlip from 'modules/common/chevron-flip';
 import classNames from 'classnames';
 import { MarketData } from 'modules/types';
+import { useEffect } from 'react';
+import { createBigNumber } from 'utils/create-big-number';
 
 interface CorePropertiesProps {
   market: MarketData;
   reportingBarShowing?: boolean;
+  showExtraDetailsChevron?: boolean;
+  loadAffiliateFee: Function;
 }
 
-// TODO: Get market 24 hour volume, currently just using volume
-const CoreProperties: React.FC<CorePropertiesProps> = ({ market, reportingBarShowing }) => {
+const CoreProperties: React.FC<CorePropertiesProps> = ({
+  market,
+  reportingBarShowing,
+  showExtraDetailsChevron,
+  loadAffiliateFee,
+}) => {
   const [showExtraDetails, setShowExtraDetails] = useState(false);
+  const [affiliateFee, setAffiliateFee] = useState(formatNumber(0));
 
+
+  useEffect(() => {
+    if (market) {
+      loadAffiliateFee && loadAffiliateFee(market.id).then(marketInfo => {
+        setAffiliateFee(formatPercent(marketInfo?.affiliateFee ? createBigNumber(marketInfo.affiliateFee).times(100).decimalPlaces(0) : '0', { decimals: 0}));
+      })
+    }
+  }, []);
+
+  const isScalar = market.marketType === SCALAR;
   return (
     <div
       className={classNames(Styles.CoreProperties, {
         [Styles.ReportingBarShowing]: reportingBarShowing,
       })}
     >
-      <div>
+      <div
+        className={classNames({ [Styles.ShowExtraDetails]: showExtraDetails })}
+      >
         <div>
           <PropertyLabel
             label="Total Volume"
             value={
-              (market.volumeFormatted
-                ? market.volumeFormatted.formatted
-                : formatDai(0).formatted) + ' DAI'
+              market.volumeFormatted
+                ? market.volumeFormatted.full
+                : formatEther(0, { decimals: 0 }).full
             }
           />
           {reportingBarShowing && (
@@ -59,9 +82,9 @@ const CoreProperties: React.FC<CorePropertiesProps> = ({ market, reportingBarSho
               <PropertyLabel
                 label="Total Dispute Stake"
                 value={
-                  (market.disputeInfo
-                    ? formatAttoRep(market.disputeInfo.stakeCompletedTotal).formatted
-                    : formatRep(0).formatted) + ' REP'
+                  market.disputeInfo
+                    ? formatAttoRep(market.disputeInfo.stakeCompletedTotal).full
+                    : formatRep(0, { decimals: 0 }).full
                 }
               />
               <TimeLabel
@@ -75,54 +98,93 @@ const CoreProperties: React.FC<CorePropertiesProps> = ({ market, reportingBarSho
               <PropertyLabel
                 label="Open Interest"
                 value={
-                  (market.openInterestFormatted
-                    ? market.openInterestFormatted.formatted
-                    : formatDai(0).formatted) + ' DAI'
+                  market.openInterestFormatted
+                    ? market.openInterestFormatted.full
+                    : formatEther(0, { decimals: 0 }).full
                 }
               />
               <PropertyLabel
-                label="24hr Volume"
-                value={
-                  (market.volumeFormatted
-                    ? market.volumeFormatted.formatted
-                    : formatDai(0).formatted) + ' DAI'
-                }
-              />
-              <PropertyLabel
-                label="Estimated Fee"
+                label="Market OI Fee"
                 value={
                   market.settlementFeePercent
-                    ? market.settlementFeePercent.full
-                    : formatPercent(market.settlementFee).full
+                    ? formatPercent(market.settlementFeePercent.formattedValue).full
+                    : formatPercent(Number(market.settlementFee) * 100).full
                 }
                 hint={
                   <>
-                    <h4>Trading Settlement Fee</h4>
+                    <h4>Market OI Fee</h4>
                     <p>
-                      The trading settlement fee is a combination of the Market
-                      Creator Fee (
+                      The Market OI fee is a combination of the Market
+                      Creator fee (
                       <b>
-                        {getValue(market, 'marketCreatorFeeRatePercent.full')}
+                        {
+                          formatPercent(
+                            Number(market.marketCreatorFeeRate) * 100
+                          ).full
+                        }
                       </b>
-                      ) and the Reporting Fee (
-                      <b>{getValue(market, 'reportingFeeRatePercent.full')}</b>)
+                      ) and the Reporting fee (
+                      <b>
+                        {
+                          formatPercent(Number(market.reportingFeeRate) * 100)
+                            .full
+                        }
+                      </b>
+                      ): which occurs when shares are closed
                     </p>
                   </>
                 }
               />
+              {isScalar && reportingBarShowing &&
+                <>
+                  <PropertyLabel
+                    label="Denomination"
+                    value={market.scalarDenomination}
+                  />
+                  <PropertyLabel
+                    label="Min"
+                    value={market.minPrice}
+                  />
+                  <PropertyLabel
+                    label="Max"
+                    value={market.maxPrice}
+                  />
+                </>
+              }
             </>
           )}
+          {loadAffiliateFee && <PropertyLabel
+            label="Affiliate Fee"
+            value={affiliateFee.full}
+            hint={
+              <>
+                <h4>Affiliate Fee</h4>
+                <p>
+                  The Affiliate fee is a percentage of the Market
+                  Creator fee (
+                  <b>
+                    {
+                      formatPercent(
+                        Number(market.marketCreatorFeeRate) * 100
+                      ).full
+                    }
+                  </b>
+                  ), which occurs when shares are closed
+                </p>
+              </>
+            }
+          />}
         </div>
         {!reportingBarShowing && (
           <div className={Styles.TimeSection}>
             <TimeLabel
               label="Date Created"
               time={market.creationTimeFormatted}
-              showLocal
             />
             <TimeLabel
               label="Event Expiration"
               time={market.endTimeFormatted}
+              showLocal
               hint={
                 <>
                   <h4>{EVENT_EXPIRATION_TOOLTIP.header}</h4>
@@ -132,7 +194,7 @@ const CoreProperties: React.FC<CorePropertiesProps> = ({ market, reportingBarSho
             />
           </div>
         )}
-        {reportingBarShowing && (
+        {reportingBarShowing && showExtraDetailsChevron && (
           <button onClick={() => setShowExtraDetails(() => !showExtraDetails)}>
             <ChevronFlip
               pointDown={showExtraDetails}
@@ -144,7 +206,7 @@ const CoreProperties: React.FC<CorePropertiesProps> = ({ market, reportingBarSho
         )}
       </div>
 
-      {market.marketType === SCALAR &&
+      {!market.isWarpSync && isScalar &&
         (!reportingBarShowing || showExtraDetails) && (
           <div className={Styles.ScalarBox}>
             <MarketScalarOutcomeDisplay

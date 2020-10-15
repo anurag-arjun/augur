@@ -8,18 +8,20 @@ import {
   SmallSubheaders,
   SmallSubheadersTooltip,
 } from 'modules/create-market/components/common';
-import { MAX_SPREAD_10_PERCENT, BUY, TEN_TO_THE_EIGHTEENTH_POWER, SCALAR } from 'modules/common/constants';
+import { MAX_SPREAD_10_PERCENT, BUY, SCALAR } from 'modules/common/constants';
 import { NewMarket } from 'modules/types';
 import { createBigNumber } from 'utils/create-big-number';
 import {
   tickSizeToNumTickWithDisplayPrices,
-  convertDisplayValuetoAttoValue,
   convertDisplayPriceToOnChainPrice,
   marketNameToType,
-} from '@augurproject/sdk';
+  convertDisplayAmountToOnChainAmount,
+} from '@augurproject/sdk-lite';
 import { formatOrderBook } from 'modules/create-market/helpers/format-order-book';
 import logError from 'utils/log-error';
 import { NodeStyleCallback } from 'modules/types';
+import { MARKET_COPY_LIST } from 'modules/create-market/constants';
+import { getReportingDivisor } from 'modules/contracts/actions/contractCalls';
 
 export interface VisibilityProps {
   newMarket: NewMarket;
@@ -38,6 +40,7 @@ export interface VisibilityState {
   hasLiquidity: boolean;
   validations: Validations;
   validationMessage: string;
+  reportingFeeDivisor: string;
 }
 
 // 1. spread to wide
@@ -77,7 +80,12 @@ export default class Visibility extends Component<
       hasLiquidity: false,
       validations: DEFAULT_VALIDATIONS,
       validationMessage: VALIDATION_TIPS.liquidity(),
+      reportingFeeDivisor: '10000',
     };
+  }
+
+  getNumOutcomes(marketType, numOutcomes) {
+    return marketType === SCALAR ? 3 : numOutcomes;
   }
 
   validate(newMarket: NewMarket) {
@@ -108,11 +116,11 @@ export default class Visibility extends Component<
             );
             validations.validSpread = createBigNumber(spread)
               .dividedBy(range)
-              .isLessThanOrEqualTo(bnSpreadFilter);
+              .isLessThan(bnSpreadFilter);
           } else {
             validations.validSpread = createBigNumber(
               spread
-            ).isLessThanOrEqualTo(bnSpreadFilter);
+            ).isLessThan(bnSpreadFilter);
           }
         }
         if (validations.validSpread) return { validations, validationMessage };
@@ -164,8 +172,9 @@ export default class Visibility extends Component<
             minPriceBigNumber,
             tickSizeBigNumber
           ).toFixed(),
-          amount: convertDisplayValuetoAttoValue(
-            createBigNumber(order.quantity)
+          amount: convertDisplayAmountToOnChainAmount(
+            createBigNumber(order.quantity),
+            createBigNumber(tickSize)
           ).toFixed(),
         };
         if (order.type === BUY) {
@@ -179,12 +188,10 @@ export default class Visibility extends Component<
     return {
       orderBook: formattedOrderBook,
       numTicks: numTicks.toFixed(),
-      numOutcomes: outcomesFormatted.length,
+      numOutcomes: this.getNumOutcomes(marketType, outcomesFormatted.length),
       marketType: marketTypeNumber,
-      feePerCashInAttoCash: `${createBigNumber(settlementFee)
-        .multipliedBy(TEN_TO_THE_EIGHTEENTH_POWER)
-        .toString()}`,
-      reportingFeeDivisor: '0',
+      feePerCashInAttoCash: String(settlementFee),
+      reportingFeeDivisor: String(this.state.reportingFeeDivisor),
       spread: parseInt(MAX_SPREAD_10_PERCENT),
     };
   }
@@ -203,8 +210,8 @@ export default class Visibility extends Component<
   getRanking() {
     const { newMarket } = this.props;
     const { validations, validationMessage } = this.validate(newMarket);
-    const { hasLiquidity, hasSells, hasBuys, validSpread } = validations;
-    if ((hasLiquidity && hasSells && hasBuys && validSpread)) {
+    const { hasLiquidity } = validations;
+    if ((hasLiquidity)) {
       const params = this.calculateParams(newMarket);
       this.getMarketLiquidityRanking(params, (err, updates) => {
         this.setState({
@@ -222,24 +229,30 @@ export default class Visibility extends Component<
     }
   }
 
+  getReportingFeeDivisor = () => {
+    getReportingDivisor().then(divisor =>
+      this.setState({reportingFeeDivisor: String(divisor)})
+    )
+  }
+
   componentDidUpdate(prevProps) {
     const { newMarket } = this.props;
     if (
-      createBigNumber(prevProps.newMarket.initialLiquidityDai).comparedTo(
-        createBigNumber(newMarket.initialLiquidityDai)
-      ) !== 0
+      String(prevProps.newMarket.initialLiquidityDai) !== (
+        String(newMarket.initialLiquidityDai)
+      ) || prevProps.newMarket.settlementFee !== newMarket.settlementFee
     ) {
       this.getRanking();
     }
   }
 
   componentDidMount() {
+    this.getReportingFeeDivisor();
     this.getRanking();
   }
 
   render() {
-    const { marketRank, totalMarkets, validationMessage } = this.state;
-    const isValid = validationMessage.length === 0;
+    const { marketRank, totalMarkets, validationMessage, hasLiquidity, validations } = this.state;
     const rankUpdate = totalMarkets - marketRank;
     const rankingString = `+${rankUpdate} ranking`;
 
@@ -247,24 +260,25 @@ export default class Visibility extends Component<
       <ContentBlock dark>
         <div
           className={classNames(Styles.Visibility, {
-            [Styles.Passing]: isValid,
+            [Styles.Passing]: hasLiquidity,
           })}
         >
           <LargeSubheaders
             link
+            copyType={MARKET_COPY_LIST.VISIBILITY}
             header="Market visibility"
-            subheader="To ensure your market is visible to users you must pass the spread filter check. To improve the ranking or visiblity of your market, ensure you add good liquidity to each outcome."
+            subheader="To ensure your market is visible to users you must pass the spread filter check. To improve the ranking or visiblity of your market, ensure you add sizeable liquidity to each outcome."
           />
           <SmallSubheadersTooltip
             header="default Spread filter check"
-            subheader={isValid ? 'Pass' : 'Fail'}
-            text="Info text"
+            subheader={hasLiquidity ? 'Pass' : 'Fail'}
+            text="Displays markets based on how much liquidity there is available under a 15% spread"
           />
 
-          {!isValid && (
+          {!hasLiquidity && (
             <SmallSubheaders
               header="How to pass spread filter check"
-              subheader={validationMessage}
+              subheader={(!hasLiquidity && validations.hasBuys && validations.hasSells) ? "Increase quantity size to both sides to Pass." : validationMessage}
             />
           )}
 
@@ -276,12 +290,12 @@ export default class Visibility extends Component<
                 <span className={Styles.Positive}>{rankingString}</span>
               </span>
             }
-            text="Info text"
+            text="Shows how your market will compare to all other markets"
           />
 
           <SmallSubheaders
             header="how to improve market ranking"
-            subheader="Add both Buy and Sell orders to an outcome, increase quantity to increase ranking."
+            subheader={"Add both Buy and Sell orders to an outcome, increase quantity to increase ranking."}
           />
         </div>
       </ContentBlock>

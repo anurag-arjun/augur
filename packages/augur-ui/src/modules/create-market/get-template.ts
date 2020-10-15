@@ -1,34 +1,59 @@
+import type { Getters } from '@augurproject/sdk';
 import {
-  MARKET_TEMPLATES,
-  MARKET_SUB_TEMPLATES,
-  MARKET_TYPE_TEMPLATES,
-  MarketCardTemplate,
-} from 'modules/create-market/constants';
-import deepClone from 'utils/deep-clone';
-import { Getters } from '@augurproject/sdk';
-import { formatDai } from 'utils/format-number';
-import { NameValuePair } from 'modules/portfolio/types';
+  CATEGORICAL,
+  SCALAR,
+  SCALAR_OUTCOMES,
+  YES_NO,
+  YES_NO_OUTCOMES,
+  INVALID_OUTCOME_LABEL
+} from 'modules/common/constants';
+import {
+  CategoricalMarketIcon,
+  ScalarMarketIcon,
+  YesNoMarketIcon,
+} from 'modules/common/icons';
 import {
   TEMPLATES,
   TEMPLATE_VALIDATIONS,
-  Categories,
-  Template,
-  TemplateInput,
-  ResolutionRules,
-  CategoryTemplate,
+  RETIRED_TEMPLATES,
   TemplateInputType,
+  getExchangeClosingWithBufferGivenDay,
+} from '@augurproject/templates';
+import {
   REQUIRED,
   CHOICE,
-} from '@augurproject/artifacts';
+  CRYPTO,
+} from '@augurproject/sdk-lite'
+import { NameValuePair } from 'modules/common/selection';
+import {
+  MARKET_SUB_TEMPLATES,
+  MARKET_TEMPLATES,
+  MARKET_TYPE_TEMPLATES,
+  MarketCardTemplate,
+} from 'modules/create-market/constants';
+import { DateTimeComponents, OutcomeFormatted } from 'modules/types';
+import deepClone from 'utils/deep-clone';
+import { timestampComponents } from 'utils/format-date';
+import { formatDaiPrice, formatDai, formatEther } from 'utils/format-number';
+
+const MarketTypeIcons = {
+  [YES_NO]: YesNoMarketIcon,
+  [CATEGORICAL]: CategoricalMarketIcon,
+  [SCALAR]: ScalarMarketIcon,
+};
+
+const NO_SORT_CATEGORIES = [CRYPTO];
 
 export const getTemplateRadioCardsMarketTypes = (categories: Categories) => {
   if (!categories || !categories.primary) return MARKET_TYPE_TEMPLATES;
   const templates = getTemplatesPerSubcategory(categories, false);
   if (!templates) return [];
+  //const icon = MarketTypeIcons[t.marketType];
   const marketTypes = templates.reduce((p, t) => [...p, t.marketType], []);
   return [...new Set(marketTypes)].map(m =>
     MARKET_TYPE_TEMPLATES.find(t => t.value === m)
-  );
+  )
+  .map(i => ({...i, icon: MarketTypeIcons[i.value]}));
 };
 
 export const getTemplatesByTertiaryMarketTypes = (categories: Categories) => {
@@ -94,25 +119,31 @@ export const addCategoryStats = (
     stats = catStats && catStats.categories[cardValue];
   }
   if (stats) {
-    const vol = formatDai(stats.volume || '0').formatted;
+    const vol = formatEther(stats.volume || '0').formatted;
     const mkrLabel = stats.numberOfMarkets === 1 ? 'Market' : 'Markets';
     card.description = `${stats.numberOfMarkets} ${mkrLabel} | $${vol}`;
+    card.count = stats.numberOfMarkets;
+  } else {
+    card.description = `0 Markets | $0.00`;
+    card.count = 0;
   }
   return card;
 };
 
 export const getTemplateCategories = (categories: Categories): string[] => {
   let emptyCats = [];
+  let noSort = NO_SORT_CATEGORIES.includes(categories.primary);
   if (!categories || !categories.primary) return Object.keys(TEMPLATES).sort();
   const primaryCat = TEMPLATES[categories.primary];
   if (!primaryCat) return emptyCats;
   if (!categories.secondary)
-    return primaryCat.children ? Object.keys(primaryCat.children).sort() : [];
+    return primaryCat.children ? noSort ? Object.keys(primaryCat.children) : Object.keys(primaryCat.children).sort() : [];
+  noSort = NO_SORT_CATEGORIES.includes(categories.secondary);
   const secondaryCat = primaryCat.children
     ? primaryCat.children[categories.secondary]
     : emptyCats;
   if (!secondaryCat) return emptyCats;
-  return secondaryCat.children ? Object.keys(secondaryCat.children).sort() : [];
+  return secondaryCat.children ? noSort ? Object.keys(secondaryCat.children) : Object.keys(secondaryCat.children).sort() : [];
 };
 
 export const getTemplateCategoriesByMarketType = (
@@ -218,7 +249,11 @@ const getTemplatesByMarketType = (
   marketType
 ) => {
   const values = categoryTemplates.filter(t => t.marketType === marketType);
-  return deepClone<Template[]>(values);
+  const viewable = values.reduce(
+    (p, v) => (RETIRED_TEMPLATES.find(r => r.hash === v.hash) ? p : [...p, v]),
+    []
+  );
+  return deepClone<Template[]>(viewable);
 };
 
 export const getTemplateReadableDescription = (template: Template) => {
@@ -233,39 +268,30 @@ export const getTemplateReadableDescription = (template: Template) => {
   return question;
 };
 
-export const buildMarketDescription = (
-  question: string,
-  inputs: TemplateInput[]
-) => {
+export const buildMarketDescription = (question: string, inputs: TemplateInput[]) => {
   inputs.forEach((input: TemplateInput) => {
-    question = question.replace(
-      `[${input.id}]`,
-      `${input.userInput || `[${input.placeholder}]`}`
-    );
+    let value = (input.userInput && String(input.userInput).trim()) || `[${String(input?.placeholder)?.trim()}]`;
+    question = question.replace(`[${input.id}]`, `${value}`);
   });
 
   return question;
 };
 
-export const tellIfEditableOutcomes = (inputs: TemplateInput[]) => {
-  return (
-    inputs.filter(
-      input =>
-        input.type === TemplateInputType.USER_DESCRIPTION_OUTCOME ||
-        input.type === TemplateInputType.SUBSTITUTE_USER_OUTCOME ||
-        input.type === TemplateInputType.USER_DESCRIPTION_DROPDOWN_OUTCOME
-    ).length > 0
-  );
-};
-
 export const createTemplateOutcomes = (inputs: TemplateInput[]) => {
-  return inputs
+  const requiredOutcomes = inputs.filter(
+    i => i.type === TemplateInputType.ADDED_OUTCOME
+  );
+  const otherOutcomes = inputs.filter(
+    i => i.type !== TemplateInputType.ADDED_OUTCOME
+  );
+  return [...otherOutcomes, ...requiredOutcomes]
     .filter(
       input =>
         input.type === TemplateInputType.SUBSTITUTE_USER_OUTCOME ||
         input.type === TemplateInputType.ADDED_OUTCOME ||
         input.type === TemplateInputType.USER_DESCRIPTION_OUTCOME ||
-        input.type === TemplateInputType.USER_DESCRIPTION_DROPDOWN_OUTCOME
+        input.type === TemplateInputType.USER_DESCRIPTION_DROPDOWN_OUTCOME ||
+        input.type === TemplateInputType.USER_DESCRIPTION_DROPDOWN_OUTCOME_DEP
     )
     .map((input: TemplateInput) => {
       if (input.type === TemplateInputType.SUBSTITUTE_USER_OUTCOME) {
@@ -275,26 +301,39 @@ export const createTemplateOutcomes = (inputs: TemplateInput[]) => {
     });
 };
 
+export const getFormattedOutcomes = (
+  marketType: string,
+  outcomes: string[],
+  scalarDenomination: string
+): OutcomeFormatted[] => {
+  let outcomesFormatted: OutcomeFormatted[] = deepClone<OutcomeFormatted[]>(
+    YES_NO_OUTCOMES
+  );
+  if (marketType === CATEGORICAL) {
+    outcomesFormatted = outcomes.map((outcome, index) => ({
+      description: outcome,
+      id: index + 1,
+      isTradeable: true,
+    }));
+    outcomesFormatted.unshift({
+      id: 0,
+      description: INVALID_OUTCOME_LABEL,
+      isTradeable: true,
+    });
+  } else if (marketType === SCALAR) {
+    outcomesFormatted = deepClone<OutcomeFormatted[]>(SCALAR_OUTCOMES);
+    if (scalarDenomination)
+      outcomesFormatted[1].description = scalarDenomination;
+  }
+
+  return outcomesFormatted;
+};
+
 export const substituteUserOutcome = (
   input: TemplateInput,
   inputs: TemplateInput[]
 ) => {
-  let matches = input.placeholder.match(/\[(.*?)\]/);
-  let submatch = '0';
-  if (matches) {
-    submatch = String(matches[1]);
-  }
-
-  let text = input.placeholder.replace(
-    `[${submatch}]`,
-    `${
-      inputs[submatch].userInput
-        ? inputs[submatch].userInput
-        : `[${inputs[submatch].placeholder}]`
-    }`
-  );
-
-  return text;
+  return buildMarketDescription(input.placeholder, inputs);
 };
 
 export const buildResolutionDetails = (
@@ -317,23 +356,60 @@ export const buildResolutionDetails = (
   return details;
 };
 
+// return false if template has category children
+// return true if template doesn't have category children
 export const hasNoTemplateCategoryChildren = category => {
   if (!category) return false;
+  if (!TEMPLATES[category]) return true;
   if (TEMPLATES[category].children) return false;
   return true;
 };
 
-export const hasNoTemplateCategoryTertiaryChildren = (
-  category,
-  subcategory
-) => {
-  if (!category || !subcategory) return false;
-  if (TEMPLATES[category].children[subcategory].children) return false;
+export const hasNoTemplateCategoryTertiaryChildren = (category, subcategory) => {
+  if (!category || !subcategory || !TEMPLATES[category] || !TEMPLATES[category].children) return true;
+  if (!TEMPLATES[category].children[subcategory] || !TEMPLATES[category].children[subcategory].children) return true;
+  if (TEMPLATES[category].children[subcategory] || TEMPLATES[category].children[subcategory].children) return false;
   return true;
 };
+
+export const hasAutoFillCategory = (inputs: TemplateInput[], categoryIndex: number) => {
+  if (inputs.length === 0) return false;
+  const autoFillCategoryInput = inputs.find(i => i.categoryDestId);
+  return autoFillCategoryInput && autoFillCategoryInput.categoryDestId === categoryIndex;
+};
+
 
 export const isValidTemplateMarket = (hash: string, marketTitle: string) => {
   const validation = TEMPLATE_VALIDATIONS[hash];
   if (!validation || !validation.templateValidation) return false;
   return !!marketTitle.match(validation.templateValidation);
 };
+
+export function createTemplateValueList(values: string[]): NameValuePair[] {
+  return values.map(v => ({ value: v, label: v }));
+}
+
+export function getEventExpirationForExchangeDayInQuestion(
+  inputs
+): Partial<DateTimeComponents> {
+  const closing = inputs.find(
+    i => i.type === TemplateInputType.DATEYEAR_CLOSING
+  );
+  if (!closing) return null;
+  const dateYearSource = inputs.find(i => i.id === closing.inputDateYearId);
+  const timeOffset = closing.userInputObject as TimeOffset;
+  if (dateYearSource && dateYearSource.userInput && timeOffset) {
+    const closingDateTime = getExchangeClosingWithBufferGivenDay(
+      dateYearSource.userInput,
+      timeOffset.hour,
+      timeOffset.minutes,
+      timeOffset.offset
+    );
+    // offset has already been applied but needs to be passed out
+    return {
+      ...timestampComponents(closingDateTime, timeOffset.offset, timeOffset.timezone),
+      offset: timeOffset.offset
+    };
+  }
+  return null;
+}

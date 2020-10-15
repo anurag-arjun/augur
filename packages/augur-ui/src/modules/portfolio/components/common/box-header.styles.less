@@ -7,7 +7,9 @@
     border-bottom: 1px solid @color-dark-grey;
     display: flex;
     flex-direction: row;
-    padding: @size-8 @size-10 @size-8 @size-16;
+    padding: 0 @size-10 0 @size-16;
+    max-height: @size-40;
+    min-height: @size-40;
 
     > div:first-of-type {
       .mono-11-bold;
@@ -16,6 +18,12 @@
       margin-right: @size-16;
       white-space: nowrap;
       text-transform: uppercase;
+    }
+
+    > div:first-of-type > h1 {
+      .mono-11-bold;
+
+      margin-bottom: 0;
     }
 
     > div:last-of-type {
@@ -27,16 +35,6 @@
     }
   }
 
-  > div:nth-of-type(2) {
-    border-bottom: 1px solid @color-dark-grey;
-    align-items: center;
-    display: flex;
-    flex-direction: row;
-    justify-content: flex-end;
-    padding: 0 @size-16 0;
-    height: @size-32;
-  }
-
   &.ExtraTitlePadding {
     > div:first-of-type > div:first-of-type {
       margin-left: @size-16;
@@ -46,17 +44,49 @@
   &.NoBorders {
     > div:first-of-type {
       border-bottom: 0;
-      padding-bottom: @size-18;
+      padding-bottom: 0;
     }
   }
 
-  @media @breakpoint-mobile-mid {
+  @media @breakpoint-mobile {
     &.Normal {
       > div {
         padding: 0;
       }
     }
+
+    &.NoBorders {
+      > div:first-of-type {
+        padding-left: @size-16;
+        min-height: @size-32;
+        max-height: @size-32;
+
+        > div,
+        > h1 {
+          .text-12-medium;
+        }
+      }
+    }
   }
+}
+
+.BoxHeader > div:nth-of-type(2),
+.Title {
+  background: @color-table-header;
+  border-bottom: 1px solid @color-dark-grey;
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  padding: 0 @size-16 0;
+  height: @size-32;
+}
+
+.Title {
+  .text-12-medium;
+
+  background-color: @color-dark-grey;
+  text-transform: uppercase;
 }
 
 .RightContent,
@@ -81,6 +111,10 @@
   margin-top: @size-16;
 }
 
+.NoTopMargin {
+  margin-top: 0;
+}
+
 .noBackground {
   background: unset;
   margin-top: 0;
@@ -102,6 +136,7 @@
 
 .isSwitched {
   flex-direction: column;
+  order: -1;
 }
 
 .Toggle {
@@ -118,7 +153,7 @@
   }
 }
 
-@media @breakpoint-mobile-mid {
+@media @breakpoint-mobile {
   .ShowOnMobile {
     display: flex;
     flex: 1;
@@ -127,7 +162,7 @@
     > div:first-of-type {
       display: flex;
       justify-content: flex-end;
-      margin-top: @size-8;
+      margin: @size-8 0;
 
       > div:first-of-type {
         flex: 1;

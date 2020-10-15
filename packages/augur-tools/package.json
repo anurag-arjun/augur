@@ -1,6 +1,6 @@
 {
   "name": "@augurproject/tools",
-  "version": "2.0.0-alpha.1",
+  "version": "2.1.9",
   "description": "Tools and dev dependencies",
   "author": "Augur Team <team@augur.net>",
   "license": "MIT",
@@ -8,24 +8,29 @@
   "directories": {
     "src": "src"
   },
+  "bin": {
+    "flash": "./build/flash/cli.js"
+  },
   "scripts": {
     "build": "tsc -b",
     "test": "echo \"Error: no test specified\" && exit 1",
     "docker:build": "bash ./docker-builder/build.sh",
     "docker:push": "bash ./docker-builder/push.sh",
     "docker:build-and-push": "yarn docker:build && yarn docker:push",
-    "docker:geth": "docker run -e GETH_VERBOSITY=4 -it -p 8545:8545 -p 8546:8546 augurproject/dev-node-geth:latest",
     "docker:pull": "./docker-builder/pull.sh",
+    "docker:geth": "docker network create augur-tools_default 2>&1 >/dev/null; docker run --rm -e GETH_VERBOSITY=4 -e PERIOD_TIME=1 -it -p 8545:8545 -p 8546:8546 --name geth --network augur-tools_default augurproject/dev-node-geth:v1.9.9",
+    "docker:geth:detached": "docker network create augur-tools_default 2>&1 >/dev/null; docker run --detach --rm -e GETH_VERBOSITY=4 -e PERIOD_TIME=1 -it -p 8545:8545 -p 8546:8546 --name geth --network augur-tools_default augurproject/dev-node-geth:v1.9.9",
     "docker:geth:dev": "cd ./ethereum-nodes/geth-poa && docker image build --tag augurproject/dev-node-geth .",
     "docker:geth:pop": "docker-builder/run.sh augurproject/dev-pop-geth-v2",
-    "docker:geth:pop-15": "./docker-builder/run.sh augurproject/dev-pop-geth-15-v2",
     "docker:geth:pop-normal-time": "docker-builder/run.sh augurproject/dev-pop-normtime-geth-v2",
     "docker:geth:attach": "docker run --rm --net host -it ethereum/client-go attach rpc:http://127.0.0.1:8545",
-    "docker:0x": "yarn flash run 0x-docker",
-    "deploy": "ts-node ./src/flash/cli run deploy",
+    "deploy": "ts-node ./src/flash/cli deploy",
     "deploy:merge": "scripts/deploy-merge-addresses.py",
     "flash": "ts-node ./src/flash/cli",
-    "blockstream-console": "ts-node ./src/blockstream-console.ts"
+    "flash-built": "node ./build/flash/cli.js",
+    "blockstream-console": "ts-node ./src/blockstream-console.ts",
+    "run:gsn": "oz-gsn run-relayer",
+    "prepare": "tsc -b"
   },
   "repository": {
     "type": "git",
@@ -36,32 +41,42 @@
   },
   "homepage": "https://github.com/augurproject/augur#readme",
   "dependencies": {
-    "@augurproject/artifacts": "2.0.0-alpha.1",
-    "@augurproject/core": "2.0.0-alpha.1",
-    "@augurproject/ethersjs-provider": "2.0.0-alpha.1",
-    "@augurproject/sdk": "2.0.0-alpha.1",
-    "argparse": "^1.0.10",
-    "blockstream-adapters": "2.0.0-alpha.1",
+    "@augurproject/artifacts": "^2.1.9",
+    "@augurproject/core": "^2.1.9",
+    "@augurproject/sdk": "^2.1.9",
+    "@augurproject/sdk-lite": "^2.1.9",
+    "@augurproject/utils": "^2.1.9",
+    "@openzeppelin/gsn-helpers": "0.2.3",
+    "cid-tool": "0.4.0",
+    "commander": "4.1.0",
+    "deepmerge": "4.2.2",
+    "ethereum-keyfile-recognizer": "1.0.2",
     "ethereumjs-blockstream": "7.0.0",
-    "ethers": "4.0.37",
+    "ethers": "5.0.17",
     "ethjs-abi": "0.2.1",
     "ethjs-account": "0.1.4",
     "ethjs-provider-http": "0.1.6",
     "ethjs-query": "0.3.8",
     "ethjs-signer": "0.1.1",
-    "lodash": "4.17.15",
+    "ganache-core": "2.9.1",
+    "ipfs": "0.40.0",
+    "lodash": "4.17.19",
     "options-parser": "0.4.0",
-    "tsyringe": "^3.2.0"
+    "readline-sync": "^1.4.10",
+    "tsyringe": "3.2.0"
   },
   "devDependencies": {
     "@types/vorpal": "1.11.0",
     "levelup": "4.2.0",
     "memdown": "4.1.0",
     "options-parser": "0.4.0",
-    "ts-node": "7.0.1",
-    "vorpal": "1.12.0"
+    "ts-node": "9.0.0",
+    "typescript": "3.9.7"
   },
   "resolutions": {
     "**/memdown": "4.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

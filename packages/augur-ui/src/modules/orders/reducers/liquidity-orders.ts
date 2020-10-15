@@ -2,6 +2,7 @@ import {
   UPDATE_LIQUIDITY_ORDER,
   ADD_MARKET_LIQUIDITY_ORDERS,
   REMOVE_LIQUIDITY_ORDER,
+  CLEAR_LIQUIDITY_ORDER,
   LOAD_PENDING_LIQUIDITY_ORDERS,
   CLEAR_ALL_MARKET_ORDERS,
   UPDATE_TX_PARAM_HASH_TX_HASH,
@@ -68,7 +69,9 @@ export default function(
       if (Object.keys(pendingLiquidityOrders[txParamHash]).length == 0) {
         delete pendingLiquidityOrders[txParamHash];
       }
-      return pendingLiquidityOrders;
+      return {
+        ...pendingLiquidityOrders
+      };
     }
     case UPDATE_TX_PARAM_HASH_TX_HASH: {
       const { txParamHash, txHash } = data;
@@ -85,18 +88,19 @@ export default function(
       return { ...pendingLiquidityOrders };
     }
     case UPDATE_LIQUIDITY_ORDER_STATUS: {
-      const { txParamHash, outcomeId, type, price, eventName, hash } = data;
+      const { txParamHash, outcomeId, type, price, eventName } = data;
       if (!pendingLiquidityOrders[txParamHash]) return pendingLiquidityOrders;
       if (!pendingLiquidityOrders[txParamHash][outcomeId])
         return pendingLiquidityOrders;
 
       pendingLiquidityOrders[txParamHash][outcomeId].map(order => {
-        if (order.type === type && order.price === price) {
-          order.hash = hash;
+        if (order.type === type && parseFloat(order.price) === parseFloat(price)) {
           order.status = eventName;
         }
       });
-      return pendingLiquidityOrders;
+      return {
+        ...pendingLiquidityOrders
+      };
     }
     case UPDATE_LIQUIDITY_ORDER: {
       const { order, updates, txParamHash, outcomeId } = data;
@@ -121,7 +125,7 @@ export default function(
         return pendingLiquidityOrders;
       const updatedOutcomeOrders = pendingLiquidityOrders[txParamHash][
         outcomeId
-      ].reduce((acc: Array<LiquidityOrder>, order) => {
+      ].reduce((acc: LiquidityOrder[], order) => {
         if (order.index === orderId) return acc;
         acc.push(order);
         return acc;
@@ -132,6 +136,9 @@ export default function(
       if (Object.keys(pendingLiquidityOrders[txParamHash]).length === 0)
         delete pendingLiquidityOrders[txParamHash];
       return { ...pendingLiquidityOrders };
+    }
+    case CLEAR_LIQUIDITY_ORDER: {
+      return DEFAULT_STATE;
     }
     default:
       return pendingLiquidityOrders;

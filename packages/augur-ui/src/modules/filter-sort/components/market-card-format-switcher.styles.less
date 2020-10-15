@@ -1,35 +1,46 @@
 @import (reference) "~assets/styles/shared";
 
 .MarketCardFormats {
-  .text-14;
+  .text-10-medium;
 
-  color: @color-primary-text;
+  color: @color-secondary-text;
   display: flex;
 
   @media @breakpoint-mobile {
-    .text-16;
-
+    color: @color-dark-text;
     margin: 0;
+  }
+
+  > div:first-of-type {
+    margin: @size-2 0 0 0;
+
+    @media @breakpoint-mobile {
+      margin: 0;
+    }
   }
 
   > span {
     cursor: pointer;
     margin: 0 @size-4;
+    @media @breakpoint-mobile {
+      margin: 0 @size-6;
+    }
   }
 
   > span:first-of-type {
-    margin: 0 @size-4 0 @size-12;
+    margin: 0 @size-4 0 @size-8;
   }
 
-  > span:nth-of-type(3) {
-      @media @breakpoint-mobile {
-        display: none;
-      }
-  }
-
-  > span:nth-of-type(1) {
+  > span:nth-of-type(2) {
     @media @breakpoint-mobile {
-      margin: 0 @size-4 0 @size-12;
+      margin: 0 @size-6 0 @size-4;
+    }
+  }
+
+  > span:last-of-type {
+    margin: 0 0 0 @size-4;
+    @media @breakpoint-mobile {
+      display: none;
     }
   }
 }
@@ -44,7 +55,14 @@
 
   > svg rect,
   > svg path {
-    fill: @color-secondary-text;
+    fill: @color-secondary-action-outline;
+  }
+
+  &:hover {
+    > svg rect,
+    > svg path {
+      fill: @color-primary-text;
+    }
   }
 
   &.selected {

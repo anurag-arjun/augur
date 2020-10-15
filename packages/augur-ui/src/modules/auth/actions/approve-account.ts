@@ -1,13 +1,12 @@
 import logError from 'utils/log-error';
 import { updateLoginAccount } from 'modules/account/actions/login-account';
-import { getAllowance } from 'modules/contracts/actions/contractCalls';
-import { AppState } from 'store';
+import { approvalsNeededToTrade } from 'modules/contracts/actions/contractCalls';
+import { AppState } from 'appStore';
 import { NodeStyleCallback } from 'modules/types';
 import { ThunkDispatch, ThunkAction } from 'redux-thunk';
 import { Action } from 'redux';
-import { formatDai } from 'utils/format-number';
 
-export function checkAccountAllowance(
+export function checkAccountApproval(
   callback: NodeStyleCallback = logError
 ): ThunkAction<any, any, any, any> {
   return async (
@@ -19,12 +18,10 @@ export function checkAccountAllowance(
       console.log('User not logged in, check that wallet is connected');
       return callback(null, '0');
     }
-    const allowance = await getAllowance(loginAccount.address);
-    callback(null, allowance);
+    const neededApprovals = await approvalsNeededToTrade(loginAccount.address);
     dispatch(
       updateLoginAccount({
-        allowance,
-        allowanceFormatted: formatDai(allowance),
+        tradingApproved: neededApprovals === 0
       })
     );
   };

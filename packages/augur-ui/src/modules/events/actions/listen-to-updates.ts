@@ -1,153 +1,102 @@
+import type { Augur, Provider } from '@augurproject/sdk';
+import { SubscriptionEventName, TXEventName } from '@augurproject/sdk-lite';
+import { ZEROX_STATUSES } from 'modules/common/constants';
 import {
-  handleMarketCreatedLog,
   handleMarketMigratedLog,
-  handleTokensTransferredLog,
-  handleOrderLog,
-  handleTradingProceedsClaimedLog,
-  handleInitialReportSubmittedLog,
-  handleInitialReporterRedeemedLog,
-  handleMarketFinalizedLog,
-  handleDisputeCrowdsourcerCreatedLog,
-  handleDisputeCrowdsourcerContributionLog,
-  handleDisputeCrowdsourcerCompletedLog,
-  handleDisputeCrowdsourcerRedeemedLog,
-  handleDisputeWindowCreatedLog,
-  handleInitialReporterTransferredLog,
-  handleParticipationTokensRedeemedLog,
-  handleReportingParticipantDisavowedLog,
-  handleMarketParticipantsDisavowedLog,
-  handleMarketTransferredLog,
-  handleMarketVolumeChangedLog,
-  handleMarketOIChangedLog,
-  handleProfitLossChangedLog,
-  handleTokenBalanceChangedLog,
-  handleUniverseForkedLog,
-  handleNewBlockLog,
   handleMarketsUpdatedLog,
-  handleTxAwaitingSigning,
-  handleTxSuccess,
-  handleTxPending,
-  handleTxFailure,
+  handleNewBlockLog,
+  handleReportingStateChanged,
   handleSDKReadyEvent,
-  handleUserDataSyncedEvent,
-  handleTokensMintedLog,
+  handleTradingProceedsClaimedLog,
+  handleTxAwaitingSigning,
+  handleTxFailure,
+  handleTxFeeTooLow,
+  handleTxPending,
+  handleTxRelayerDown,
+  handleTxSuccess,
+  handleUniverseForkedLog,
+  handleWarpSyncHashUpdatedLog,
+  handleZeroStatusUpdated,
+  handleBulkOrdersLog,
+  handleLiquidityPoolUpdatedLog,
+  handleMarketInvalidBidsLog,
 } from 'modules/events/actions/log-handlers';
 import { wrapLogHandler } from 'modules/events/actions/wrap-log-handler';
-import { ThunkDispatch } from 'redux-thunk';
 import { Action } from 'redux';
-import {
-  Augur,
-  SubscriptionEventName,
-  Provider,
-  TXEventName,
-} from '@augurproject/sdk';
+import { ThunkDispatch } from 'redux-thunk';
 
-const StartUpEvents = {
+const START_UP_EVENTS = {
   [SubscriptionEventName.SDKReady]: wrapLogHandler(handleSDKReadyEvent),
   [SubscriptionEventName.MarketsUpdated]: wrapLogHandler(
     handleMarketsUpdatedLog
   ),
+  [SubscriptionEventName.ZeroXStatusReady]: wrapLogHandler(
+    () => handleZeroStatusUpdated(ZEROX_STATUSES.READY)
+  ),
+  [SubscriptionEventName.ZeroXStatusStarted]: wrapLogHandler(
+    () => handleZeroStatusUpdated(ZEROX_STATUSES.STARTED)
+  ),
+  [SubscriptionEventName.ZeroXStatusRestarting]: wrapLogHandler(
+    () => handleZeroStatusUpdated(ZEROX_STATUSES.RESTARTING)
+  ),
+  [SubscriptionEventName.ZeroXStatusError]: wrapLogHandler(
+    (log: any) => handleZeroStatusUpdated(ZEROX_STATUSES.ERROR, log)
+  ),
+  [SubscriptionEventName.ZeroXStatusSynced]: wrapLogHandler(
+    () => handleZeroStatusUpdated(ZEROX_STATUSES.SYNCED)
+  ),
+  [SubscriptionEventName.BulkOrderEvent]: wrapLogHandler(handleBulkOrdersLog),
+  [SubscriptionEventName.MarketInvalidBids]: wrapLogHandler(handleMarketInvalidBidsLog),
+  [SubscriptionEventName.LiquidityPoolUpdated]: wrapLogHandler(handleLiquidityPoolUpdatedLog),
 };
 
 const EVENTS = {
-  [SubscriptionEventName.UserDataSynced]: wrapLogHandler(handleUserDataSyncedEvent),
   [SubscriptionEventName.NewBlock]: wrapLogHandler(handleNewBlockLog),
-  [SubscriptionEventName.MarketCreated]: wrapLogHandler(handleMarketCreatedLog),
   [SubscriptionEventName.MarketMigrated]: wrapLogHandler(
     handleMarketMigratedLog
   ),
-  [SubscriptionEventName.TokensTransferred]: wrapLogHandler(
-    handleTokensTransferredLog
-  ),
-  [SubscriptionEventName.OrderEvent]: wrapLogHandler(handleOrderLog),
   [SubscriptionEventName.TradingProceedsClaimed]: wrapLogHandler(
     handleTradingProceedsClaimedLog
-  ),
-  [SubscriptionEventName.InitialReportSubmitted]: wrapLogHandler(
-    handleInitialReportSubmittedLog
-  ),
-  [SubscriptionEventName.InitialReporterRedeemed]: wrapLogHandler(
-    handleInitialReporterRedeemedLog
-  ),
-  [SubscriptionEventName.MarketFinalized]: wrapLogHandler(
-    handleMarketFinalizedLog
-  ),
-  [SubscriptionEventName.DisputeCrowdsourcerCreated]: wrapLogHandler(
-    handleDisputeCrowdsourcerCreatedLog
-  ),
-  [SubscriptionEventName.DisputeCrowdsourcerContribution]: wrapLogHandler(
-    handleDisputeCrowdsourcerContributionLog
-  ),
-  [SubscriptionEventName.DisputeCrowdsourcerCompleted]: wrapLogHandler(
-    handleDisputeCrowdsourcerCompletedLog
-  ),
-  [SubscriptionEventName.DisputeCrowdsourcerRedeemed]: wrapLogHandler(
-    handleDisputeCrowdsourcerRedeemedLog
   ),
   [SubscriptionEventName.UniverseForked]: wrapLogHandler(
     handleUniverseForkedLog
   ),
-  [SubscriptionEventName.DisputeWindowCreated]: wrapLogHandler(
-    handleDisputeWindowCreatedLog
+  [SubscriptionEventName.ReportingStateChanged]: wrapLogHandler(
+    handleReportingStateChanged
   ),
-  [SubscriptionEventName.InitialReporterTransferred]: wrapLogHandler(
-    handleInitialReporterTransferredLog
+  [SubscriptionEventName.WarpSyncHashUpdated]: wrapLogHandler(
+    handleWarpSyncHashUpdatedLog
   ),
-  [SubscriptionEventName.ParticipationTokensRedeemed]: wrapLogHandler(
-    handleParticipationTokensRedeemedLog
-  ),
-  [SubscriptionEventName.ReportingParticipantDisavowed]: wrapLogHandler(
-    handleReportingParticipantDisavowedLog
-  ),
-  [SubscriptionEventName.MarketParticipantsDisavowed]: wrapLogHandler(
-    handleMarketParticipantsDisavowedLog
-  ),
-  [SubscriptionEventName.MarketTransferred]: wrapLogHandler(
-    handleMarketTransferredLog
-  ),
-  [SubscriptionEventName.MarketVolumeChanged]: wrapLogHandler(
-    handleMarketVolumeChangedLog
-  ),
-  [SubscriptionEventName.MarketOIChanged]: wrapLogHandler(
-    handleMarketOIChangedLog
-  ),
-  [SubscriptionEventName.ProfitLossChanged]: wrapLogHandler(
-    handleProfitLossChangedLog
-  ),
-  [SubscriptionEventName.TokenBalanceChanged]: wrapLogHandler(
-    handleTokenBalanceChangedLog
-  ),
-  [SubscriptionEventName.MarketsUpdated]: wrapLogHandler(
-    handleMarketsUpdatedLog
-  ),
-  [SubscriptionEventName.TokensMinted]: wrapLogHandler(
-    handleTokensMintedLog
-  ),
+
   [TXEventName.AwaitingSigning]: wrapLogHandler(handleTxAwaitingSigning),
   [TXEventName.Success]: wrapLogHandler(handleTxSuccess),
   [TXEventName.Pending]: wrapLogHandler(handleTxPending),
   [TXEventName.Failure]: wrapLogHandler(handleTxFailure),
+  [TXEventName.RelayerDown]: wrapLogHandler(handleTxRelayerDown),
+  [TXEventName.FeeTooLow]: wrapLogHandler(handleTxFeeTooLow),
 };
 
-export const listenToUpdates = (Augur: Augur<Provider>) => (
+export const listenToUpdates = (augur: Augur<Provider>) => (
   dispatch: ThunkDispatch<void, any, Action>
 ) =>
-  Object.keys(EVENTS).map(e => {
-    Augur.on(e, log => dispatch(EVENTS[e](log)));
+  Object.keys(EVENTS).map((eventName) => {
+    const eventCallback = EVENTS[eventName];
+    augur.on(eventName, (log) => dispatch(eventCallback(log)));
   });
 
-export const listenForStartUpEvents = (Augur: Augur<Provider>) => (
+export const listenForStartUpEvents = (augur: Augur<Provider>) => (
   dispatch: ThunkDispatch<void, any, Action>
 ) =>
-  Object.keys(StartUpEvents).map(e => {
-    Augur.on(e, log => dispatch(StartUpEvents[e](log)));
+  Object.keys(START_UP_EVENTS).map((eventName) => {
+    const eventCallback = START_UP_EVENTS[eventName];
+    augur.on(eventName, (log) => dispatch(eventCallback(log)));
   });
 
-export const unListenToEvents = (Augur: Augur<Provider>) => {
-  Object.keys(EVENTS).map(e => {
-    Augur.off(e);
+export const unListenToEvents = (augur: Augur<Provider>) => {
+  Object.keys(EVENTS).map((eventName) => {
+    augur.off(eventName);
   });
-  Object.keys(StartUpEvents).map(e => {
-    Augur.off(e);
+  Object.keys(START_UP_EVENTS).map((eventName) => {
+    augur.off(eventName);
   });
 };

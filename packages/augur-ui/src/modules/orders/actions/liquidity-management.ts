@@ -1,24 +1,31 @@
-import { createBigNumber } from 'utils/create-big-number';
+import { BigNumber, createBigNumber } from 'utils/create-big-number';
 
-import {
-  BUY,
-  MAX_BULK_ORDER_COUNT,
-  ZERO,
-} from 'modules/common/constants';
-import { LiquidityOrder } from 'modules/types';
+import { BUY, MAX_BULK_ORDER_COUNT, PUBLICTRADE, ZERO } from 'modules/common/constants';
+import { LiquidityOrder, CreateLiquidityOrders } from 'modules/types';
 import { ThunkDispatch } from 'redux-thunk';
 import { Action } from 'redux';
-import { AppState } from 'store';
+import { AppState } from 'appStore';
 import {
   createLiquidityOrder,
   isTransactionConfirmed,
   createLiquidityOrders,
   approveToTrade,
+  placeTrade,
+  approvalsNeededToTrade,
 } from 'modules/contracts/actions/contractCalls';
-import { Getters } from '@augurproject/sdk';
+import {
+  convertDisplayAmountToOnChainAmount,
+  convertDisplayPriceToOnChainPrice,
+} from "@augurproject/utils"
+import type { Getters } from '@augurproject/sdk';
+import { TXEventName } from '@augurproject/sdk-lite';
+import { setLiquidityOrderStatus } from 'modules/events/actions/liquidity-transactions';
+import { updateAlert } from 'modules/alerts/actions/alerts';
+import { checkAccountApproval } from 'modules/auth/actions/approve-account';
 export const UPDATE_LIQUIDITY_ORDER = 'UPDATE_LIQUIDITY_ORDER';
 export const ADD_MARKET_LIQUIDITY_ORDERS = 'ADD_MARKET_LIQUIDITY_ORDERS';
 export const REMOVE_LIQUIDITY_ORDER = 'REMOVE_LIQUIDITY_ORDER';
+export const CLEAR_LIQUIDITY_ORDER = 'CLEAR_LIQUIDITY_ORDER';
 export const LOAD_PENDING_LIQUIDITY_ORDERS = 'LOAD_PENDING_LIQUIDITY_ORDERS';
 export const CLEAR_ALL_MARKET_ORDERS = 'CLEAR_ALL_MARKET_ORDERS';
 export const UPDATE_TX_PARAM_HASH_TX_HASH = 'UPDATE_TX_PARAM_HASH_TX_HASH';
@@ -68,6 +75,10 @@ export const loadBulkPendingLiquidityOrders = (
   data: { pendingLiquidityOrders },
 });
 
+export const clearLiquidityOrders = () => ({
+  type: CLEAR_LIQUIDITY_ORDER,
+});
+
 export const addMarketLiquidityOrders = ({ liquidityOrders, txParamHash }) => ({
   type: ADD_MARKET_LIQUIDITY_ORDERS,
   data: {
@@ -95,7 +106,6 @@ export const updateLiquidityOrderStatus = ({
   type,
   price,
   eventName,
-  hash,
 }) => ({
   type: UPDATE_LIQUIDITY_ORDER_STATUS,
   data: {
@@ -104,7 +114,6 @@ export const updateLiquidityOrderStatus = ({
     type,
     price,
     eventName,
-    hash,
   },
 });
 
@@ -148,50 +157,63 @@ export const removeLiquidityOrder = ({
 });
 
 export const sendLiquidityOrder = (options: any) => async (
-  dispatch: ThunkDispatch<void, any, Action>
-) => {
-  const {
-    marketId,
-    order,
-    minPrice,
-    maxPrice,
-    numTicks,
-    bnAllowance,
-    orderCB,
-    seriesCB,
-  } = options;
-  const orderType = order.type === BUY ? 0 : 1;
-  const { orderEstimate } = order;
-  const sendOrder = async () => {
-    try {
-      createLiquidityOrder({
-        ...order,
-        orderType,
-        minPrice,
-        maxPrice,
-        numTicks,
-        marketId,
-      });
-    } catch (e) {
-      console.error('could not create order', e);
-    }
-    orderCB();
-  };
-
-  if (bnAllowance.lte(0) || bnAllowance.lte(createBigNumber(orderEstimate))) {
-    await approveToTrade();
-    sendOrder();
-  }
-};
-
-export const startOrderSending = (options: any) => async (
   dispatch: ThunkDispatch<void, any, Action>,
   getState: () => AppState
 ) => {
-  const { marketId } = options;
-  const { loginAccount, marketInfos, pendingLiquidityOrders } = getState();
+  const { order, bnAllowance, marketId } = options;
+  const { appStatus, marketInfos, blockchain, loginAccount } = getState();
+  const market = marketInfos[marketId];
+  const isZeroX = appStatus.zeroXEnabled;
+  const { orderEstimate } = order;
 
-  if (loginAccount.allowance.lte(ZERO)) await approveToTrade();
+  dispatch(
+    setLiquidityOrderStatus(
+      {
+        outcomeId: order.outcomeId,
+        orderPrice: order.price,
+        orderType: order.type,
+        eventName: TXEventName.Pending,
+      },
+      market,
+    )
+  );
+
+  if ((await approvalsNeededToTrade(loginAccount.address)) > 0) {
+    await approveToTrade(loginAccount.address, loginAccount?.affiliate);
+    isZeroX
+      ? createZeroXLiquidityOrders(market, [options.order], blockchain.currentAugurTimestamp, dispatch)
+      : sendOrder(options);
+  } else {
+    isZeroX
+      ? createZeroXLiquidityOrders(market, [options.order], blockchain.currentAugurTimestamp, dispatch)
+      : sendOrder(options);
+  }
+};
+
+const sendOrder = async options => {
+  const { marketId, order, minPrice, maxPrice, numTicks, orderCB } = options;
+  const orderType = order.type === BUY ? 0 : 1;
+  try {
+    createLiquidityOrder({
+      ...order,
+      orderType,
+      minPrice,
+      maxPrice,
+      numTicks,
+      marketId,
+    });
+  } catch (e) {
+    console.error('could not create order', e);
+  }
+  orderCB();
+};
+
+export const startOrderSending = (options: CreateLiquidityOrders) => async (
+  dispatch: ThunkDispatch<void, any, Action>,
+  getState: () => AppState
+) => {
+  const { marketId, chunkOrders } = options;
+  const { marketInfos, pendingLiquidityOrders, blockchain } = getState();
 
   const market = marketInfos[marketId];
   let orders = [];
@@ -199,14 +221,111 @@ export const startOrderSending = (options: any) => async (
   Object.keys(liquidity).map(outcomeId => {
     orders = [...orders, ...liquidity[outcomeId]];
   });
-  // MAX_BULK_ORDER_COUNT number of orders in each creation bulk group
-  let i = 0;
-  const groups = [];
-  for (i; i < orders.length; i += MAX_BULK_ORDER_COUNT) {
-    groups.push(orders.slice(i, i + MAX_BULK_ORDER_COUNT));
+
+  dispatch(checkAccountApproval())
+  if (!chunkOrders) {
+    await createZeroXLiquidityOrders(market, orders, blockchain.currentAugurTimestamp, dispatch);
+  } else {
+    // MAX_BULK_ORDER_COUNT number of orders in each creation bulk group
+    let i = 0;
+    const groups = [];
+    for (i; i < orders.length; i += MAX_BULK_ORDER_COUNT) {
+      groups.push(orders.slice(i, i + MAX_BULK_ORDER_COUNT));
+    }
+    try {
+      groups.map(group => createZeroXLiquidityOrders(market, group, blockchain.currentAugurTimestamp, dispatch));
+    } catch (e) {
+      console.error(e);
+    }
   }
+};
+
+const createZeroXLiquidityOrders = async (
+  market: Getters.Markets.MarketInfo,
+  orders: LiquidityOrder[],
+  timestamp: any,
+  dispatch
+) => {
   try {
-    groups.map(group => createLiquidityOrders(market, group));
+    const fingerprint = undefined; // TODO: get this from state
+    let i = 0;
+    // set all orders to pending before processing them.
+    for (i; i < orders.length; i++) {
+      const o: LiquidityOrder = orders[i];
+      dispatch(
+        setLiquidityOrderStatus(
+          {
+            outcomeId: o.outcomeId,
+            orderPrice: createBigNumber(o.price).toString(),
+            orderType: o.type,
+            eventName: TXEventName.Pending,
+          },
+          market,
+        )
+      );
+    }
+    for (i = 0; i < orders.length; i++) {
+      const o: LiquidityOrder = orders[i];
+      await placeTrade(
+        o.type === BUY ? 0 : 1,
+        market.id,
+        market.numOutcomes,
+        o.outcomeId,
+        false,
+        market.numTicks,
+        market.minPrice,
+        market.maxPrice,
+        o.quantity,
+        o.price,
+        '0',
+        undefined
+      )
+        .then(() => {
+          const alert = {
+            eventType: o.type,
+            market: market.id,
+            name: PUBLICTRADE,
+            status: TXEventName.Success,
+            timestamp: timestamp * 1000,
+            params: {
+              outcome: '0x0'.concat(String(o.outcomeId)),
+              price: convertDisplayPriceToOnChainPrice(
+                createBigNumber(o.price),
+                createBigNumber(market.minPrice),
+                createBigNumber(market.tickSize)
+              ),
+              orderType: o.type === BUY ? 0 : 1,
+              amount: convertDisplayAmountToOnChainAmount(
+                createBigNumber(o.shares),
+                createBigNumber(market.tickSize)
+              ),
+              marketId: market.id,
+            },
+          };
+          dispatch(updateAlert(undefined, alert, false));
+          dispatch(
+            deleteSuccessfulLiquidityOrder({
+              txParamHash: market.transactionHash,
+              outcomeId: o.outcomeId,
+              type: o.type,
+              price: o.price,
+            })
+          );
+        })
+        .catch(err => {
+          dispatch(
+            setLiquidityOrderStatus(
+              {
+                outcomeId: o.outcomeId,
+                orderPrice: createBigNumber(o.price).toString(),
+                orderType: o.type,
+                eventName: TXEventName.Failure,
+              },
+              market,
+            )
+          );
+        });
+    }
   } catch (e) {
     console.error(e);
   }

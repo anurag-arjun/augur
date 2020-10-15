@@ -1,7 +1,9 @@
 import moment from 'moment';
-import { DateFormattedObject, TimezoneDateObject } from 'modules/types';
+import { DateFormattedObject, TimezoneDateObject, DateTimeComponents } from 'modules/types';
 import { createBigNumber } from './create-big-number';
-import { ZERO } from 'modules/common/constants';
+import { ZERO, DAYS_AFTER_END_TIME_ORDER_EXPIRATION } from 'modules/common/constants';
+import { getMaxMarketEndTime } from 'modules/contracts/actions/contractCalls';
+import { number } from 'prop-types';
 
 const months = [
   'January',
@@ -36,14 +38,15 @@ const shortMonths = [
 export const NUMBER_OF_SECONDS_IN_A_DAY = 86400;
 const HOURS_IN_A_DAY = 24;
 const MINUTES_IN_A_HOUR = 60;
+let timezoneName = null;
 
 export function formatDate(d, timezone: string = null): DateFormattedObject {
   const date: Date = d instanceof Date ? d : new Date(0);
 
   // UTC Time Formatting
-  const utcTime: Array<number> = [date.getUTCHours(), date.getUTCMinutes()];
-  const utcTimeTwelve: Array<string> = getTwelveHourTime(utcTime);
-  const utcTimeWithSeconds: Array<string> = [
+  const utcTime: number[] = [date.getUTCHours(), date.getUTCMinutes()];
+  const utcTimeTwelve: string[] = getTwelveHourTime(utcTime);
+  const utcTimeWithSeconds: string[] = [
     ('0' + date.getUTCHours()).slice(-2),
     ('0' + date.getUTCMinutes()).slice(-2),
     ('0' + date.getUTCSeconds()).slice(-2),
@@ -51,45 +54,38 @@ export function formatDate(d, timezone: string = null): DateFormattedObject {
   const utcAMPM: string = ampm(('0' + date.getUTCHours()).slice(-2));
 
   // Locat Time Formatting
-  const localTime: Array<number> = [date.getHours(), date.getMinutes()];
-  const localAMPM: string = ampm(localTime[0].toString());
-  const localTimeTwelve: Array<string> = getTwelveHourTime(localTime);
+  const local24hrTimeWithSeconds: number[] = [date.getHours(), date.getMinutes(), date.getSeconds()];
+  const localAMPM: string = ampm(local24hrTimeWithSeconds[0].toString());
+  const localTimeTwelve: string[] = getTwelveHourTime(local24hrTimeWithSeconds);
   const localOffset: number = (date.getTimezoneOffset() / 60) * -1;
   const localOffsetFormatted: string =
     localOffset > 0 ? `+${localOffset}` : localOffset.toString();
-  const timezoneLocal: string = timezone
+
+  if (!timezoneName) {
+    const timezoneLocal: string = timezone
     ? date.toLocaleTimeString('en-US', {
         timeZone: timezone,
         timeZoneName: 'short',
       })
     : date.toLocaleTimeString('en-us', { timeZoneName: 'short' });
-  const timezoneName: string = `(${timezoneLocal.split(' ')[2]})`;
+    timezoneName = `(${timezoneLocal.split(' ')[2]})`;
+  }
 
   return {
     value: date,
-    formatted: `${
-      months[date.getUTCMonth()]
-    } ${date.getUTCDate()}, ${date.getUTCFullYear()} ${utcTimeTwelve.join(
-      ':'
-    )} ${utcAMPM}`, // UTC time
-    formattedShortDate: `${('0' + date.getUTCDate()).slice(-2)}${
-      shortMonths[date.getUTCMonth()]
-    } ${date.getUTCFullYear()}`,
-    formattedShortTime: `${utcTimeWithSeconds.join(':')}`,
-    formattedShort: `${shortMonths[date.getUTCMonth()]}${(
-      '0' + date.getUTCDate()
-    ).slice(-2)} ${date.getUTCFullYear()} ${utcTimeWithSeconds.join(':')}`,
+    formattedUtcShortTime: `${utcTimeWithSeconds.join(':')}`,
+    formattedShortTime: `${convertTwoDigitValues(local24hrTimeWithSeconds).join(':')}`,
     formattedLocalShortDateSecondary: `${date.getDate()} ${
       shortMonths[date.getMonth()]
     } ${date.getFullYear()}`,
-    formattedLocalShort: `${
+    formattedLocalShortDate: `${
       shortMonths[date.getMonth()]
-    } ${date.getDate()}, ${date.getFullYear()} (UTC ${localOffsetFormatted})`, // local time
-    formattedLocalShortTime: `${
+    } ${date.getDate()} ${date.getFullYear()}`,
+    formattedLocalShortWithUtcOffset: `${
       shortMonths[date.getMonth()]
     } ${date.getDate()}, ${date.getFullYear()} ${localTimeTwelve.join(
       ':'
-    )} ${localAMPM} (UTC ${localOffsetFormatted})`, // local time
+    )} ${localAMPM} (UTC ${localOffsetFormatted})`,
     timestamp: date.getTime() / 1000,
     utcLocalOffset: localOffset,
     clockTimeLocal: `${localTimeTwelve.join(
@@ -102,16 +98,16 @@ export function formatDate(d, timezone: string = null): DateFormattedObject {
       shortMonths[date.getUTCMonth()]
     } ${date.getUTCDate()}, ${date.getUTCFullYear()}`,
     clockTimeUtc: `${utcTimeTwelve.join(':')} ${utcAMPM} - UTC`,
-    formattedTimezone: `${
-      months[date.getMonth()]
+    formattedLocalShortDateTimeWithTimezone: `${
+      shortMonths[date.getMonth()]
     } ${date.getDate()}, ${date.getFullYear()} ${localTimeTwelve.join(
       ':'
     )} ${localAMPM} ${timezoneName}`,
-    formattedShortTimezone: `${
+    formattedLocalShortDateTimeNoTimezone: `${
       shortMonths[date.getMonth()]
-    } ${date.getDate()} ${date.getFullYear()} ${localTimeTwelve.join(
+    } ${date.getDate()} ${date.getFullYear()} ${convertTwoDigitValues(local24hrTimeWithSeconds).join(
       ':'
-    )} ${localAMPM} ${timezoneName}`,
+    )}`,
     formattedUtc: `${
       months[date.getUTCMonth()]
     } ${date.getUTCDate()}, ${date.getUTCFullYear()} ${utcTimeTwelve.join(
@@ -123,6 +119,7 @@ export function formatDate(d, timezone: string = null): DateFormattedObject {
   };
 }
 
+const convertTwoDigitValues = (values: number[]) => values.map(v => `0${v}`.slice(-2));
 function ampm(time: string): string {
   const value = parseInt(time, 10);
   return value < 12 ? 'AM' : 'PM';
@@ -133,8 +130,8 @@ function convertToTwelveHour(value: number): number {
   return hour || 12;
 }
 
-function getTwelveHourTime(time: Array<number>): Array<string> {
-  const values: Array<string> = new Array(time.length);
+function getTwelveHourTime(time: number[]): string[] {
+  const values: string[] = new Array(2);
   values[0] = convertToTwelveHour(time[0]).toString();
   values[1] = time[1].toString();
   if (time[1] < 10) values[1] = '0' + time[1];
@@ -166,24 +163,22 @@ export function buildformattedDate(
   offset: number
 ): TimezoneDateObject {
 
-  const endTime = moment
+  let adjHour = Number(hour);
+  const day = moment
     .unix(timestamp)
-    .utc()
-    .startOf('day');
+    .startOf('day').format('MMMM DD, YYYY');
 
-  endTime.set({
-    hour: hour,
-    minute: minute,
-  });
-
-  if ((meridiem === '' || meridiem === 'AM') && endTime.hours() >= 12) {
-    endTime.hours(endTime.hours() - 12);
-  } else if (meridiem && meridiem === 'PM' && endTime.hours() < 12) {
-    endTime.hours(endTime.hours() + 12);
+  if (meridiem && meridiem === 'PM' && adjHour < 12) {
+    adjHour = adjHour + 12;
   }
+
+  // MMMM DD, YYYY h:mm A;
+  const datetimeFormat = `${day} ${adjHour}:${minute} ${meridiem}`;
+  const endTime = moment.utc(datetimeFormat, LONG_FORMAT);
+
   const abbr = getTimezoneAbbr(endTime.toDate(), timezone);
   const timezoneFormat = endTime.format(LONG_FORMAT);
-  const formattedTimezone = `${timezoneFormat} (${abbr})`;
+  const formattedLocalShortDateTimeWithTimezone = `${timezoneFormat} (${abbr})`;
 
   const adjOffset = createBigNumber(offset || ZERO).times("-1").toNumber();
   endTime.add(adjOffset, 'hours');
@@ -193,13 +188,38 @@ export function buildformattedDate(
 
   return {
     formattedUtc: formattedUtc,
-    formattedTimezone: formattedTimezone,
+    formattedLocalShortDateTimeWithTimezone: formattedLocalShortDateTimeWithTimezone,
     timestamp: endTime.unix(),
   };
 }
 
+export function timestampComponents(timestamp: number, offset: number = 0, timezone: string = null): Partial<DateTimeComponents> {
+  // using local mode with moment, manually adjusting for offset
+  const date = moment.unix(timestamp).add(offset, 'hours');
+  return {
+    setEndTime: timestamp,
+    hour: String(date.utc().format('h')),
+    minute: String(date.utc().format('mm')),
+    meridiem: String(date.utc().format('A')),
+    timezone
+  }
+}
+
+// adjust for local time, need input value in UTC
+export function getUtcStartOfDayFromLocal(timestamp: number): number {
+  const value = moment
+    .unix(timestamp)
+    .startOf('day')
+    .unix();
+    return value;
+}
+
 export function convertUnixToFormattedDate(integer: number = 0) {
   return formatDate(moment.unix(integer).toDate());
+}
+
+export function convertSaltToFormattedDate(integer: number = 0) {
+  return formatDate(moment(integer).toDate());
 }
 
 export function getBeginDate(
@@ -218,6 +238,24 @@ export function getBeginDate(
     return null;
   }
   return beginDate.unix();
+}
+
+export function startOfTomorrow(unixTimestamp: number): number {
+  return moment
+    .unix(unixTimestamp)
+    .add(1, 'day')
+    .startOf('day')
+    .unix();
+}
+
+export function datesOnSameDay(firstUnixTimestamp, utcUnixTimestamp) {
+  const startDate = moment.unix(firstUnixTimestamp).utc().startOf('day').unix();
+  const endDate = moment.unix(utcUnixTimestamp).utc().startOf('day').unix();
+  return  startDate === endDate;
+}
+
+export function minMarketEndTimeDay(currentTimestamp) {
+  return moment.unix(currentTimestamp).startOf('day');
 }
 
 export function dateHasPassed(
@@ -330,13 +368,56 @@ export function getOneWeekInFutureTimestamp(currentUnixTimestamp) {
 export function getFullDaysBetween(
   startUnixTimestamp: number,
   endUnixTimestamp: number,
-): Array<string> {
+): string[] {
   const getDays = getDaysRemaining(endUnixTimestamp, startUnixTimestamp);
-  const daysBetween: Array<string> = [];
+  const daysBetween: string[] = [];
   for (let i = 1; i < getDays; i++) {
     const date = moment(startUnixTimestamp * 1000).utc().startOf('day').add(i, "days");
     daysBetween.push(`${shortMonths[date.utc().month()]} ${date.utc().format("DD")}`);
   }
 
   return daysBetween;
+}
+
+export function getDurationBetween(timestamp1, timestamp2) {
+  const timestamp1Moment = moment.unix(timestamp1);
+  const timestamp2Moment = moment.unix(timestamp2);
+  return moment.duration(timestamp1Moment.diff(timestamp2Moment));
+}
+
+export function calcOrderExpirationTime(endTime: number, currentTime: number) {
+  // one week in the future if market endTime has already passed
+  if (endTime < currentTime)
+    return moment
+      .unix(currentTime)
+      .add(DAYS_AFTER_END_TIME_ORDER_EXPIRATION, 'days')
+      .unix();
+  return endTime;
+}
+
+export enum EXPIRATION_DATE_OPTIONS {
+  DAYS = 'day',
+  CUSTOM = '1',
+  HOURS = 'hours',
+  MINUTES = 'minutes',
+}
+
+export interface TimeRemaining {
+  time: number;
+  unit: EXPIRATION_DATE_OPTIONS;
+}
+
+export function calcOrderExpirationTimeRemaining(
+  endTime: number,
+  currentTime: number
+): TimeRemaining {
+  const fallback = { time: DAYS_AFTER_END_TIME_ORDER_EXPIRATION, unit: EXPIRATION_DATE_OPTIONS.DAYS};
+  if (endTime < currentTime) return fallback;
+  let remaining = getDaysRemaining(endTime, currentTime);
+  if (remaining > 0) return { time: remaining, unit: EXPIRATION_DATE_OPTIONS.DAYS};
+  remaining = getHoursRemaining(endTime, currentTime);
+  if (remaining > 0) return {time: remaining, unit: EXPIRATION_DATE_OPTIONS.HOURS}
+  remaining = getMinutesRemaining(endTime, currentTime);
+  if (remaining > 0) return {time: remaining, unit: EXPIRATION_DATE_OPTIONS.MINUTES}
+  return fallback;
 }

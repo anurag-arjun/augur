@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 import { DefaultButtonProps } from 'modules/common/buttons';
 import {
@@ -16,6 +16,8 @@ import {
 } from 'modules/common/labels';
 
 import Styles from 'modules/modal/modal.styles.less';
+import { CLAIM_ALL_TITLE } from 'modules/common/constants';
+import { useEffect } from 'react';
 
 interface ProceedsProps {
   closeAction: Function;
@@ -25,22 +27,48 @@ interface ProceedsProps {
   submitAllTxCount: number;
   breakdown?: LinearPropertyLabelProps[];
   descriptionMessage?: DescriptionMessageProps;
+  estimateGas: Function;
 }
 
-export const Proceeds = (props: ProceedsProps) => (
+export const Proceeds = ({
+  closeAction,
+  title,
+  buttons,
+  rows,
+  submitAllTxCount,
+  breakdown,
+  descriptionMessage,
+  estimateGas
+}: ProceedsProps) => {
+  const [fullBreakdown, setBreakdown] = useState(breakdown);
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      const transactionFee = await estimateGas();
+      if (transactionFee && !!breakdown) {
+        setBreakdown([...breakdown, transactionFee]);
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  },[breakdown]);
+
+  return (
   <div className={Styles.Proceeds}>
-    <Title title={props.title} closeAction={props.closeAction} />
+    <Title title={title} closeAction={closeAction} />
     <main>
-      {props.descriptionMessage && (
+      {descriptionMessage && (
         // @ts-ignore
-        <DescriptionMessage messages={props.descriptionMessage} />
+        <DescriptionMessage messages={descriptionMessage} />
       )}
       {/*
         // @ts-ignore */}
-      {props.rows && <ActionRows rows={props.rows} />}
-      {props.breakdown && <Breakdown short rows={props.breakdown} />}
+      {rows && <ActionRows rows={rows} />}
+      {breakdown && <Breakdown short rows={fullBreakdown} />}
     </main>
-    <BulkTxLabel buttonName={'Claim All'} count={props.submitAllTxCount} needsApproval={false} />
-    <ButtonsRow buttons={props.buttons} />
+    <BulkTxLabel
+      buttonName={CLAIM_ALL_TITLE}
+      count={submitAllTxCount}
+      needsApproval={false}
+    />
+    {buttons && <ButtonsRow buttons={buttons} />}
   </div>
-);
+)};

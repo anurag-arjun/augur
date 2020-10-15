@@ -5,7 +5,7 @@ import { Message } from "modules/modal/message";
 import { selectMarket } from "modules/markets/selectors/market";
 import { closeModal } from "modules/modal/actions/close-modal";
 import { sendFinalizeMarket } from "modules/markets/actions/finalize-market";
-import { AppState } from "store";
+import { AppState } from "appStore";
 import { ThunkDispatch } from "redux-thunk";
 import { Action } from "redux";
 import { NodeStyleCallback } from "modules/types";
@@ -26,12 +26,9 @@ const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Action>) => ({
 });
 
 const mergeProps = (sP: any, dP: any, oP: any) => ({
-  title: "Finalize Market",
-  alertMessage: {
-    preText: "The following market is resolved and ready to be finalized:",
-  },
+  title: "Finalize Warp Sync Market",
   marketTitle: sP.marketDescription,
-  callToAction: "Please finalize this market so proceeds can be claimed.",
+  callToAction: "Please finalize warp sync market to claim REPv2 reward. The reward will be transferred to your signing wallet",
   closeAction: () => {
     dP.closeModal();
     if (sP.modal.cb) {

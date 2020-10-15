@@ -1,6 +1,6 @@
 import { connect } from "react-redux";
 import { withRouter } from "react-router-dom";
-import { AppState } from "store";
+import { AppState } from "appStore";
 import { MarketPositionsTable } from "modules/portfolio/components/common/market-positions-table";
 import { selectUserMarketPositions } from "modules/markets/selectors/select-user-market-positions";
 
@@ -9,7 +9,7 @@ const mapStateToProps = (state: AppState, ownProps: any) => {
   if (!marketId) {
     marketId = ownProps.market.id;
   }
-  let positions = []
+  let positions = [];
   if (ownProps.positions) {
     positions = ownProps.positions;
   } else if (marketId) {

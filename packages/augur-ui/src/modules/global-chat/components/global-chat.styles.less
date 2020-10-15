@@ -1,7 +1,6 @@
 @import (reference) '~assets/styles/shared';
 
-.GlobalChat {
-  background: @color-dark-grey;
+.OrbitChat {
   bottom: @size-4;
   position: fixed;
   right: @size-22;
@@ -13,6 +12,14 @@
 
   > div.ShowGlobalChat {
     display: block;
+    line-height: 0; // This removes the iframe's extra padding
+    border: @size-1 solid @color-secondary-action-outline;
+    border-radius: @size-3;
+    overflow: hidden;
+  }
+
+  > button[class*="SecondaryButton"] {
+    background: fade(@color-dark-grey, 50);
   }
 
   // Closed global chat window
@@ -23,30 +30,29 @@
     background: @color-module-background;
     color: @color-primary-text;
     display: flex;
-    flex-direction: row-reverse;
     text-transform: uppercase;
 
     > svg {
       fill: @color-primary-text;
-      height: @size-12;
+      height: @size-7;
       margin-left: @size-8;
       transform: rotate(180deg);
-      width: @size-12;
+      width: @size-7;
     }
   }
 
   // Open global chat window
   > div {
     background-color: @color-module-background;
-    border: 1px solid @color-dark-grey;
 
     // Header section
     > div:first-of-type {
       align-items: center;
+      background-color: @color-dark-grey;
       border-bottom: 1px solid @color-dark-grey;
       display: flex;
       flex-direction: row;
-      padding: @size-8 @size-8;
+      padding: @size-7 @size-8;
 
       > span {
         color: @color-primary-text;
@@ -55,7 +61,7 @@
       }
 
       > span:first-of-type {
-        .mono-11;
+        .mono-12;
 
         margin: 0 @size-8 0 0;
         font-weight: @weight-bold;
@@ -85,9 +91,137 @@
     }
 
     iframe {
-      border: 0px;
-      height: 21rem;
+      border: 0;
+      height: 16rem;
       width: 18.75rem;
+    }
+  }
+}
+
+.ThreeBoxChat {
+  background: @color-dark-grey;
+  bottom: 0;
+  position: fixed;
+  right: 0;
+  z-index: @mask-modal;
+
+  > button {
+    position: fixed;
+    right: @size-25;
+    bottom: @size-8;
+  }
+
+  div[class*='sc-launcher'],
+  div[class*='sc-chat-window'],
+  div[class*='sc-header'],
+  form[class*='sc-user-input'] > textarea,
+  div[class*='sc-popup-window--cointainer'],
+  input[class*='sc-popup-window--search'],
+  form[class*='sc-user-input active'] {
+    background-color: @color-dark-grey;
+  }
+
+  div[class*='sc-message-list'],
+  div[class*='onlineList'],
+  div[class*='closeOnlineList'] {
+    background-color: @color-active-background;
+  }
+
+  div[class*='onlineList'],
+  input[class*='sc-popup-window--search'],
+  form[class*='sc-user-input active'],
+  input[class*='sc-popup-window--search'],
+  form[class*='sc-user-input'] > textarea{
+    color: @color-primary-text;
+  }
+
+  button[class*='sc-user-input--emoji-icon-wrapper'] path,
+  button[class*='sc-user-input--emoji-icon-wrapper'] circle,
+  svg[class*='sc-user-input--send-icon'] path {
+    fill: @color-primary-text;
+  }
+
+  button[class*='sc-user-input--send-icon-wrapper'] {
+    margin: 0;
+  }
+
+  div[class*='sc-launcher'] {
+    bottom: @size-10;
+  }
+
+  div[class*='popupChat'] > div {
+    bottom: @size-10;
+  }
+
+  div[class*='sc-chat-window'] {
+    border: @size-1 solid @color-secondary-action-outline;
+    border-radius: @size-3;
+    height: 300px;
+    overflow: hidden;
+  }
+
+  form[class*='sc-user-input active'] > textarea {
+    &:focus {
+      border: none;
+    }
+  }
+
+  div[class*='sc-user-input--button'] {
+    justify-content: center;
+  }
+
+  div[class*='sc-header--close-button'] svg {
+    padding: @size-4;
+  }
+
+  div[class*='sc-header--close-button'] path {
+    stroke: @color-primary-text;
+  }
+
+  input[class*='sc-popup-window--search'] {
+    width: 232px;
+
+    &:focus {
+      border: none;
+    }
+  }
+
+  img[class*='input_user'] {
+    padding: @size-7;
+  }
+
+  div[class*='sc-message--text'] {
+    .text-12;
+
+    background-color: @color-dark-grey !important;
+    color: @color-primary-text !important;
+  }
+
+  div[class*='sc-header--team-name'] {
+    padding: 0 @size-8;
+  }
+
+  div[class*='onlineList_members'] {
+    overflow: auto;
+  }
+
+  div[class*='sc-header'] {
+    padding: 0 @size-10;
+    min-height: unset;
+  }
+
+  h3[class*='sc-header--team-name_text'] {
+    .text-16-bold;
+  }
+
+  div[class*="sc-popup-window--cointainer"] {
+    width: 282px;
+    bottom: @size-16;
+    right: -@size-18;
+
+    &:after {
+      background-color: @color-dark-grey;
+      right: @size-12;
     }
   }
 }

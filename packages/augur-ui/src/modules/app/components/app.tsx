@@ -1,49 +1,73 @@
-// TODO -- this component needs to be broken up
-//         all logic related to sidebar(s) need to be housed w/in a separate component
-
 import React, { Component } from 'react';
-import { Helmet } from 'react-helmet';
+// TODO -- this component needs to be broken up
+import type { SDKConfiguration } from '@augurproject/artifacts';
+
 import classNames from 'classnames';
-import isWindows from 'utils/is-windows';
-import Modal from 'modules/modal/containers/modal-view';
-import TopBar from 'modules/app/containers/top-bar';
-import SideNav from 'modules/app/components/side-nav/side-nav';
-import TopNav from 'modules/app/components/top-nav/top-nav';
-import Routes from 'modules/routes/components/routes/routes';
 import AlertsContainer from 'modules/alerts/containers/alerts-view';
 import ToastsContainer from 'modules/alerts/containers/toasts-view';
 
+import Styles from 'modules/app/components/app.styles.less';
+import SideNav from 'modules/app/components/side-nav/side-nav';
+import TopNav from 'modules/app/components/top-nav/top-nav';
+import MarketsInnerNavContainer from 'modules/app/containers/markets-inner-nav';
+import TopBar from 'modules/app/containers/top-bar';
+import { ExternalLinkText } from 'modules/common/buttons';
 import {
-  MobileNavHamburgerIcon,
-  MobileNavCloseIcon,
-  XIcon,
-} from 'modules/common/icons';
-import parsePath from 'modules/routes/helpers/parse-path';
-import {
-  MARKETS,
-  ACCOUNT_SUMMARY,
-  MY_POSITIONS,
-  CREATE_MARKET,
-  DISPUTING,
-  REPORTING,
-} from 'modules/routes/constants/views';
-import {
-  MODAL_NETWORK_CONNECT,
   MOBILE_MENU_STATES,
   TRADING_TUTORIAL,
+  ZEROX_STATUSES,
+  MODAL_ERROR,
+  REPORTING_ONLY_BANNER,
+  TRADING_ETH_VERSION,
 } from 'modules/common/constants';
 
-import Styles from 'modules/app/components/app.styles.less';
-import MarketsInnerNavContainer from 'modules/app/containers/markets-inner-nav';
-import { Universe, Blockchain, LoginAccount, EnvObject } from 'modules/types';
+import {
+  MobileNavCloseIcon,
+  MobileNavHamburgerIcon,
+  XIcon,
+} from 'modules/common/icons';
+import { StatusErrorMessage } from 'modules/common/labels';
+import Modal from 'modules/modal/containers/modal-view';
 import ForkingBanner from 'modules/reporting/containers/forking-banner';
-import parseQuery from 'modules/routes/helpers/parse-query';
-import { MARKET_ID_PARAM_NAME } from 'modules/routes/constants/param-names';
+import Routes from 'modules/routes/components/routes/routes';
+import {
+  AFFILIATE_NAME,
+  MARKET_ID_PARAM_NAME,
+} from 'modules/routes/constants/param-names';
+import {
+  ACCOUNT_SUMMARY,
+  CREATE_MARKET,
+  DISPUTING,
+  MARKET,
+  MARKETS,
+  MY_POSITIONS,
+  REPORTING,
+} from 'modules/routes/constants/views';
 import makePath from 'modules/routes/helpers/make-path';
+import parsePath from 'modules/routes/helpers/parse-path';
+import parseQuery, { parseLocation } from 'modules/routes/helpers/parse-query';
+import { APP_HEAD_TAGS } from 'modules/seo/helmet-configs';
+import { HelmetTag } from 'modules/seo/helmet-tag';
+import {
+  AccountBalances,
+  AppStatus,
+  Blockchain,
+  CoreStats,
+  LoginAccount,
+  Notification,
+  Universe,
+} from 'modules/types';
+import isWindows from 'utils/is-windows';
+import { Ox_STATUS } from '../actions/update-app-status';
+import { DismissableNotice, DISMISSABLE_NOTICE_BUTTON_TYPES } from 'modules/reporting/common';
+import Footer from 'modules/app/components/footer';
+
+//         all logic related to sidebar(s) need to be housed w/in a separate component
 
 interface AppProps {
+  notifications: Notification[];
   blockchain: Blockchain;
-  env: EnvObject;
+  config: SDKConfiguration;
   history: History;
   initAugur: Function;
   isLogged: boolean;
@@ -60,8 +84,8 @@ interface AppProps {
   ethereumNodeHttp: string;
   ethereumNodeWs: string;
   sdkEndpoint: string;
-  useWeb3Transport: boolean;
   logout: Function;
+  stats: CoreStats;
   sidebarStatus: {
     mobileMenuState: number;
     isAlertsVisible: boolean;
@@ -75,8 +99,19 @@ interface AppProps {
   toasts: any[];
   updateConnectionTray: Function;
   isConnectionTrayOpen: boolean;
-  showGlobalChat: Function;
   updateHelpMenuState: Function;
+  isHelpMenuOpen: boolean;
+  showGlobalChat: Function;
+  migrateV1Rep: Function;
+  walletBalances: AccountBalances;
+  saveAffilateAddress: Function;
+  createFundedGsnWallet: Function;
+  showMigrateRepButton: boolean;
+  whichChatPlugin: string;
+  appStatus: AppStatus;
+  disableMarketCreation: boolean;
+  env: SDKConfiguration;
+  showCreateAccountButton: boolean;
 }
 
 export default class AppView extends Component<AppProps> {
@@ -84,7 +119,6 @@ export default class AppView extends Component<AppProps> {
     ethereumNodeHttp: null,
     ethereumNodeWs: null,
     sdkEndpoint: null,
-    useWeb3Transport: false,
   };
 
   sideNavMenuData = [
@@ -98,6 +132,7 @@ export default class AppView extends Component<AppProps> {
       title: 'Account Summary',
       route: ACCOUNT_SUMMARY,
       requireLogin: true,
+      showAlert: this.props.notifications.filter(item => item.isNew).length > 0,
     },
     {
       title: 'Portfolio',
@@ -107,22 +142,26 @@ export default class AppView extends Component<AppProps> {
     {
       title: 'Disputing',
       route: DISPUTING,
-      requireLogin: false,
+      requireLogin: true,
+      alternateStyle: true,
     },
     {
       title: 'Reporting',
       route: REPORTING,
-      requireLogin: false,
+      requireLogin: true,
+      alternateStyle: true,
     },
     {
-      title: 'Create',
+      title: 'Create Market',
       route: CREATE_MARKET,
       requireLogin: true,
+      button: true,
+      alternateStyle: true,
       disabled: !!this.props.universe.forkingInfo,
     },
   ];
 
-  UNSAFE_componentWillMount() {
+  handleComponentMount = () => {
     const {
       env,
       ethereumNodeHttp,
@@ -132,16 +171,8 @@ export default class AppView extends Component<AppProps> {
       initAugur,
       location,
       updateModal,
-      useWeb3Transport,
       updateCurrentBasePath,
-      updateConnectionTray,
-      updateHelpMenuState,
     } = this.props;
-
-    window.addEventListener('click', e => {
-      updateConnectionTray(false);
-      updateHelpMenuState(false);
-    });
 
     initAugur(
       history,
@@ -150,13 +181,13 @@ export default class AppView extends Component<AppProps> {
         ethereumNodeHttp,
         ethereumNodeWs,
         sdkEndpoint,
-        useWeb3Transport,
       },
-      (err: any, res: any) => {
-        if (err || (res && !res.ethereumNode) || res) {
+      (error: any, res: any) => {
+        if (error) {
           updateModal({
-            type: MODAL_NETWORK_CONNECT,
-            isInitialConnection: true,
+            type: MODAL_ERROR,
+            error,
+            config: res.config,
           });
         }
       }
@@ -165,9 +196,10 @@ export default class AppView extends Component<AppProps> {
     updateCurrentBasePath(currentPath);
 
     this.changeMenu(currentPath);
-  }
+  };
 
   componentDidMount() {
+    this.handleComponentMount();
     window.addEventListener('resize', this.handleWindowResize);
 
     // Restyle all scrollbars on windows
@@ -175,37 +207,69 @@ export default class AppView extends Component<AppProps> {
       document.body.classList.add('App--windowsScrollBars');
     }
     this.checkIsMobile();
+
+    const affiliate = parseLocation(location.href)[AFFILIATE_NAME];
+    if (affiliate) {
+      this.props.saveAffilateAddress(affiliate);
+    }
   }
 
-  UNSAFE_componentWillReceiveProps(nextProps: AppProps) {
+  compomentWillUnmount() {
+    window.removeEventListener('resize', this.handleWindowResize);
+  }
+
+  componentDidUpdate(prevProps: AppProps) {
     const {
       isMobile,
       location,
       universe,
       updateCurrentBasePath,
       updateMobileMenuState,
+      sidebarStatus,
+      modal,
+      disableMarketCreation,
     } = this.props;
-    if (isMobile !== nextProps.isMobile) {
+    if (isMobile !== prevProps.isMobile) {
       updateMobileMenuState(MOBILE_MENU_STATES.CLOSED);
     }
-    if (universe.forkingInfo !== nextProps.universe.forkingInfo) {
-      this.sideNavMenuData[5].disabled = !!nextProps.universe.forkingInfo;
+    if (universe.forkingInfo !== prevProps.universe.forkingInfo) {
+      this.sideNavMenuData[5].disabled = !!universe.forkingInfo;
     }
-
-    if (location !== nextProps.location) {
-      const lastBasePath = parsePath(location.pathname)[0];
-      const nextBasePath = parsePath(nextProps.location.pathname)[0];
+    if (disableMarketCreation !== prevProps.disableMarketCreation) {
+      this.sideNavMenuData[5].disabled = disableMarketCreation;
+    }
+    if (location !== prevProps.location) {
+      const nextBasePath = parsePath(location.pathname)[0];
+      const lastBasePath = parsePath(prevProps.location.pathname)[0];
 
       if (lastBasePath !== nextBasePath) {
         updateCurrentBasePath(nextBasePath);
         this.changeMenu(nextBasePath);
       }
     }
+
+    if (
+      sidebarStatus.mobileMenuState === MOBILE_MENU_STATES.FIRSTMENU_OPEN ||
+      sidebarStatus.mobileMenuState === MOBILE_MENU_STATES.SIDEBAR_OPEN ||
+      Object.keys(modal).length !== 0
+    ) {
+      document.body.classList.add('App--noScroll');
+    } else {
+      document.body.classList.remove('App--noScroll');
+    }
   }
 
   mainSectionClickHandler = (e: any, testSideNav = true) => {
     const stateUpdate: any = {};
-    const { isMobile, sidebarStatus, updateSidebarStatus } = this.props;
+    const {
+      isMobile,
+      sidebarStatus,
+      updateSidebarStatus,
+      isConnectionTrayOpen,
+      isHelpMenuOpen,
+      updateConnectionTray,
+      updateHelpMenuState,
+    } = this.props;
     let updateState = false;
 
     if (
@@ -224,6 +288,14 @@ export default class AppView extends Component<AppProps> {
 
     if (updateState) {
       updateSidebarStatus(stateUpdate);
+    }
+
+    if (isHelpMenuOpen) {
+      updateHelpMenuState(false);
+    }
+
+    if (isConnectionTrayOpen) {
+      updateConnectionTray(false);
     }
   };
 
@@ -295,7 +367,7 @@ export default class AppView extends Component<AppProps> {
       icon = <MobileNavHamburgerIcon />;
     } else {
       if (menuState === MOBILE_MENU_STATES.FIRSTMENU_OPEN) {
-        icon = <MobileNavHamburgerIcon />;
+        icon = null;
       } else {
         icon = <MobileNavCloseIcon />;
       }
@@ -304,7 +376,9 @@ export default class AppView extends Component<AppProps> {
     return (
       <button
         type="button"
-        className={Styles['SideBar__mobile-bars']}
+        className={classNames(Styles['SideBar__mobile-bars'], {
+          [Styles.Closed]: menuState === MOBILE_MENU_STATES.CLOSED,
+        })}
         onClick={() => this.mobileMenuButtonClick()}
       >
         {icon}
@@ -326,21 +400,39 @@ export default class AppView extends Component<AppProps> {
       toasts,
       isConnectionTrayOpen,
       updateConnectionTray,
+      migrateV1Rep,
+      walletBalances,
+      updateModal,
+      isHelpMenuOpen,
+      updateHelpMenuState,
+      notifications,
+      createFundedGsnWallet,
+      showMigrateRepButton,
+      stats,
+      whichChatPlugin,
+      isMobile,
+      appStatus,
+      disableMarketCreation,
+      showCreateAccountButton,
     } = this.props;
-
+    this.sideNavMenuData[1].showAlert =
+      notifications.filter(item => item.isNew).length > 0;
     const currentPath = parsePath(location.pathname)[0];
 
     const onTradingTutorial =
       parseQuery(location.search)[MARKET_ID_PARAM_NAME] === TRADING_TUTORIAL;
 
+    const statusErrorShowing = appStatus[Ox_STATUS] === ZEROX_STATUSES.ERROR;
     return (
       <main>
-        <Helmet
-          defaultTitle="Decentralized Prediction Markets | Augur"
-          titleTemplate="%s | Augur"
-        />
+        <HelmetTag {...APP_HEAD_TAGS} />
         {Object.keys(modal).length !== 0 && <Modal />}
-        {toasts.length > 0 && <ToastsContainer toasts={toasts} onTradingTutorial={onTradingTutorial}/>}
+        {toasts.length > 0 && (
+          <ToastsContainer
+            toasts={toasts}
+            onTradingTutorial={onTradingTutorial}
+          />
+        )}
         <div
           className={classNames({
             [Styles['App--blur']]: Object.keys(modal).length !== 0,
@@ -352,18 +444,21 @@ export default class AppView extends Component<AppProps> {
             })}
           >
             {onTradingTutorial && (
-              <section className={Styles.TutorialBanner}>
-                <span>Test market</span>
-                <button
-                  onClick={() =>
-                    history.push({
-                      pathname: makePath(MARKETS),
-                    })
-                  }
-                >
-                  {XIcon}
-                </button>
-              </section>
+              <>
+                <section className={Styles.TutorialBanner}>
+                  <span>Test market</span>
+                  <button
+                    onClick={() =>
+                      history.push({
+                        pathname: makePath(MARKETS),
+                      })
+                    }
+                  >
+                    {XIcon}
+                  </button>
+                </section>
+                <section className={Styles.TopBarOverlay} />
+              </>
             )}
             <section
               className={classNames(Styles.TopBar, Styles.TopBar__floatAbove, {
@@ -385,6 +480,9 @@ export default class AppView extends Component<AppProps> {
 
               {/* HIDDEN ON DESKTOP */}
               <SideNav
+                isMobile={isMobile}
+                restoredAccount={restoredAccount}
+                stats={stats}
                 showNav={
                   sidebarStatus.mobileMenuState ===
                   MOBILE_MENU_STATES.SIDEBAR_OPEN
@@ -397,8 +495,18 @@ export default class AppView extends Component<AppProps> {
                 menuData={this.sideNavMenuData}
                 currentBasePath={sidebarStatus.currentBasePath}
                 isConnectionTrayOpen={isConnectionTrayOpen}
+                isHelpMenuOpen={isHelpMenuOpen}
+                updateConnectionTray={updateConnectionTray}
+                updateHelpMenuState={updateHelpMenuState}
                 logout={() => this.props.logout()}
                 showGlobalChat={() => this.props.showGlobalChat()}
+                migrateV1Rep={migrateV1Rep}
+                showMigrateRepButton={showMigrateRepButton}
+                walletBalances={walletBalances}
+                updateModal={updateModal}
+                createFundedGsnWallet={createFundedGsnWallet}
+                whichChatPlugin={whichChatPlugin}
+                tradingAccountCreated={!showCreateAccountButton}
               />
 
               {/* HIDDEN ON MOBILE */}
@@ -406,8 +514,16 @@ export default class AppView extends Component<AppProps> {
                 isLogged={isLogged || restoredAccount}
                 menuData={this.sideNavMenuData}
                 currentBasePath={sidebarStatus.currentBasePath}
+                migrateV1Rep={migrateV1Rep}
+                showMigrateRepButton={showMigrateRepButton}
+                walletBalances={walletBalances}
+                updateModal={updateModal}
+                disableMarketCreation={disableMarketCreation}
               />
             </section>
+            {!isMobile && <StatusErrorMessage />}
+            {!isMobile && process.env.REPORTING_ONLY && <DismissableNotice show center title={REPORTING_ONLY_BANNER} buttonType={DISMISSABLE_NOTICE_BUTTON_TYPES.NONE} />}
+            {!isMobile && <DismissableNotice show center className={Styles.TradingEth} title={TRADING_ETH_VERSION} buttonType={DISMISSABLE_NOTICE_BUTTON_TYPES.NONE} />}
             <AlertsContainer
               alertsVisible={isLogged && sidebarStatus.isAlertsVisible}
               toggleAlerts={() => this.toggleAlerts()}
@@ -421,6 +537,9 @@ export default class AppView extends Component<AppProps> {
             <section
               className={classNames(Styles.Main__wrap, {
                 [Styles['Main__wrapMarkets']]: currentPath === MARKETS,
+                [Styles.StatusErrorShowing]: statusErrorShowing,
+                [Styles.StatusErrorShowingMarket]:
+                  statusErrorShowing && currentPath === MARKET,
                 [Styles['TopBarOpen']]:
                   sidebarStatus.mobileMenuState ===
                   MOBILE_MENU_STATES.SIDEBAR_OPEN,
@@ -435,6 +554,9 @@ export default class AppView extends Component<AppProps> {
               ) : (
                 <div className="no-nav-placehold" />
               )}
+              {isMobile && <StatusErrorMessage />}
+              {isMobile && process.env.REPORTING_ONLY && <DismissableNotice show center title={REPORTING_ONLY_BANNER} buttonType={DISMISSABLE_NOTICE_BUTTON_TYPES.NONE} />}
+              {isMobile && <DismissableNotice show center className={Styles.TradingEth} title={TRADING_ETH_VERSION} buttonType={DISMISSABLE_NOTICE_BUTTON_TYPES.NONE} />}
               <section
                 className={classNames(Styles.Main__content, {
                   [Styles.Tutorial]: onTradingTutorial,
@@ -445,10 +567,21 @@ export default class AppView extends Component<AppProps> {
                 })}
                 onClick={this.mainSectionClickHandler}
                 role="presentation"
+                id={'mainContent'}
               >
-                <ForkingBanner />
+                {!isLogged && currentPath === MARKETS && (
+                  <div className={Styles.BettingUI}>
+                    <ExternalLinkText
+                      title={'Betting UI'}
+                      label={' - Coming Soon!'}
+                      URL={'https://augur.net'}
+                    />
+                  </div>
+                )}
 
-                <Routes isLogged={isLogged || restoredAccount} />
+                <ForkingBanner />
+                <Routes isLogged={isLogged || restoredAccount} disableMarketCreation={disableMarketCreation}/>
+                <Footer />
               </section>
             </section>
           </section>

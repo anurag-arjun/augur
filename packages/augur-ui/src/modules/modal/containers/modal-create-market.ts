@@ -1,7 +1,7 @@
 import { connect } from "react-redux";
 import { withRouter } from "react-router-dom";
 import { Message } from "modules/modal/message";
-import { AppState } from "store";
+import { AppState } from "appStore";
 import { closeModal } from "modules/modal/actions/close-modal";
 import { ThunkDispatch } from "redux-thunk";
 import { Action } from "redux";
@@ -25,7 +25,7 @@ const mergeProps = (sP: any, dP: any, oP: any) => ({
   title: "Final confirmation",
   subheader: {
     header: "Are you sure you want to proceeed?",
-    subheaders: ["Once you create the market you can’t make any changes to the market or resolution details. Ensure that all market details are accurate before proceeding."]
+    subheaders: ["Once you create the market you can’t make any changes to the market or resolution details . Ensure that all market details are accurate before proceeding."]
   },
   subheader_2: {
     header: "Ready to proceed? Here’s what happens next, you will:",

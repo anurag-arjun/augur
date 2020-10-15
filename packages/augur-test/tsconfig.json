@@ -11,9 +11,6 @@
   ],
   "references": [
     {
-      "path": "../ethersjs-provider"
-    },
-    {
       "path": "../augur-core"
     },
     {

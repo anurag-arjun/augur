@@ -1,29 +1,36 @@
-import logError from "utils/log-error";
-import { createBigNumber } from "utils/create-big-number";
-import { formatGasCost } from "utils/format-number";
-import { updateGasPriceInfo } from "modules/app/actions/update-gas-price-info";
-import { getGasPrice, getNetworkId } from "modules/contracts/actions/contractCalls";
-import { AppState } from "store";
-import { DataCallback, NodeStyleCallback } from "modules/types";
-import { ThunkAction, ThunkDispatch } from "redux-thunk";
-import { Action } from "redux";
-import { GWEI_CONVERSION } from 'modules/common/constants';
+import logError from 'utils/log-error';
+import { formatGasCostGwei } from 'utils/format-number';
+import { updateGasPriceInfo } from 'modules/app/actions/update-gas-price-info';
+import { getNetworkId } from 'modules/contracts/actions/contractCalls';
+import { AppState } from 'appStore';
+import { DataCallback, NodeStyleCallback, GasPriceInfo } from 'modules/types';
+import { ThunkAction, ThunkDispatch } from 'redux-thunk';
+import { Action } from 'redux';
+import {
+  GAS_PRICE_BACKUP_API_ENDPOINT,
+  DEFAULT_FALLBACK_GAS_SAFELOW,
+  DEFAULT_FALLBACK_GAS_AVERAGE,
+  DEFAULT_FALLBACK_GAS_FAST,
+} from 'modules/common/constants';
+import { augurSdk } from 'services/augursdk';
+import { checkIfMainnet } from './check-if-mainnet';
+import { getGasStation } from  '@augurproject/utils';
 
-const GAS_PRICE_API_ENDPOINT = "https://ethgasstation.info/json/ethgasAPI.json";
-const MAINNET_ID = "1";
-
-export function loadGasPriceInfo(callback: NodeStyleCallback = logError): ThunkAction<any, any, any, any> {
-  return (dispatch: ThunkDispatch<void, any, Action>, getState: () => AppState) => {
-    const { loginAccount, blockchain } = getState();
+export function loadGasPriceInfo(
+  callback: NodeStyleCallback = logError
+): ThunkAction<any, any, any, any> {
+  return (
+    dispatch: ThunkDispatch<void, any, Action>,
+    getState: () => AppState
+  ) => {
+    const { loginAccount } = getState();
     if (!loginAccount.address) return callback(null);
-    const networkId = getNetworkId();
 
-    if (networkId === MAINNET_ID) {
-      getGasPriceRanges((result: any) => {
+    if (checkIfMainnet()) {
+      getGasPriceRanges(getNetworkId(), result => {
         dispatch(
           updateGasPriceInfo({
             ...result,
-            blockNumber: blockchain.currentBlockNumber
           })
         );
       });
@@ -31,47 +38,61 @@ export function loadGasPriceInfo(callback: NodeStyleCallback = logError): ThunkA
   };
 }
 
-function getGasPriceRanges(callback: DataCallback) {
+async function getGasPriceRanges(networkId: string, callback: DataCallback) {
   const defaultGasPrice = setDefaultGasInfo();
-  getGasPriceValues(defaultGasPrice, (result: any) => callback(result));
+  try {
+    const networkId = (await augurSdk.get()).networkId;
+    const relayerGasStation = await getGasStation(networkId);
+    // Take the eth gas station gas estimates for safeLow, standard, and fast
+    // Add 1 GWEI to all of them (b/c we use a lot of gas).
+    const relayerGasStationResults = {
+      safeLow: ++formatGasCostGwei(relayerGasStation.safeLow, {}).value,
+      average: ++formatGasCostGwei(relayerGasStation.standard || relayerGasStation.average, {}).value,
+      fast: ++formatGasCostGwei(relayerGasStation.fast, {}).value,
+    };
+    callback(relayerGasStationResults);
+  } catch (error) {
+    console.error("Couldn't get gas: Using fallback", error);
+
+    getGasPriceValues(networkId, defaultGasPrice, gasResults => {
+      callback(gasResults);
+    });
+  }
 }
 
-function getGasPriceValues(defaultGasPrice: any, callback: DataCallback) {
-  fetch(GAS_PRICE_API_ENDPOINT)
-    .then(
-      res => res.json()
-      // values are off, need to divide by 10
-      // {"average": 112.0, "fastestWait": 0.6, "fastWait": 0.7, "fast": 160.0, "safeLowWait": 1.0, "blockNum": 6416833, "avgWait": 1.0, "block_time": 15.785714285714286, "speed": 0.8870789882818058, "fastest": 520.0, "safeLow": 112.0}
-    )
-    .then(json => {
-      const average = json.average
-        ? formatGasCost(json.average / 10).value
-        : defaultGasPrice.average;
-      const fast = json.fast ? formatGasCost(json.fast / 10).value : 0;
-      const safeLow = json.safeLow ? formatGasCost(json.safeLow / 10).value : 0;
-      callback({
-        average,
-        fast,
-        safeLow
-      });
-    })
-    .catch(() =>
-      callback({
-        average: defaultGasPrice.average,
-        fast: 0,
-        safeLow: 0
+// If the gas station is down we use etherscan as a fallback
+function getGasPriceValues(
+  networkId: string,
+  defaultGasPrice: Partial<GasPriceInfo>,
+  callback: DataCallback
+) {
+
+  // Only exists on Mainnet
+  const endPoint = GAS_PRICE_BACKUP_API_ENDPOINT[networkId];
+
+  if (endPoint) {
+    fetch(endPoint)
+      .then(res => res.json())
+      .then(({ result }) => {
+        // Etherscan returns Safe and Propose(fast).
+        // For average we take their (fast)/2 + 1
+        // and add 1 gwei to all buckets
+        callback({
+          safeLow: ++result.SafeGasPrice,
+          average: result.ProposeGasPrice / 2 + 1,
+          fast: ++result.ProposeGasPrice,
+        });
       })
-    );
+      .catch(() => callback(defaultGasPrice));
+  }
+  callback(defaultGasPrice);
 }
 
-async function setDefaultGasInfo() {
-  const gasPrice = await getGasPrice();
-  const inGwei = gasPrice.dividedBy(createBigNumber(GWEI_CONVERSION));
-  const gasPriceValue = formatGasCost(inGwei).value;
-
+function setDefaultGasInfo(): Partial<GasPriceInfo> {
+  // If both gasStations (relayer/etherscan) are unavailable we use the fallback defaults
   return {
-    average: gasPriceValue,
-    fast: gasPriceValue,
-    safeLow: gasPriceValue
+    safeLow: formatGasCostGwei(DEFAULT_FALLBACK_GAS_SAFELOW, {}).value,
+    average: formatGasCostGwei(DEFAULT_FALLBACK_GAS_AVERAGE, {}).value,
+    fast: formatGasCostGwei(DEFAULT_FALLBACK_GAS_FAST, {}).value,
   };
 }

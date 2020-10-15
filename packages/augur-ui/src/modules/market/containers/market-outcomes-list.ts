@@ -11,8 +11,8 @@ const mapStateToProps = (state, ownProps) => {
     outcomesFormatted: selectSortedMarketOutcomes(market.marketType, market.outcomesFormatted),
     marketType: market.marketType,
     marketId: market.id,
-    minPriceBigNumber: market.minPriceBigNumber,
-    maxPriceBigNumber: market.maxPriceBigNumber,
+    orderBook: ownProps.orderBook,
+    preview: ownProps.preview,
   };
 };
 

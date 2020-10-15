@@ -5,73 +5,114 @@ import ConnectAccount from 'modules/auth/containers/connect-account';
 import {
   MovementLabel,
   LinearPropertyLabel,
-  LinearPropertyLabelMovement,
 } from 'modules/common/labels';
 import { CoreStats } from 'modules/types';
-import Styles from 'modules/app/components/top-bar.styles.less';
 import { Link } from 'react-router-dom';
 import makePath from 'modules/routes/helpers/make-path';
 import Logo from 'modules/app/components/logo';
 import { PrimaryButton, SecondaryButton } from 'modules/common/buttons';
-import { LANDING_PAGE } from 'modules/routes/constants/views';
+import { MARKETS } from 'modules/routes/constants/views';
 import HelpResources from 'modules/app/containers/help-resources';
+import { WALLET_STATUS_VALUES } from 'modules/common/constants';
 
+import Styles from 'modules/app/components/top-bar.styles.less';
+
+interface StatsProps {
+  isLogged: boolean;
+  restoredAccount: boolean;
+  stats: CoreStats;
+  isMobile?: boolean;
+  tradingAccountCreated: boolean;
+}
+
+export const Stats = ({ isLogged, restoredAccount, stats, isMobile = false, tradingAccountCreated }: StatsProps) => {
+  if (!stats) return null;
+  const { availableFunds, frozenFunds, totalFunds, realizedPL } = stats;
+
+  return (
+    <>
+      {(isLogged || restoredAccount) && (
+        <div className={Styles.statsContainer}>
+          <div>
+            <LinearPropertyLabel {...availableFunds} highlightAlternateBolded />
+            <LinearPropertyLabel {...frozenFunds} highlightAlternateBolded />
+            {tradingAccountCreated ?
+              <LinearPropertyLabel
+                {...totalFunds}
+                highlightAlternateBolded
+              /> :
+              <LinearPropertyLabel {...totalFunds} highlightAlternateBolded />
+            }
+            <div>
+              <span>{realizedPL.label}</span>
+              <MovementLabel value={realizedPL.value} useFull />
+            </div>
+          </div>
+          <div>
+            <span>{realizedPL.label}</span>
+            <MovementLabel value={realizedPL.value} useFull />
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
 interface TopBarProps {
   alertsVisible: boolean;
   isLogged: boolean;
+  isMobile: boolean;
   restoredAccount: boolean;
   stats: CoreStats;
   unseenCount: number;
   updateIsAlertVisible: Function;
   signupModal: Function;
   loginModal: Function;
+  helpModal: Function;
+  showAddFundsButton: boolean;
+  createFundedGsnWallet: Function;
+  buyDaiModal: Function;
+  activateWalletModal: Function;
+  walletStatus: string;
 }
 
 const TopBar: React.FC<TopBarProps> = ({
   alertsVisible,
   isLogged,
+  isMobile,
   restoredAccount,
   stats,
   unseenCount,
   updateIsAlertVisible,
   signupModal,
   loginModal,
+  helpModal,
+  showAddFundsButton,
+  buyDaiModal,
+  activateWalletModal,
+  walletStatus,
 }) => {
-  const { availableFunds, frozenFunds, totalFunds, realizedPL } = stats;
-
   return (
     <header className={Styles.TopBar}>
       <div className={Styles.Logo}>
-        <Link to={makePath(LANDING_PAGE)}>
+        <Link to={makePath(MARKETS)}>
           <Logo />
         </Link>
       </div>
 
-      {(isLogged || restoredAccount) && (
-        <div className={Styles.statsContainer}>
-          <div>
-            <LinearPropertyLabel {...availableFunds} highlightAlternateBolded />
-            <LinearPropertyLabel {...frozenFunds} highlightAlternateBolded />
-            <LinearPropertyLabel {...totalFunds} highlightAlternateBolded />
-            <LinearPropertyLabel {...realizedPL} highlightAlternateBolded />
-          </div>
-          <div>
-            <span>{realizedPL.label}</span>
-            <MovementLabel showColors value={realizedPL.value} size='normal' showNegative showCurrency="$" />
-          </div>
-        </div>
-      )}
+      <Stats
+        isLogged={isLogged}
+        stats={stats}
+        restoredAccount={restoredAccount}
+        tradingAccountCreated={!showAddFundsButton }
+      />
       <div>
-        {!isLogged && !restoredAccount && (
-          <SecondaryButton action={() => loginModal()} text={'Login'} />
+
+        {(!isLogged || (!isMobile && (isLogged || restoredAccount))) && (
+          <HelpResources isMobile={isMobile} helpModal={helpModal} />
         )}
         {!isLogged && !restoredAccount && (
-          <PrimaryButton action={() => signupModal()} text={'Signup'} />
+          <PrimaryButton action={() => loginModal()} text={'Connect'} />
         )}
-
-        {(isLogged || restoredAccount) && <HelpResources />}
-        <ConnectAccount />
-
         {(isLogged || restoredAccount) && (
           <button
             className={classNames(Styles.alerts, {
@@ -85,6 +126,7 @@ const TopBar: React.FC<TopBarProps> = ({
             {unseenCount > 99 ? Alerts('99+') : Alerts(unseenCount)}
           </button>
         )}
+        <ConnectAccount />
       </div>
     </header>
   );

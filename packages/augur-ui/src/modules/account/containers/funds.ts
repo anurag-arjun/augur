@@ -1,37 +1,30 @@
 import { connect } from "react-redux";
 
 import Funds from "modules/account/components/funds";
-import { formatEther, formatPercent } from "utils/format-number";
+import { formatDaiPrice, formatDai, formatEther } from "utils/format-number";
 import {
-  selectLoginAccount,
   selectAccountFunds,
 } from "modules/auth/selectors/login-account";
-import { AppState } from "store";
-import { selectReportingBalances } from "../selectors/select-reporting-balances";
+import { AppState } from "appStore";
+import { updateModal } from "modules/modal/actions/update-modal";
+import { MODAL_FROZEN_FUNDS } from "modules/common/constants";
 
 const mapStateToProps = (state: AppState) => {
-  const loginAccount = selectLoginAccount(state);
   const {
     totalAvailableTradingBalance,
     totalFrozenFunds,
     totalAccountValue,
   } = selectAccountFunds(state);
-  const {
-    repTotalAmountStakedFormatted,
-    repBalanceFormatted
-  } = selectReportingBalances(state);
-  const { tradingPositionsTotal } = loginAccount;
 
   return {
-    repStaked: repTotalAmountStakedFormatted.formatted,
-    repBalance: repBalanceFormatted.formatted,
-    totalFrozenFunds: formatEther(totalFrozenFunds).formatted,
-    totalAvailableTradingBalance: formatEther(totalAvailableTradingBalance)
-      .formatted,
-    totalAccountValue: formatEther(totalAccountValue).formatted,
-    realizedPLPercent: formatPercent(tradingPositionsTotal.unrealizedRevenue24hChangePercent)
-      .formattedValue,
+    totalFrozenFunds: formatEther(totalFrozenFunds, { removeComma: true }),
+    totalAvailableTradingBalance: formatEther(totalAvailableTradingBalance, { removeComma: true }),
+    totalAccountValue: formatEther(totalAccountValue, { removeComma: true }),
   };
 };
 
-export default connect(mapStateToProps)(Funds);
+const mapDispatchToProps = dispatch => ({
+  frozenFundsModal: () => dispatch(updateModal({ type: MODAL_FROZEN_FUNDS })),
+});
+
+export default connect(mapStateToProps, mapDispatchToProps)(Funds);

@@ -5,10 +5,12 @@ import { getNetworkId } from 'modules/contracts/actions/contractCalls';
 const DEFAULT_NUM_POSTS = 10;
 const COLOR_SCHEME = 'dark'; // this might change depending on themes
 
-const mapStateToProps = (state, ownProps) => ({
-  numPosts: ownProps.numPosts || DEFAULT_NUM_POSTS,
-  colorScheme: ownProps.colorScheme || COLOR_SCHEME,
+const mapStateToProps = ({authStatus, env}, {numPosts, colorScheme}) => ({
+  colorScheme: colorScheme || COLOR_SCHEME,
   networkId: getNetworkId(),
+  numPosts: numPosts || DEFAULT_NUM_POSTS,
+  whichCommentPlugin: env.plugins?.comments,
+  isLogged: authStatus.isLogged,
 });
 
 const MarketCommentsContainer = connect(mapStateToProps)(MarketComments);

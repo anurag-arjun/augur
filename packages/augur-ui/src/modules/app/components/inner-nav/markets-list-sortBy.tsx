@@ -5,28 +5,38 @@ import {
   SORT_OPTIONS,
 } from 'modules/common/constants';
 import Styles from 'modules/app/components/inner-nav/markets-list-sortBy.styles.less';
+import { SortByIcon } from 'modules/common/icons';
 import { RadioBarGroup } from 'modules/common/form';
 
 interface MarketsListFiltersProps {
-  marketSort: string;
+  sortBy: string;
   isSearching: boolean;
   updateMarketsSortBy: Function;
+  setSortOptions: Function;
+  isMobile: boolean;
 }
 
-const MarketsListFilters = (props: MarketsListFiltersProps) => (
+const MarketsListFilters = ({
+  sortBy,
+  isSearching,
+  updateMarketsSortBy,
+  setSortOptions,
+  isMobile,
+}: MarketsListFiltersProps) => (
   <div className={Styles.Filters}>
     <div
       className={classNames(Styles.FiltersGroup, {
-        [Styles.Searching]: props.isSearching,
+        [Styles.Searching]: isSearching,
       })}
     >
-      <div>Sort By</div>
+      <div>
+        {SortByIcon}
+        Sort By
+      </div>
       <RadioBarGroup
         radioButtons={SORT_OPTIONS}
-        defaultSelected={props.marketSort}
-        onChange={(value: string) => {
-          props.updateMarketsSortBy(value);
-        }}
+        defaultSelected={sortBy}
+        onChange={(value: string) => isMobile ? setSortOptions(value) : updateMarketsSortBy(value)}
       />
     </div>
   </div>

@@ -1,35 +1,40 @@
-import { BigNumber } from "bignumber.js";
-import { formatBytes32String } from "ethers/utils";
+import { BigNumber } from 'bignumber.js';
 
-import { GenericAugurInterfaces } from "@augurproject/core";
-import { numTicksToTickSize, convertDisplayAmountToOnChainAmount, convertDisplayPriceToOnChainPrice, QUINTILLION } from "@augurproject/sdk";
+import { GenericAugurInterfaces } from '@augurproject/core';
+import { numTicksToTickSize, convertDisplayAmountToOnChainAmount, convertDisplayPriceToOnChainPrice, QUINTILLION } from '@augurproject/sdk';
 
-import { ContractAPI } from "../libs/contract-api";
-import { cannedMarkets, CannedMarket } from "./data/canned-markets";
+import { ContractAPI } from '../libs/contract-api';
+import { cannedMarkets, CannedMarket, templatedCannedMarkets, templatedCannedBettingMarkets, testBadTemplateMarkets } from './data/canned-markets';
+import { _1_ETH } from '../constants';
+import {ethers} from 'ethers';
 
-type Market = GenericAugurInterfaces.Market<BigNumber>;
+export type Market = GenericAugurInterfaces.Market<BigNumber>;
+export interface CreatedCannedMarket {
+  market: Market;
+  canned: CannedMarket;
+}
 
-async function createCannedMarket(person: ContractAPI, can: CannedMarket): Promise<Market> {
-  console.log("CREATING CANNED MARKET: ", can.extraInfo.description);
+async function createCannedMarket(person: ContractAPI, can: CannedMarket, faucet=true): Promise<CreatedCannedMarket> {
+  console.log('CREATING CANNED MARKET: ', can.extraInfo.description);
 
   const { endTime, affiliateFeeDivisor } = can;
-  const feePerEthInWei = new BigNumber(10).pow(16);
-  const designatedReporter = person.account.publicKey;
+  const feePerEthInWei = can.creatorFeeDecimal ? new BigNumber(can.creatorFeeDecimal).times(_1_ETH) : new BigNumber(10).pow(16);
+  const designatedReporter = person.account.address;
 
   let market: Market;
   switch (can.marketType) {
-    case "yesNo":
+    case 'yesNo':
       market = await person.createYesNoMarket({
         endTime: new BigNumber(endTime),
         feePerCashInAttoCash: feePerEthInWei,
         affiliateFeeDivisor: new BigNumber(affiliateFeeDivisor),
         designatedReporter,
         extraInfo: JSON.stringify(can.extraInfo),
-      });
+      }, faucet);
       break;
-    case "scalar":
+    case 'scalar':
       if (!can.minPrice || !can.maxPrice || !can.tickSize) {
-        throw Error(`Scalar market must have minPrice, maxPrice, and tickSize.`);
+        throw Error('Scalar market must have minPrice, maxPrice, and tickSize.');
       }
 
       const minDisplayPrice = new BigNumber(can.minPrice);
@@ -48,11 +53,11 @@ async function createCannedMarket(person: ContractAPI, can: CannedMarket): Promi
         prices: [minPrice, maxPrice],
         numTicks,
         extraInfo: JSON.stringify(can.extraInfo),
-      });
+      }), faucet;
       break;
-    case "categorical":
-      if (typeof can.outcomes === "undefined") {
-        throw Error(`CannedMarket.outcomes must not be undefined in a categorical market`);
+    case 'categorical':
+      if (typeof can.outcomes === 'undefined') {
+        throw Error('CannedMarket.outcomes must not be undefined in a categorical market');
       }
       market = await person.createCategoricalMarket({
         endTime: new BigNumber(endTime),
@@ -61,18 +66,18 @@ async function createCannedMarket(person: ContractAPI, can: CannedMarket): Promi
         designatedReporter,
         outcomes: can.outcomes,
         extraInfo: JSON.stringify(can.extraInfo),
-      });
+      }, faucet);
       break;
     default:
       throw Error(`Invalid CannedMarket.marketType "${can.marketType}"`);
   }
 
   console.log(`MARKET CREATED: ${market.address}`);
-  return market;
+  return { market, canned: can };
 }
 
 function generateRandom32ByteHex() {
-  return formatBytes32String(String(Date.now()));
+  return ethers.utils.formatBytes32String(String(Date.now()));
 }
 
 async function placeOrder(person: ContractAPI,
@@ -85,16 +90,16 @@ async function placeOrder(person: ContractAPI,
                           price: BigNumber): Promise<string> {
   const tickSize = can.tickSize
     ? new BigNumber(can.tickSize)
-    : numTicksToTickSize(new BigNumber("100"), new BigNumber("0"), new BigNumber("0x0de0b6b3a7640000"));
+    : numTicksToTickSize(new BigNumber('100'), new BigNumber('0'), new BigNumber('0x0de0b6b3a7640000'));
 
-  const minDisplayPrice = new BigNumber(can.minPrice || "0");
+  const minDisplayPrice = new BigNumber(can.minPrice || '0');
   const attoShares = convertDisplayAmountToOnChainAmount(shares, tickSize);
   const attoPrice = convertDisplayPriceToOnChainPrice(price, minDisplayPrice, tickSize);
-  const betterOrderId = formatBytes32String("");
-  const worseOrderId = formatBytes32String("");
+  const betterOrderId = ethers.utils.formatBytes32String('');
+  const worseOrderId = ethers.utils.formatBytes32String('');
 
-  console.log("Shares:", attoShares.toString());
-  console.log("Price:", attoPrice.toString());
+  console.log('Shares:', attoShares.toString());
+  console.log('Price:', attoPrice.toString());
 
   return person.placeOrder(
     market.address,
@@ -129,12 +134,50 @@ async function createOrderBook(person: ContractAPI, market: Market, can: CannedM
   }
 }
 
-export async function createCannedMarketsAndOrders(person: ContractAPI): Promise<Market[]> {
+export async function createCannedMarkets(person: ContractAPI, faucet=true): Promise<CreatedCannedMarket[]> {
   const markets = [];
   for (const can of cannedMarkets) {
-    const market = await createCannedMarket(person, can);
+    const market = await createCannedMarket(person, can, faucet);
     markets.push(market);
-    await createOrderBook(person, market, can);
+  }
+  markets.push(await createTemplatedMarkets(person, faucet));
+  return markets;
+}
+
+export async function createCannedMarketsAndOnChainOrders(person: ContractAPI, faucet=true): Promise<CreatedCannedMarket[]> {
+  const markets = [];
+  for (const can of cannedMarkets) {
+    const createdMarket = await createCannedMarket(person, can, faucet);
+    markets.push(createdMarket.market);
+    await createOrderBook(person, createdMarket.market, can);
+  }
+  return markets;
+}
+
+
+export async function createTemplatedMarkets(person: ContractAPI, faucet=true): Promise<CreatedCannedMarket[]> {
+  const markets = [];
+  for (const can of templatedCannedMarkets()) {
+    const market = await createCannedMarket(person, can, faucet);
+    markets.push(market);
+  }
+  return markets;
+}
+
+export async function createTemplatedBettingMarkets(person: ContractAPI, faucet=true): Promise<CreatedCannedMarket[]> {
+  const markets = [];
+  for (const can of templatedCannedBettingMarkets()) {
+    const market = await createCannedMarket(person, can, faucet);
+    markets.push(market);
+  }
+  return markets;
+}
+
+export async function createBadTemplatedMarkets(person: ContractAPI, faucet=true): Promise<CreatedCannedMarket[]> {
+  const markets = [];
+  for (const can of testBadTemplateMarkets()) {
+    const market = await createCannedMarket(person, can, faucet);
+    markets.push(market);
   }
   return markets;
 }

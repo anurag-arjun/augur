@@ -6,13 +6,9 @@
     "experimentalDecorators": true
   },
   "include": [
-    "src/**/*",
-    "src/state/settings.json"
+    "src/**/*"
   ],
   "references": [
-    {
-      "path": "../blockstream-adapters"
-    },
     {
       "path": "../augur-utils"
     },
@@ -26,12 +22,15 @@
       "path": "../augur-types"
     },
     {
-      "path": "../contract-dependencies-gnosis"
+      "path": "../augur-templates"
     },
     {
-      "path": "../gnosis-relay-api"
+      "path": "../augur-contract-dependencies-ethers"
     },
     {
-      "path": "../contract-dependencies-ethers"
+      "path": "../ethersjs-provider"
+    },
+    {
+      "path": "../augur-sdk-lite"
     }]
 }

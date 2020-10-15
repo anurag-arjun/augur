@@ -1,12 +1,10 @@
-import { Account, NULL_ADDRESS, _1_HUNDRED_ETH } from "../constants";
-import { ContractAPI } from "..";
-import { ParsedLog } from "@augurproject/types";
-import { BigNumber } from "bignumber.js";
-import { formatBytes32String } from "ethers/utils";
-import { ContractAddresses } from "@augurproject/artifacts";
-import { EthersProvider } from "@augurproject/ethersjs-provider";
-import { ethers } from "ethers";
-import { inOneMonths, today } from "./time";
+import { Account, NULL_ADDRESS, _1_HUNDRED_ETH } from '../constants';
+import { ContractAPI } from '..';
+import { ParsedLog } from '@augurproject/types';
+import { BigNumber } from 'bignumber.js';
+import { EthersProvider } from '@augurproject/ethersjs-provider';
+import { ethers } from 'ethers';
+import { SDKConfiguration } from '@augurproject/utils';
 
 interface AddressMapping { [addr1: string]: string; }
 interface IdMapping { [id1: string]: string; }
@@ -24,7 +22,7 @@ export class LogReplayer {
   constructor(
     initialAccounts: Account[],
     private provider: EthersProvider,
-    private contractAddresses: ContractAddresses
+    private config: SDKConfiguration
   ) {
     if (initialAccounts.length < 1) {
       throw Error("LogReplayer's initial accounts list must contain at least one account");
@@ -36,8 +34,8 @@ export class LogReplayer {
   }
 
   async User(account: Account): Promise<ContractAPI> {
-    const user = await ContractAPI.userWrapper(account, this.provider, this.contractAddresses);
-    await user.approveCentralAuthority();
+    const user = await ContractAPI.userWrapper(account, this.provider, this.config);
+    await user.approveIfNecessary();
     return user;
   }
 
@@ -48,12 +46,12 @@ export class LogReplayer {
       } else { // Create and fund new account.
         const wallet = ethers.Wallet.createRandom();
         this.accounts[address] = {
-          secretKey: wallet.privateKey,
-          publicKey: wallet.address,
-          balance: _1_HUNDRED_ETH,
+          privateKey: wallet.privateKey,
+          address: wallet.address,
+          initialBalance: _1_HUNDRED_ETH,
         };
 
-        const piggybankWallet = new ethers.Wallet(this.piggybank.secretKey, this.provider);
+        const piggybankWallet = new ethers.Wallet(this.piggybank.privateKey, this.provider);
         await piggybankWallet.sendTransaction({
           to: wallet.address,
           value: `0x${new BigNumber(_1_HUNDRED_ETH).toString(16)}`,
@@ -72,9 +70,9 @@ export class LogReplayer {
 
   async ReplayLog(log: ParsedLog) {
     switch(log.name) {
-      case "UniverseCreated": return this.UniverseCreated(log);
-      case "MarketCreated": return this.MarketCreated(log);
-      case "OrderEvent": return this.OrderEvent(log);
+      case 'UniverseCreated': return this.UniverseCreated(log);
+      case 'MarketCreated': return this.MarketCreated(log);
+      case 'OrderEvent': return this.OrderEvent(log);
       default:
     }
   }
@@ -86,7 +84,7 @@ export class LogReplayer {
 
     if (parentUniverse === NULL_ADDRESS) { // Deployment already gave us a genesis universe so just record it.
       const user = await this.User(this.piggybank); // Piggybank is typically the Augur deployer, including genesis universe.
-      this.universes[childUniverse] = user.augur.addresses.Universe;
+      this.universes[childUniverse] = user.augur.config.addresses.Universe;
     } else {
       // TODO No need to support forking yet. But when it is supported, remember
       //      that parentPayoutDistributionHash is part of the Universe contract.
@@ -115,7 +113,7 @@ export class LogReplayer {
           endTime: adjustedEndTime,
           feePerCashInAttoCash,
           affiliateFeeDivisor: feeDivisor,
-          designatedReporter: reporter.publicKey,
+          designatedReporter: reporter.address,
           extraInfo,
         });
         break;
@@ -124,7 +122,7 @@ export class LogReplayer {
           endTime: adjustedEndTime,
           feePerCashInAttoCash,
           affiliateFeeDivisor: feeDivisor,
-          designatedReporter: reporter.publicKey,
+          designatedReporter: reporter.address,
           outcomes,
           extraInfo});
         break;
@@ -133,7 +131,7 @@ export class LogReplayer {
           endTime: adjustedEndTime,
           feePerCashInAttoCash,
           affiliateFeeDivisor: feeDivisor,
-          designatedReporter: reporter.publicKey,
+          designatedReporter: reporter.address,
           prices,
           numTicks,
           extraInfo});
@@ -148,13 +146,13 @@ export class LogReplayer {
     const { universe, market, eventType, orderType, orderId, tradeGroupId, addressData, uint256Data } = log;
 
     // From packages/augur-core/source/contracts/Augur.sol:61
-    const [ kycToken, orderCreator, orderFiller ] = addressData;
+    const [ orderCreator, orderFiller ] = addressData;
     const [ price, amount, outcome, tokenRefund, sharesRefund, fees, amountFilled, timestamp, sharesEscrowed, tokensEscrowed ] = uint256Data;
 
     console.log(`Replaying OrderEvent "${orderId}"`);
 
-    const betterOrderId = formatBytes32String("");
-    const worseOrderId = formatBytes32String("");
+    const betterOrderId = ethers.utils.formatBytes32String('');
+    const worseOrderId = ethers.utils.formatBytes32String('');
 
     const orderCreatorUser = await this.Account(orderCreator).then((account) => this.User(account));
 

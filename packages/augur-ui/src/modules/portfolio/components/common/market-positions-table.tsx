@@ -1,15 +1,18 @@
-import React from 'react';
-
-import PositionsHeader from 'modules/portfolio/components/common/positions-header';
-import PositionRow from 'modules/portfolio/containers/position-row';
+import type { Getters } from '@augurproject/sdk';
 import classNames from 'classnames';
 
-import SharedStyles from 'modules/market/components/market-orders-positions-table/open-orders-table.styles.less';
-import Styles from 'modules/portfolio/components/common/market-positions-table.styles.less';
-import { Getters } from '@augurproject/sdk';
+import SharedStyles
+  from 'modules/market/components/market-orders-positions-table/open-orders-table.styles.less';
+import Styles
+  from 'modules/portfolio/components/common/market-positions-table.styles.less';
+
+import PositionsHeader
+  from 'modules/portfolio/components/common/positions-header';
+import PositionRow from 'modules/portfolio/containers/position-row';
+import React from 'react';
 
 export interface MarketPositionsTableProps {
-  positions: Getters.Usrs.TradingPosition[];
+  positions: Getters.Users.TradingPosition[];
   extendedView: boolean;
   marketId: string;
   updateSelectedOrderProperties: Function;
@@ -66,7 +69,9 @@ export class MarketPositionsTable extends React.Component<
           ))}
         </div>
         {extendedView && positions.length === 0 && (
-          <div className={SharedStyles.Empty} />
+          <div className={SharedStyles.Empty}>
+            no positions to show
+          </div>
         )}
       </div>
     );

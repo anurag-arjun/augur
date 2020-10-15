@@ -1,29 +1,34 @@
 from datetime import timedelta
 from eth_tester.exceptions import TransactionFailed
 from pytest import raises, mark
-from utils import stringToBytes, AssertLog, EtherDelta, TokenDelta
+from utils import stringToBytes, AssertLog, EtherDelta, TokenDelta, nullAddress
 from reporting_utils import proceedToDesignatedReporting
 
-def test_market_creation(contractsFixture, universe, market):
+def test_market_creation(contractsFixture, augur, universe, market):
+    marketFactory = contractsFixture.contracts["MarketFactory"]
     account0 = contractsFixture.accounts[0]
     numTicks = market.getNumTicks()
 
     market = None
+    endTime = contractsFixture.contracts["Time"].getTimestamp() + timedelta(days=1).total_seconds()
 
     marketCreatedLog = {
         "extraInfo": 'so extra',
-        "endTime": contractsFixture.contracts["Time"].getTimestamp() + timedelta(days=1).total_seconds(),
+        "endTime": endTime,
         "marketCreator": account0,
         "designatedReporter": account0,
         "noShowBond": universe.getOrCacheMarketRepBond(),
     }
+
+    with raises(TransactionFailed):
+        market = marketFactory.createMarket(augur.address, endTime, 0, nullAddress, 0, account0, account0, 3, 100)
 
     with AssertLog(contractsFixture, "MarketCreated", marketCreatedLog):
         market = contractsFixture.createReasonableYesNoMarket(universe, extraInfo="so extra")
 
     assert market.getUniverse() == universe.address
     assert market.getNumberOfOutcomes() == 3
-    assert numTicks == 100
+    assert numTicks == 1000
     assert market.getReputationToken() == universe.getReputationToken()
     assert market.getWinningPayoutDistributionHash() == stringToBytes("")
     assert market.getInitialized()
@@ -51,7 +56,7 @@ def test_categorical_market_creation(contractsFixture, universe):
 def test_num_ticks_validation(contractsFixture, universe):
     # Require numTicks != 0
     with raises(TransactionFailed):
-       market = contractsFixture.createReasonableScalarMarket(universe, 30, -10, 0)
+       market = contractsFixture.createReasonableScalarMarket(universe, 30 * 10**18, -10 * 10**18, 0)
 
 def test_transfering_ownership(contractsFixture, universe, market):
     account0 = contractsFixture.accounts[0]
@@ -66,14 +71,22 @@ def test_transfering_ownership(contractsFixture, universe, market):
     with AssertLog(contractsFixture, "MarketTransferred", transferLog):
         assert market.transferOwnership(account1)
 
-    assert market.transferRepBondOwnership(account1)
+    transferLog = {
+        "universe": universe.address,
+        "market": market.address,
+        "from": account0,
+        "to": account1,
+    }
+    with AssertLog(contractsFixture, "MarketRepBondTransferred", transferLog):
+        assert market.transferRepBondOwnership(account1)
+        
     assert market.repBondOwner() == account1
 
 @mark.parametrize('invalid', [
     True,
     False
 ])
-def test_variable_validity_bond(invalid, contractsFixture, universe, cash):
+def test_variable_validity_bond(invalid, contractsFixture, universe):
     # We can't make a market with less than the minimum required validity bond
     minimumValidityBond = universe.getOrCacheValidityBond()
 
@@ -83,15 +96,6 @@ def test_variable_validity_bond(invalid, contractsFixture, universe, cash):
     # No longer testing a higher validity bond, token transfers are token precisely, no ability to send more than required
     market = contractsFixture.createReasonableYesNoMarket(universe, validityBond=minimumValidityBond)
     assert market.getValidityBondAttoCash() == minimumValidityBond
-
-    # We'll also throw in some additional Cash to the validity bond
-    additionalAmount = 100
-    cash.faucet(additionalAmount)
-    cash.approve(market.address, additionalAmount)
-    assert market.increaseValidityBond(additionalAmount)
-    
-    validityBond = minimumValidityBond + additionalAmount
-    assert market.getValidityBondAttoCash() == validityBond
 
     # If we resolve the market the bond in it's entirety will go to the fee pool or to the market creator if the resolution was not invalid
     proceedToDesignatedReporting(contractsFixture, market)
@@ -105,11 +109,13 @@ def test_variable_validity_bond(invalid, contractsFixture, universe, cash):
     disputeWindow = contractsFixture.applySignature('DisputeWindow', market.getDisputeWindow())
     assert contractsFixture.contracts["Time"].setTimestamp(disputeWindow.getEndTime() + 1)
 
+    cash = contractsFixture.contracts["Cash"]
+
     if invalid:
-        with TokenDelta(cash, validityBond, universe.getOrCreateNextDisputeWindow(False), "Validity bond did not go to the dispute window"):
+        with TokenDelta(cash, minimumValidityBond, universe.getOrCreateNextDisputeWindow(False), "Validity bond did not go to the dispute window"):
             market.finalize()
     else:
-        with TokenDelta(cash, validityBond, market.getOwner(), "Validity bond did not go to the market creator"):
+        with TokenDelta(cash, minimumValidityBond, market.getOwner(), "Validity bond did not go to the market creator"):
             market.finalize()
 
 def test_non_dr_initial_reporter(contractsFixture, universe, reputationToken):

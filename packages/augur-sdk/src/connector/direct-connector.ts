@@ -1,40 +1,35 @@
+import { SDKConfiguration } from '@augurproject/utils';
+import { SubscriptionEventName } from '@augurproject/sdk-lite';
 import { Augur } from '../Augur';
-import { SubscriptionEventName } from '../constants';
 import { Callback } from '../events';
-import { BaseConnector } from '../connector/baseConnector';
 import { DB } from '../state/db/DB';
+import { BaseConnector } from './base-connector';
 
 export class DirectConnector extends BaseConnector {
-    augur: Augur;
-    db: DB;
+  db: DB;
 
-    initialize(augur: Augur, db: DB): void {
-        this.augur = augur;
-        this.db = db;
-    }
+  initialize(client: Augur, db: DB): void {
+    this.client = client;
+    this.db = db;
+  }
 
-    async connect(params?: any): Promise<any> {
-        return true;
-    }
+  async connect(config: SDKConfiguration, account?: string): Promise<void> {}
 
-    async disconnect(): Promise<any> {
-        return true;
-    }
+  async disconnect(): Promise<void> {}
 
-    // bind API calls
-    bindTo<R, P>(f: (augur: Augur, db: DB, params: P) => Promise<R>): (params: P) => Promise<R> {
-        return async (params: P): Promise<R> => {
-            return f(this.augur, this.db, params);
-        };
-    }
+  // bind API calls
+  bindTo<R, P>(
+    f: (augur: Augur, db: DB, params: P) => Promise<R>
+  ): (params: P) => Promise<R> {
+    return async (params: P): Promise<R> => {
+      return f(this.client, this.db, params);
+    };
+  }
 
-    async syncUserData(account: string): Promise<any> {
-        await this.db.addTrackedUser(account, 100000, 10);
-    }
+  async on(
+    eventName: SubscriptionEventName | string,
+    callback: Callback
+  ): Promise<void> {}
 
-    async on(eventName: SubscriptionEventName | string, callback: Callback): Promise<void> {
-    }
-
-    async off(eventName: SubscriptionEventName | string): Promise<void> {
-    }
+  async off(eventName: SubscriptionEventName | string): Promise<void> {}
 }

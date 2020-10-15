@@ -1,14 +1,13 @@
-import store from "store";
+import store from "appStore";
 import { selectMarket } from "modules/markets/selectors/market";
 import {
   selectMarketInfosState,
   selectMarketTradingHistoryState,
-  selectOrderBooksState,
-  selectOrderCancellationState,
+  selectCancelingOrdersState,
   selectPendingOrdersState,
   selectLoginAccountAddress,
   selectAccountPositionsState
-} from "store/select-state";
+} from "appStore/select-state";
 import { createSelector } from "reselect";
 import { MarketData } from "modules/types";
 
@@ -19,15 +18,13 @@ export default function() {
 export const selectMarkets = createSelector(
   selectMarketInfosState,
   selectMarketTradingHistoryState,
-  selectOrderBooksState,
-  selectOrderCancellationState,
+  selectCancelingOrdersState,
   selectLoginAccountAddress,
   selectPendingOrdersState,
   selectAccountPositionsState,
   (
     marketsData,
     marketPriceHistory,
-    orderBooks,
     orderCancellation,
     accountAddress,
     pendingOrders,

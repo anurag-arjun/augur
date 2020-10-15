@@ -1,19 +1,9 @@
-import { Augur } from '@augurproject/sdk';
-import { makeTestAugur, makeDbMock } from '../../libs';
-import { ACCOUNTS, loadSeedFile, defaultSeedPath } from "@augurproject/tools";
+import { Connectors } from '@augurproject/sdk';
+import { ACCOUNTS, defaultSeedPath, loadSeed } from '@augurproject/tools';
+import { TestContractAPI } from '@augurproject/tools';
+import { BigNumber } from 'bignumber.js';
+import { makeProvider } from '../../libs';
 
-const mock = makeDbMock();
-
-beforeEach(async () => {
-  mock.cancelFail();
-  await mock.wipeDB();
-});
-
-let augur: Augur;
-beforeAll(async () => {
-  const seed = await loadSeedFile(defaultSeedPath);
-  augur = await makeTestAugur(seed, ACCOUNTS);
-});
 
 /**
  * Adds 2 new blocks to DisputeCrowdsourcerCompleted DB and performs a rollback.
@@ -22,25 +12,29 @@ beforeAll(async () => {
  * and checks DBs to make sure highest sync block is correct.
  */
 test('sync databases', async () => {
-  const db = await mock.makeDB(augur, ACCOUNTS);
-  await db.sync(
-    augur,
-    mock.constants.chunkSize,
-    mock.constants.blockstreamDelay
+  const seed = await loadSeed(defaultSeedPath);
+  const baseProvider = await makeProvider(seed, ACCOUNTS);
+  const config = baseProvider.getConfig();
+
+  const john = await TestContractAPI.userWrapper(
+    ACCOUNTS[0],
+    baseProvider,
+    config
   );
 
-  const syncableDBName =
-    mock.constants.networkId + '-DisputeCrowdsourcerCompleted';
-  const metaDBName = mock.constants.networkId + '-BlockNumbersSequenceIds';
+  await john.sync();
+
+  const syncableDBName = 'DisputeCrowdsourcerCompleted';
+  const metaDBName = 'BlockNumbersSequenceIds';
   const universe = '0x11149d40d255fCeaC54A3ee3899807B0539bad60';
 
   const originalHighestSyncedBlockNumbers: any = {};
   originalHighestSyncedBlockNumbers[
     syncableDBName
-  ] = await db.syncStatus.getHighestSyncBlock(syncableDBName);
+  ] = await john.db.syncStatus.getHighestSyncBlock(syncableDBName);
   originalHighestSyncedBlockNumbers[
     metaDBName
-  ] = await db.syncStatus.getHighestSyncBlock(metaDBName);
+  ] = await john.db.syncStatus.getHighestSyncBlock(metaDBName);
 
   const blockLogs = [
     {
@@ -58,8 +52,8 @@ test('sync databases', async () => {
     },
   ];
 
-  await db.addNewBlock(syncableDBName, blockLogs);
-  let highestSyncedBlockNumber = await db.syncStatus.getHighestSyncBlock(
+  await john.db.addNewBlock(syncableDBName, blockLogs);
+  let highestSyncedBlockNumber = await john.db.syncStatus.getHighestSyncBlock(
     syncableDBName
   );
   expect(highestSyncedBlockNumber).toBe(
@@ -68,8 +62,8 @@ test('sync databases', async () => {
 
   blockLogs[0].blockNumber = highestSyncedBlockNumber + 1;
 
-  await db.addNewBlock(syncableDBName, blockLogs);
-  highestSyncedBlockNumber = await db.syncStatus.getHighestSyncBlock(
+  await john.db.addNewBlock(syncableDBName, blockLogs);
+  highestSyncedBlockNumber = await john.db.syncStatus.getHighestSyncBlock(
     syncableDBName
   );
   expect(highestSyncedBlockNumber).toBe(
@@ -77,52 +71,102 @@ test('sync databases', async () => {
   );
 
   // Verify that 2 new blocks were added to SyncableDB
-  const queryObj: any = {
-    selector: { universe },
-    fields: ['_id', 'universe'],
-    sort: ['_id'],
-  };
-  let result = await db.findInSyncableDB(syncableDBName, queryObj);
-  // TODO Remove warning property from expected result once indexes are being used on SyncableDBs
-  expect(result).toEqual(
-    expect.objectContaining({
-      docs: [
-        {
-          _id:
-            10000000000 +
-            originalHighestSyncedBlockNumbers[syncableDBName] +
-            1 +
-            '.00000000001',
-          universe,
-        },
-        {
-          _id:
-            10000000000 +
-            originalHighestSyncedBlockNumbers[syncableDBName] +
-            2 +
-            '.00000000001',
-          universe,
-        },
-      ],
-      warning:
-        'no matching index found, create an index to optimize query time',
-    })
+  let result = await john.db.DisputeCrowdsourcerCompleted.toArray();
+  expect(result[0].blockNumber).toEqual(
+    originalHighestSyncedBlockNumbers[syncableDBName] + 1
+  );
+  expect(result[0].logIndex).toEqual(1);
+  expect(result[1].blockNumber).toEqual(
+    originalHighestSyncedBlockNumbers[syncableDBName] + 2
   );
 
-  // TODO If derived DBs are used, verify MetaDB contents before & after rollback
 
-  await db.rollback(highestSyncedBlockNumber - 1);
-
+  await john.db.logFilters.onBlockRemoved(highestSyncedBlockNumber - 1);
   // Verify that newest 2 blocks were removed from SyncableDB
-  result = await db.findInSyncableDB(syncableDBName, queryObj);
-  expect(result).toEqual(
-    expect.objectContaining({
-      docs: [],
-      warning:
-        'no matching index found, create an index to optimize query time',
-    })
+  result = await john.db.DisputeCrowdsourcerCompleted.toArray();
+
+  expect(result).toEqual([]);
+
+
+  expect(await john.db.syncStatus.getHighestSyncBlock(syncableDBName)).toBe(
+    originalHighestSyncedBlockNumbers[syncableDBName]
+  );
+  expect(await john.db.syncStatus.getHighestSyncBlock(metaDBName)).toBe(
+    originalHighestSyncedBlockNumbers[metaDBName]
+  );
+});
+
+test('rollback derived database', async () => {
+  const seed = await loadSeed(defaultSeedPath);
+  const provider = await makeProvider(seed, ACCOUNTS);
+  const config = provider.getConfig();
+
+  const johnConnector = new Connectors.DirectConnector();
+  const john = await TestContractAPI.userWrapper(
+    ACCOUNTS[0],
+    provider,
+    config,
+    johnConnector,
+  );
+  expect(john).toBeDefined();
+
+  johnConnector.initialize(john.augur, john.db);
+
+  Object.defineProperty(john.db.marketDatabase, 'syncing', {
+    get: jest.fn(() => false),
+    set: jest.fn()
+  });
+
+  await john.approve();
+
+  await john.faucetRep(new BigNumber(1e20));
+
+  await john.sync();
+
+  // Buy PTs
+  const curDisputeWindowAddress = await john.getOrCreateCurrentDisputeWindow(
+    false
+  );
+  const curDisputeWindow = await john.augur.contracts.disputeWindowFromAddress(
+    curDisputeWindowAddress
+  );
+  const amountParticipationTokens = new BigNumber(1e18);
+  await john.buyParticipationTokens(
+    curDisputeWindow.address,
+    amountParticipationTokens
   );
 
-  expect(await db.syncStatus.getHighestSyncBlock(syncableDBName)).toBe(originalHighestSyncedBlockNumbers[syncableDBName]);
-  expect(await db.syncStatus.getHighestSyncBlock(metaDBName)).toBe(originalHighestSyncedBlockNumbers[metaDBName]);
+  await john.sync();
+
+  // Confirm balance
+  let ptBalanceRecord = await john.db.TokenBalanceChangedRollup.get([john.account.address, curDisputeWindowAddress]);
+  let ptBalance = new BigNumber(ptBalanceRecord.balance);
+  await expect(ptBalance).toEqual(amountParticipationTokens);
+
+  // Rollback
+  await john.db.rollback(ptBalanceRecord.blockNumber);
+
+  // Confirm nothing there
+  ptBalanceRecord = await john.db.TokenBalanceChangedRollup.get([john.account.address, curDisputeWindowAddress]);
+  await expect(ptBalanceRecord).toBeFalsy();
+
+  // Buy Pts again. Since we told the DB to rollback but in reality no log removal occured the balance will be 2x
+  await john.buyParticipationTokens(
+    curDisputeWindow.address,
+    amountParticipationTokens
+  );
+
+  await john.sync();
+
+  ptBalanceRecord = await john.db.TokenBalanceChangedRollup.get([john.account.address, curDisputeWindowAddress]);
+  ptBalance = new BigNumber(ptBalanceRecord.balance);
+  await expect(ptBalance).toEqual(amountParticipationTokens.multipliedBy(2));
+
+  // Rollback second purchase
+  await john.db.rollback(ptBalanceRecord.blockNumber);
+
+  // Confirm first balance
+  ptBalanceRecord = await john.db.TokenBalanceChangedRollup.get([john.account.address, curDisputeWindowAddress]);
+  ptBalance = new BigNumber(ptBalanceRecord.balance);
+  await expect(ptBalance).toEqual(amountParticipationTokens);
 });

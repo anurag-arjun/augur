@@ -1,6 +1,6 @@
 {
   "name": "@augurproject/types",
-  "version": "2.0.0-alpha.1",
+  "version": "2.1.1",
   "description": "Homespun types for packages we use",
   "author": "The Augur Developers <team@augur.net>",
   "license": "MIT",
@@ -10,9 +10,13 @@
     "src": "src"
   },
   "scripts": {
-    "build": "tsc -b"
+    "build": "tsc -b",
+    "prepare": "tsc -b"
   },
-  "dependencies": {
-    "jest": "24.9.0"
+  "devDependencies": {
+    "typescript": "3.9.7"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

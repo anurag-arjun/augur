@@ -1,114 +1,71 @@
-import logError from 'utils/log-error';
+import type { Getters } from '@augurproject/sdk';
+import { isSameAddress } from 'utils/isSameAddress';
+import { AppState } from 'appStore';
 import { updateLoginAccount } from 'modules/account/actions/login-account';
-import { AppState } from 'store';
+import { updateUserFilledOrders } from 'modules/markets/actions/market-trading-history-management';
 import { updateAccountPositionsData } from 'modules/positions/actions/account-positions';
-import {
-  AccountPositionAction,
-  AccountPosition,
-  NodeStyleCallback,
-} from 'modules/types';
-import { ThunkDispatch } from 'redux-thunk';
+import { AccountPosition, AccountPositionAction } from 'modules/types';
 import { Action } from 'redux';
+import { ThunkDispatch } from 'redux-thunk';
 import { augurSdk } from 'services/augursdk';
-import { Getters } from '@augurproject/sdk';
 
-export const loadAllAccountPositions = (
-  options: any = {},
-  callback: NodeStyleCallback = logError,
-  marketIdAggregator: Function | undefined
-) => (dispatch: ThunkDispatch<void, any, Action>) => {
-  dispatch(
-    loadAccountPositionsInternal(
-      options,
-      (err: any, { marketIds = [], positions = {} }: any) => {
-        if (marketIdAggregator) marketIdAggregator(marketIds);
-        if (!err) userPositionProcessing(positions, dispatch, callback);
-      }
-    )
-  );
+export const checkUpdateUserPositions = (marketIds: string[]) => (
+  dispatch: ThunkDispatch<void, any, Action>,
+  getState: () => AppState
+) => {
+  const { accountPositions, marketInfos, loginAccount } = getState();
+  const posMarketIds = Object.keys(accountPositions);
+  const markMarketIds: string[] = Object.keys(marketInfos)
+    .filter(m => isSameAddress(marketInfos[m].author, loginAccount.address))
+    .map(m => marketInfos[m].id);
+  const userMarketIds = [...posMarketIds, ...markMarketIds];
+  let included = false;
+  userMarketIds.map(m => {
+    if (marketIds.includes(m)) included = true;
+  });
+  if (included) {
+    dispatch(loadAllAccountPositions());
+  }
 };
 
-export const loadMarketAccountPositions = (
-  marketId: string,
-  callback: NodeStyleCallback = logError
-) => (dispatch: ThunkDispatch<void, any, Action>) => {
-  dispatch(
-    loadAccountPositionsInternal(
-      { marketId },
-      (err: any, { positions = {} }: any) => {
-        if (!err) userPositionProcessing(positions, dispatch, callback);
-        dispatch(loadAccountPositionsTotals());
-      }
-    )
-  );
+export const loadAllAccountPositions = () => async (dispatch: ThunkDispatch<void, any, Action>,
+  getState: () => AppState) => {
+  const { universe, loginAccount } = getState();
+  const { mixedCaseAddress } = loginAccount;
+  const Augur = augurSdk.get();
+  const positionsPlus: Getters.Users.UserPositionsPlusResult = await Augur.getUserPositionsPlus({
+    account: loginAccount.mixedCaseAddress,
+    universe: universe.id,
+  });
+
+  dispatch(updateUserFilledOrders(mixedCaseAddress, positionsPlus.userTradeHistory));
+  if (positionsPlus.userPositions) dispatch(userPositionProcessing(positionsPlus.userPositions));
+  if (positionsPlus.userPositionTotals) dispatch(updateLoginAccount(positionsPlus.userPositionTotals));
 };
 
-export const loadAccountPositionsTotals = (
-  callback: NodeStyleCallback = logError
-) => async (
+export const loadAccountOnChainFrozenFundsTotals = () => async (
   dispatch: ThunkDispatch<void, any, Action>,
   getState: () => AppState
 ) => {
   const { universe, loginAccount } = getState();
   const Augur = augurSdk.get();
-  const positions = await Augur.getProfitLossSummary({
-    account: loginAccount.address,
+  const frozen = await Augur.getTotalOnChainFrozenFunds({
+    account: loginAccount.mixedCaseAddress,
     universe: universe.id,
   });
   dispatch(
     updateLoginAccount({
-      totalFrozenFunds: positions[30].frozenFunds,
-      totalRealizedPL: positions[30].realized,
-      tradingPositionsTotal: { unrealizedRevenue24hChangePercent : positions[1].unrealizedPercent },
+      totalFrozenFunds: frozen.totalFrozenFunds,
     })
   );
 };
 
-const loadAccountPositionsInternal = (
-  options: any = {},
-  callback: NodeStyleCallback
-) => async (
-  dispatch: ThunkDispatch<void, any, Action>,
-  getState: () => AppState
-) => {
-  const { universe, loginAccount } = getState();
-  if (loginAccount.address == null || universe.id == null)
-    return callback(null, {});
-  const params = {
-    ...options,
-    account: loginAccount.address,
-    universe: universe.id,
-  };
-  const Augur = augurSdk.get();
-  const positions = await Augur.getUserTradingPositions(params);
-  if (positions == null || positions.tradingPositions == null) {
-    return callback(null, {});
-  }
-
-  if (!options.marketId) {
-    dispatch(loadAccountPositionsTotals());
-  }
-
-  const marketIds = Array.from(
-    new Set([
-      ...positions.tradingPositions.reduce(
-        (p: any, position: any) => [...p, position.marketId],
-        []
-      ),
-    ])
-  );
-
-  if (marketIds.length === 0) return callback(null, {});
-  callback(null, { marketIds, positions });
-};
-
 export const userPositionProcessing = (
   positions: Getters.Users.UserTradingPositions,
+) => (
   dispatch: ThunkDispatch<void, any, Action>,
-  callback?: NodeStyleCallback
 ) => {
   if (!positions || !positions.tradingPositions) {
-    if (callback) return callback(null);
     return;
   }
 
@@ -163,5 +120,4 @@ export const userPositionProcessing = (
     };
     dispatch(updateAccountPositionsData(positionData));
   });
-  if (callback) callback(null, positions);
 };

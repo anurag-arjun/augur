@@ -1,37 +1,37 @@
-import { API } from '@augurproject/sdk/build/state/getter/API';
-import { DB } from '@augurproject/sdk/build/state/db/DB';
+import { SECONDS_IN_A_DAY } from '@augurproject/sdk-lite';
 import { Action, Coin } from '@augurproject/sdk/build/state/getter/Accounts';
-import {
-  MarketReportingState,
-} from '@augurproject/sdk/build/constants';
-import { AllOrders } from '@augurproject/sdk/build/state/getter/Trading';
-import { makeDbMock, makeProvider } from '../../../libs';
-import { ContractAPI, loadSeedFile, ACCOUNTS, defaultSeedPath } from '@augurproject/tools';
-import { stringTo32ByteHex } from '../../../libs/Utils';
+import { ACCOUNTS, defaultSeedPath, loadSeed } from '@augurproject/tools';
+import { TestContractAPI } from '@augurproject/tools';
 import { BigNumber } from 'bignumber.js';
-import { SECONDS_IN_A_DAY } from '@augurproject/sdk';
-
-const mock = makeDbMock();
+import { makeProvider } from '../../../libs';
+import { SDKConfiguration, stringTo32ByteHex } from '@augurproject/utils';
 
 describe('State API :: Accounts :: ', () => {
-  let db: Promise<DB>;
-  let api: API;
-  let john: ContractAPI;
-  let mary: ContractAPI;
+  let john: TestContractAPI;
+  let mary: TestContractAPI;
+  let config: SDKConfiguration;
 
   beforeAll(async () => {
-    const seed = await loadSeedFile(defaultSeedPath);
+    const seed = await loadSeed(defaultSeedPath);
     const provider = await makeProvider(seed, ACCOUNTS);
+    config = provider.getConfig();
 
-    john = await ContractAPI.userWrapper(ACCOUNTS[0], provider, seed.addresses);
-    mary = await ContractAPI.userWrapper(ACCOUNTS[1], provider, seed.addresses);
-    db = mock.makeDB(john.augur, ACCOUNTS);
-    api = new API(john.augur, db);
-    await john.approveCentralAuthority();
-    await mary.approveCentralAuthority();
+    john = await TestContractAPI.userWrapper(
+      ACCOUNTS[0],
+      provider,
+      config
+    );
+    mary = await TestContractAPI.userWrapper(
+      ACCOUNTS[1],
+      provider,
+      config
+    );
+
+    await john.approve();
+    await mary.approve();
   });
 
-  test(':getAccountTransactionHistory', async () => {
+  test(':getAccountTransactionHistoryTest', async () => {
     // Create markets with multiple users
     const johnYesNoMarket = await john.createReasonableYesNoMarket();
     const johnCategoricalMarket = await john.createReasonableMarket([
@@ -41,23 +41,23 @@ describe('State API :: Accounts :: ', () => {
     ]);
     const johnScalarMarket = await john.createReasonableScalarMarket();
 
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
+    await john.sync();
 
-    let accountTransactionHistory = await api.route(
+    let accountTransactionHistory = await john.api.route(
       'getAccountTransactionHistory',
       {
         universe: john.augur.contracts.universe.address.toLowerCase(), // Test that lower-case addresses can be passed in
-        account: ACCOUNTS[0].publicKey,
+        account: ACCOUNTS[0].address,
         action: Action.ALL,
       }
     );
     expect(accountTransactionHistory).toMatchObject([
       {
         action: 'MARKET_CREATION',
-        coin: 'ETH',
-        details: 'ETH validity bond for market creation',
+        coin: 'DAI',
+        details: 'DAI validity bond for market creation',
         fee: '0',
-        marketDescription: 'description',
+        marketDescription: 'YesNo market description',
         outcome: null,
         outcomeDescription: null,
         price: '0',
@@ -66,10 +66,10 @@ describe('State API :: Accounts :: ', () => {
       },
       {
         action: 'MARKET_CREATION',
-        coin: 'ETH',
-        details: 'ETH validity bond for market creation',
+        coin: 'DAI',
+        details: 'DAI validity bond for market creation',
         fee: '0',
-        marketDescription: 'description',
+        marketDescription: 'Categorical market description',
         outcome: null,
         outcomeDescription: null,
         price: '0',
@@ -78,10 +78,10 @@ describe('State API :: Accounts :: ', () => {
       },
       {
         action: 'MARKET_CREATION',
-        coin: 'ETH',
-        details: 'ETH validity bond for market creation',
+        coin: 'DAI',
+        details: 'DAI validity bond for market creation',
         fee: '0',
-        marketDescription: 'description',
+        marketDescription: 'Scalar market description',
         outcome: null,
         outcomeDescription: null,
         price: '0',
@@ -95,8 +95,8 @@ describe('State API :: Accounts :: ', () => {
     const outcome0 = new BigNumber(0);
     const outcome1 = new BigNumber(1);
     const outcome2 = new BigNumber(2);
-    const numShares = new BigNumber(10).pow(12);
-    const price = new BigNumber(22);
+    const numShares = new BigNumber(10).pow(17);
+    const price = new BigNumber(220);
     await john.placeOrder(
       johnYesNoMarket.address,
       bid,
@@ -188,129 +188,13 @@ describe('State API :: Accounts :: ', () => {
       stringTo32ByteHex('42')
     );
 
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
-
-    accountTransactionHistory = await api.route(
-      'getAccountTransactionHistory',
-      {
-        universe: john.augur.contracts.universe.address,
-        account: ACCOUNTS[0].publicKey,
-        action: Action.BUY,
-      }
-    );
-    expect(accountTransactionHistory).toMatchObject([
-      {
-        action: 'BUY',
-        coin: 'ETH',
-        details: 'Buy order',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: 0,
-        outcomeDescription: 'Invalid',
-        price: '22',
-        quantity: '1000000000000',
-        total: '-22000000000000',
-      },
-      {
-        action: 'BUY',
-        coin: 'ETH',
-        details: 'Buy order',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: 1,
-        outcomeDescription: 'No',
-        price: '22',
-        quantity: '1000000000000',
-        total: '-22000000000000',
-      },
-      {
-        action: 'BUY',
-        coin: 'ETH',
-        details: 'Buy order',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: 2,
-        outcomeDescription: 'Yes',
-        price: '22',
-        quantity: '1000000000000',
-        total: '-22000000000000',
-      },
-      {
-        action: 'BUY',
-        coin: 'ETH',
-        details: 'Buy order',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: 0,
-        outcomeDescription: 'Invalid',
-        price: '22',
-        quantity: '1000000000000',
-        total: '-22000000000000',
-      },
-      {
-        action: 'BUY',
-        coin: 'ETH',
-        details: 'Buy order',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: 1,
-        outcomeDescription: 'A'.padEnd(32, '\u0000'),
-        price: '22',
-        quantity: '1000000000000',
-        total: '-22000000000000',
-      },
-      {
-        action: 'BUY',
-        coin: 'ETH',
-        details: 'Buy order',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: 2,
-        outcomeDescription: 'B'.padEnd(32, '\u0000'),
-        price: '22',
-        quantity: '1000000000000',
-        total: '-22000000000000',
-      },
-      {
-        action: 'BUY',
-        coin: 'ETH',
-        details: 'Buy order',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: 0,
-        outcomeDescription: 'Invalid',
-        price: '22',
-        quantity: '1000000000000',
-        total: '-22000000000000',
-      },
-      {
-        action: 'BUY',
-        coin: 'ETH',
-        details: 'Buy order',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: 1,
-        outcomeDescription: '50000000000000000000',
-        price: '22',
-        quantity: '1000000000000',
-        total: '-22000000000000',
-      },
-      {
-        action: 'BUY',
-        coin: 'ETH',
-        details: 'Buy order',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: 2,
-        outcomeDescription: '250000000000000000000',
-        price: '22',
-        quantity: '1000000000000',
-        total: '-22000000000000',
-      },
-    ]);
+    await john.sync();
 
     // Fill orders
-    const cost = numShares.times(78).div(10).times(1e18);
+    const cost = numShares
+      .times(780)
+      .div(10)
+      .times(1e18);
     await mary.fillOrder(
       await john.getBestOrderId(bid, johnYesNoMarket.address, outcome0),
       numShares.div(10).times(2),
@@ -360,187 +244,116 @@ describe('State API :: Accounts :: ', () => {
       cost
     );
 
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
+    await john.sync();
 
-    accountTransactionHistory = await api.route(
+    accountTransactionHistory = await john.api.route(
       'getAccountTransactionHistory',
       {
         universe: john.augur.contracts.universe.address,
-        account: ACCOUNTS[1].publicKey,
-        action: Action.SELL,
+        account: ACCOUNTS[1].address,
+        action: Action.FILLED,
       }
     );
     expect(accountTransactionHistory).toMatchObject([
       {
-        action: 'SELL',
-        coin: 'ETH',
-        details: 'Sell order',
+        action: 'Sell',
+        coin: 'DAI',
+        details: 'Sell',
         fee: '0',
-        marketDescription: 'description',
+        marketDescription: 'YesNo market description',
         outcome: 0,
         outcomeDescription: 'Invalid',
-        price: '22',
-        quantity: '800000000000',
-        total: '-17600000000000',
+        price: '0.22',
+        quantity: '20',
+        total: '15.6',
       },
       {
-        action: 'SELL',
-        coin: 'ETH',
-        details: 'Sell order',
+        action: 'Sell',
+        coin: 'DAI',
+        details: 'Sell',
         fee: '0',
-        marketDescription: 'description',
+        marketDescription: 'YesNo market description',
         outcome: 1,
         outcomeDescription: 'No',
-        price: '22',
-        quantity: '700000000000',
-        total: '-15400000000000',
+        price: '0.22',
+        quantity: '30',
+        total: '23.4',
       },
       {
-        action: 'SELL',
-        coin: 'ETH',
-        details: 'Sell order',
+        action: 'Sell',
+        coin: 'DAI',
+        details: 'Sell',
         fee: '0',
-        marketDescription: 'description',
+        marketDescription: 'YesNo market description',
         outcome: 2,
         outcomeDescription: 'Yes',
-        price: '22',
-        quantity: '700000000000',
-        total: '-15400000000000',
+        price: '0.22',
+        quantity: '30',
+        total: '23.4',
       },
       {
-        action: 'SELL',
-        coin: 'ETH',
-        details: 'Sell order',
+        action: 'Sell',
+        coin: 'DAI',
+        details: 'Sell',
         fee: '0',
-        marketDescription: 'description',
+        marketDescription: 'Categorical market description',
         outcome: 0,
         outcomeDescription: 'Invalid',
-        price: '22',
-        quantity: '800000000000',
-        total: '-17600000000000',
+        price: '0.22',
+        quantity: '20',
+        total: '15.6',
       },
       {
-        action: 'SELL',
-        coin: 'ETH',
-        details: 'Sell order',
+        action: 'Sell',
+        coin: 'DAI',
+        details: 'Sell',
         fee: '0',
-        marketDescription: 'description',
+        marketDescription: 'Categorical market description',
         outcome: 1,
-        outcomeDescription:'A'.padEnd(32, '\u0000'),
-
-        price: '22',
-        quantity: '700000000000',
-        total: '-15400000000000',
+        outcomeDescription: 'A',
+        price: '0.22',
+        quantity: '30',
+        total: '23.4',
       },
       {
-        action: 'SELL',
-        coin: 'ETH',
-        details: 'Sell order',
+        action: 'Sell',
+        coin: 'DAI',
+        details: 'Sell',
         fee: '0',
-        marketDescription: 'description',
+        marketDescription: 'Categorical market description',
         outcome: 2,
-        outcomeDescription: 'B'.padEnd(32, '\u0000'),
-        price: '22',
-        quantity: '700000000000',
-        total: '-15400000000000',
+        outcomeDescription: 'B',
+        price: '0.22',
+        quantity: '30',
+        total: '23.4',
       },
       {
-        action: 'SELL',
-        coin: 'ETH',
-        details: 'Sell order',
+        action: 'Sell',
+        coin: 'DAI',
+        details: 'Sell',
         fee: '0',
-        marketDescription: 'description',
+        marketDescription: 'Scalar market description',
         outcome: 0,
         outcomeDescription: 'Invalid',
-        price: '22',
-        quantity: '800000000000',
-        total: '-17600000000000',
+        price: '52.2',
+        quantity: '2',
+        total: '395.6',
       },
       {
-        action: 'SELL',
-        coin: 'ETH',
-        details: 'Sell order',
+        action: 'Sell',
+        coin: 'DAI',
+        details: 'Sell',
         fee: '0',
-        marketDescription: 'description',
+        marketDescription: 'Scalar market description',
         outcome: 1,
-        outcomeDescription: '50000000000000000000',
-        price: '22',
-        quantity: '700000000000',
-        total: '-15400000000000',
+        outcomeDescription: 'scalar denom 1',
+        price: '52.2',
+        quantity: '3',
+        total: '593.4',
       },
     ]);
 
-    // Cancel an order
-    await john.cancelOrder(
-      await john.getBestOrderId(bid, johnScalarMarket.address, outcome2)
-    );
-
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
-
-    accountTransactionHistory = await api.route(
-      'getAccountTransactionHistory',
-      {
-        universe: john.augur.contracts.universe.address,
-        account: ACCOUNTS[0].publicKey,
-        action: Action.CANCEL,
-      }
-    );
-    expect(accountTransactionHistory).toMatchObject([
-      {
-        action: 'CANCEL',
-        coin: 'ETH',
-        details: 'Cancel order',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: 0,
-        outcomeDescription: 'Invalid',
-        price: '0',
-        quantity: '0',
-        total: '0',
-      },
-    ]);
-
-    // Purchase & sell complete sets
-    const numberOfCompleteSets = new BigNumber(1);
-    await john.buyCompleteSets(johnYesNoMarket, numberOfCompleteSets);
-    await john.sellCompleteSets(johnYesNoMarket, numberOfCompleteSets);
-
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
-
-    accountTransactionHistory = await api.route(
-      'getAccountTransactionHistory',
-      {
-        universe: john.augur.contracts.universe.address,
-        account: ACCOUNTS[0].publicKey,
-        action: Action.COMPLETE_SETS,
-      }
-    );
-    expect(accountTransactionHistory).toMatchObject([
-      {
-        action: 'COMPLETE_SETS',
-        coin: 'ETH',
-        details: 'Buy complete sets',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: null,
-        outcomeDescription: null,
-        price: '100',
-        quantity: '1',
-        total: '0',
-      },
-      {
-        action: 'COMPLETE_SETS',
-        coin: 'ETH',
-        details: 'Sell complete sets',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: null,
-        outcomeDescription: null,
-        price: '100',
-        quantity: '1',
-        total: '0',
-      },
-    ]);
+    await john.sync();
 
     // Move time to open reporting
     let newTime = (await johnYesNoMarket.getEndTime_()).plus(
@@ -551,23 +364,23 @@ describe('State API :: Accounts :: ', () => {
     // Submit initial report
     const noPayoutSet = [
       new BigNumber(0),
-      new BigNumber(100),
+      new BigNumber(1000),
       new BigNumber(0),
     ];
     const yesPayoutSet = [
       new BigNumber(0),
       new BigNumber(0),
-      new BigNumber(100),
+      new BigNumber(1000),
     ];
     await john.doInitialReport(johnYesNoMarket, noPayoutSet);
 
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
+    await john.sync();
 
-    accountTransactionHistory = await api.route(
+    accountTransactionHistory = await john.api.route(
       'getAccountTransactionHistory',
       {
         universe: john.augur.contracts.universe.address,
-        account: ACCOUNTS[0].publicKey,
+        account: ACCOUNTS[0].address,
         action: Action.INITIAL_REPORT,
       }
     );
@@ -577,11 +390,11 @@ describe('State API :: Accounts :: ', () => {
         coin: 'REP',
         details: 'REP staked in initial reports',
         fee: '0',
-        marketDescription: 'description',
+        marketDescription: 'YesNo market description',
         outcome: 1,
         outcomeDescription: 'No',
         price: '0',
-        quantity: '349680582682291667',
+        quantity: '0.349680582682291667',
         total: '0',
       },
     ]);
@@ -595,14 +408,20 @@ describe('State API :: Accounts :: ', () => {
     await john.setTimestamp(newTime);
 
     // Purchase participation tokens
-    const curDisputeWindowAddress = await john.getOrCreateCurrentDisputeWindow(false);
+    const curDisputeWindowAddress = await john.getOrCreateCurrentDisputeWindow(
+      false
+    );
     const curDisputeWindow = await john.augur.contracts.disputeWindowFromAddress(
       curDisputeWindowAddress
     );
-    await john.buyParticipationTokens(curDisputeWindow.address, new BigNumber(1));
+    const amountParticipationTokens = new BigNumber(1).pow(18);
+    await john.buyParticipationTokens(
+      curDisputeWindow.address,
+      amountParticipationTokens
+    );
 
-    await john.repFaucet(new BigNumber(1e25));
-    await mary.repFaucet(new BigNumber(1e25));
+    await john.faucetRep(new BigNumber(1e25));
+    await mary.faucetRep(new BigNumber(1e25));
 
     // Dispute 2 times
     for (let disputeRound = 1; disputeRound <= 3; disputeRound++) {
@@ -611,37 +430,37 @@ describe('State API :: Accounts :: ', () => {
         //  the market johnYesNoMarket is used
         //  this used to work because john has a ton of extra REP. now he doesn't
         const market = await mary.getMarketContract(johnYesNoMarket.address);
-        await mary.contribute(
-          market,
-          yesPayoutSet,
-          new BigNumber(25000)
-        );
+        await mary.contribute(market, yesPayoutSet, new BigNumber(2).pow(18));
         const remainingToFill = await john.getRemainingToFill(
           johnYesNoMarket,
           yesPayoutSet
         );
-        await mary.contribute(market, yesPayoutSet, remainingToFill);
+        if (remainingToFill.gte(0)) {
+          await mary.contribute(market, yesPayoutSet, remainingToFill);
+        }
       } else {
         await john.contribute(
           johnYesNoMarket,
           noPayoutSet,
-          new BigNumber(25000)
+          new BigNumber(2).pow(18)
         );
         const remainingToFill = await john.getRemainingToFill(
           johnYesNoMarket,
           noPayoutSet
         );
-        await john.contribute(johnYesNoMarket, noPayoutSet, remainingToFill);
+        if (remainingToFill.gte(0)) {
+          await john.contribute(johnYesNoMarket, noPayoutSet, remainingToFill);
+        }
       }
     }
 
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
+    await john.sync();
 
-    accountTransactionHistory = await api.route(
+    accountTransactionHistory = await john.api.route(
       'getAccountTransactionHistory',
       {
         universe: john.augur.contracts.universe.address,
-        account: ACCOUNTS[0].publicKey,
+        account: ACCOUNTS[0].address,
         action: Action.DISPUTE,
       }
     );
@@ -651,11 +470,11 @@ describe('State API :: Accounts :: ', () => {
         coin: 'REP',
         details: 'REP staked in dispute crowdsourcers',
         fee: '0',
-        marketDescription: 'description',
+        marketDescription: 'YesNo market description',
         outcome: 1,
         outcomeDescription: 'No',
         price: '0',
-        quantity: '25000',
+        quantity: '0.000000000000262144',
         total: '0',
       },
       {
@@ -663,11 +482,11 @@ describe('State API :: Accounts :: ', () => {
         coin: 'REP',
         details: 'REP staked in dispute crowdsourcers',
         fee: '0',
-        marketDescription: 'description',
+        marketDescription: 'YesNo market description',
         outcome: 1,
         outcomeDescription: 'No',
         price: '0',
-        quantity: '1049041748046850001',
+        quantity: '1.049041748046612857',
         total: '0',
       },
     ]);
@@ -686,91 +505,70 @@ describe('State API :: Accounts :: ', () => {
     );
 
     // Redeem participation tokens
-    await john.redeemParticipationTokens(curDisputeWindow.address, john.account.publicKey);
+    await john.redeemParticipationTokens(
+      curDisputeWindow.address,
+      john.account.address
+    );
 
     // Claim initial reporter
     const initialReporter = await john.getInitialReporter(johnYesNoMarket);
-    await initialReporter.redeem(john.account.publicKey);
+    await initialReporter.redeem(john.account.address);
 
     // Claim winning crowdsourcers
     const winningReportingParticipant = await john.getWinningReportingParticipant(
       johnYesNoMarket
     );
-    await winningReportingParticipant.redeem(john.account.publicKey);
+    await winningReportingParticipant.redeem(john.account.address);
 
     // Claim trading proceeds
     await john.augur.contracts.shareToken.claimTradingProceeds(
       johnYesNoMarket.address,
-      john.account.publicKey,
-      stringTo32ByteHex(''),
+      john.account.address,
+      stringTo32ByteHex('')
     );
 
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
+    await john.sync();
 
-    accountTransactionHistory = await api.route(
+    accountTransactionHistory = await john.api.route(
       'getAccountTransactionHistory',
       {
         universe: john.augur.contracts.universe.address,
-        account: ACCOUNTS[0].publicKey,
+        account: ACCOUNTS[0].address,
         action: Action.CLAIM_PARTICIPATION_TOKENS,
       }
     );
     expect(accountTransactionHistory).toMatchObject([
       {
         action: 'CLAIM_PARTICIPATION_TOKENS',
-        coin: 'ETH',
+        coin: 'REP',
         details: 'Claimed reporting fees from participation tokens',
         fee: '0',
         marketDescription: '',
         outcome: null,
         outcomeDescription: null,
         price: '0',
-        quantity: '1',
-        total: '1',
+        quantity: '0.000000000000000001',
+        total: '0.000000000000000001',
       },
     ]);
 
-    accountTransactionHistory = await api.route(
+    accountTransactionHistory = await john.api.route(
       'getAccountTransactionHistory',
       {
         universe: john.augur.contracts.universe.address,
-        account: ACCOUNTS[0].publicKey,
+        account: ACCOUNTS[0].address,
         action: Action.CLAIM_WINNING_CROWDSOURCERS,
       }
     );
     expect(accountTransactionHistory).toMatchObject([
       {
         action: 'CLAIM_WINNING_CROWDSOURCERS',
-        coin: 'ETH',
-        details: 'Claimed reporting fees from crowdsourcers',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: 1,
-        outcomeDescription: 'No',
-        price: '0',
-        quantity: '0',
-        total: '349680582682291667',
-      },
-      {
-        action: 'CLAIM_WINNING_CROWDSOURCERS',
         coin: 'REP',
         details: 'Claimed REP fees from crowdsourcers',
         fee: '0',
-        marketDescription: 'description',
+        marketDescription: 'YesNo market description',
         outcome: 1,
         outcomeDescription: 'No',
-        price: '0',
-        quantity: '0',
-        total: '0',
-      },
-      {
-        action: 'CLAIM_WINNING_CROWDSOURCERS',
-        coin: 'ETH',
-        details: 'Claimed reporting fees from crowdsourcers',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: 2,
-        outcomeDescription: 'Yes',
         price: '0',
         quantity: '0',
         total: '0',
@@ -780,7 +578,7 @@ describe('State API :: Accounts :: ', () => {
         coin: 'REP',
         details: 'Claimed REP fees from crowdsourcers',
         fee: '0',
-        marketDescription: 'description',
+        marketDescription: 'YesNo market description',
         outcome: 2,
         outcomeDescription: 'Yes',
         price: '0',
@@ -789,47 +587,47 @@ describe('State API :: Accounts :: ', () => {
       },
     ]);
 
-    accountTransactionHistory = await api.route(
+    accountTransactionHistory = await john.api.route(
       'getAccountTransactionHistory',
       {
         universe: john.augur.contracts.universe.address,
-        account: ACCOUNTS[0].publicKey,
+        account: ACCOUNTS[0].address,
         action: Action.CLAIM_TRADING_PROCEEDS,
       }
     );
     expect(accountTransactionHistory).toMatchObject([
       {
         action: 'CLAIM_TRADING_PROCEEDS',
-        coin: 'ETH',
+        coin: 'DAI',
         details: 'Claimed trading proceeds',
-        fee: '2200000000000',
-        marketDescription: 'description',
+        fee: '0',
+        marketDescription: 'YesNo market description',
         outcome: 1,
         outcomeDescription: 'No',
-        price: '22',
-        quantity: '100000000000',
+        price: '0',
+        quantity: '0.01',
         total: '0',
       },
       {
         action: 'CLAIM_TRADING_PROCEEDS',
-        coin: 'ETH',
+        coin: 'DAI',
         details: 'Claimed trading proceeds',
-        fee: '-7699000000000',
-        marketDescription: 'description',
+        fee: '0.101',
+        marketDescription: 'YesNo market description',
         outcome: 2,
         outcomeDescription: 'Yes',
-        price: '22',
-        quantity: '100000000000',
-        total: '9899000000000',
+        price: '989.9',
+        quantity: '0.01',
+        total: '9.899',
       },
     ]);
 
     // Test earliestTransactionTime/latestTransactionTime params
-    accountTransactionHistory = await api.route(
+    accountTransactionHistory = await john.api.route(
       'getAccountTransactionHistory',
       {
         universe: john.augur.contracts.universe.address,
-        account: ACCOUNTS[0].publicKey,
+        account: ACCOUNTS[0].address,
         action: Action.ALL,
         coin: Coin.ALL,
         earliestTransactionTime: new BigNumber(
@@ -840,123 +638,7 @@ describe('State API :: Accounts :: ', () => {
         latestTransactionTime: (await john.getTimestamp()).toNumber(),
       }
     );
-    expect(accountTransactionHistory.length).toEqual(9);
-
-    // Test limit/offset params
-    accountTransactionHistory = await api.route(
-      'getAccountTransactionHistory',
-      {
-        universe: john.augur.contracts.universe.address,
-        account: ACCOUNTS[0].publicKey,
-        action: Action.ALL,
-        coin: Coin.ALL,
-        earliestTransactionTime: 0,
-        latestTransactionTime: (await john.getTimestamp()).toNumber(),
-        sortBy: 'action',
-        limit: 2,
-        offset: 2,
-      }
-    );
-    expect(accountTransactionHistory).toMatchObject([
-      {
-        action: 'MARKET_CREATION',
-        coin: 'ETH',
-        details: 'ETH validity bond for market creation',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: null,
-        outcomeDescription: null,
-        price: '0',
-        quantity: '0',
-        total: '0',
-      },
-      {
-        action: 'INITIAL_REPORT',
-        coin: 'REP',
-        details: 'REP staked in initial reports',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: 1,
-        outcomeDescription: 'No',
-        price: '0',
-        quantity: '349680582682291667',
-        total: '0',
-      },
-    ]);
-
-    // Test isDescending param
-    accountTransactionHistory = await api.route(
-      'getAccountTransactionHistory',
-      {
-        universe: john.augur.contracts.universe.address,
-        account: ACCOUNTS[0].publicKey,
-        action: Action.ALL,
-        coin: Coin.ALL,
-        earliestTransactionTime: 0,
-        latestTransactionTime: (await john.getTimestamp()).toNumber(),
-        sortBy: 'action',
-        isSortDescending: false,
-        limit: 2,
-        offset: 17,
-      }
-    );
-    expect(accountTransactionHistory).toMatchObject([
-      {
-        action: 'BUY',
-        coin: 'ETH',
-        details: 'Buy order',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: 1,
-        outcomeDescription: 'No',
-        price: '22',
-        quantity: '1000000000000',
-        total: '-22000000000000',
-      },
-      {
-        action: 'CANCEL',
-        coin: 'ETH',
-        details: 'Cancel order',
-        fee: '0',
-        marketDescription: 'description',
-        outcome: 0,
-        outcomeDescription: 'Invalid',
-        price: '0',
-        quantity: '0',
-        total: '0',
-      },
-    ]);
-  });
-
-  test(':getAllOrders', async () => {
-    let allOrders: AllOrders = await api.route('getAllOrders', {
-      account: john.account.publicKey,
-    });
-    await expect(Object.keys(allOrders).length).toEqual(8);
-
-    allOrders = await api.route('getAllOrders', {
-      account: john.account.publicKey,
-      makerTaker: 'either',
-    });
-    await expect(Object.keys(allOrders).length).toEqual(8);
-
-    allOrders = await api.route('getAllOrders', {
-      account: john.account.publicKey,
-      makerTaker: 'maker',
-    });
-    await expect(Object.keys(allOrders).length).toEqual(8);
-
-    allOrders = await api.route('getAllOrders', {
-      account: john.account.publicKey,
-      makerTaker: 'taker',
-    });
-    await expect(allOrders).toEqual({});
-
-    allOrders = await api.route('getAllOrders', {
-      account: john.account.publicKey,
-      filterFinalized: true,
-    });
-    await expect(Object.keys(allOrders).length).toEqual(5);
+    expect(accountTransactionHistory.length).toEqual(7);
   });
 
   test(':getUserCurrentDisputeStake', async () => {
@@ -964,29 +646,29 @@ describe('State API :: Accounts :: ', () => {
     const johnYesNoMarket = await john.createReasonableYesNoMarket();
 
     // Move time to open reporting
-    let newTime = (await johnYesNoMarket.getEndTime_()).plus(
+    const newTime = (await johnYesNoMarket.getEndTime_()).plus(
       SECONDS_IN_A_DAY.times(7)
     );
     await john.setTimestamp(newTime);
 
     // Submit initial report
     const invalidPayoutSet = [
-      new BigNumber(100),
+      new BigNumber(1000),
       new BigNumber(0),
       new BigNumber(0),
     ];
     const noPayoutSet = [
       new BigNumber(0),
-      new BigNumber(100),
+      new BigNumber(1000),
       new BigNumber(0),
     ];
     const yesPayoutSet = [
       new BigNumber(0),
       new BigNumber(0),
-      new BigNumber(100),
+      new BigNumber(1000),
     ];
 
-    await john.repFaucet(new BigNumber(1e25));
+    await john.faucetRep(new BigNumber(1e25));
     await john.doInitialReport(johnYesNoMarket, yesPayoutSet);
 
     // Now do multiple dispute contributions
@@ -995,30 +677,30 @@ describe('State API :: Accounts :: ', () => {
     await john.contribute(johnYesNoMarket, noPayoutSet, new BigNumber(5));
     await john.contribute(johnYesNoMarket, noPayoutSet, new BigNumber(7));
 
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
+    await john.sync();
 
-    let userCurrentDisputeStake = await api.route(
+    const userCurrentDisputeStake = await john.api.route(
       'getUserCurrentDisputeStake',
       {
         marketId: johnYesNoMarket.address,
-        account: ACCOUNTS[0].publicKey,
+        account: ACCOUNTS[0].address,
       }
     );
-    
+
     await expect(userCurrentDisputeStake).toContainEqual({
-      outcome: "0",
+      outcome: '0',
       isInvalid: true,
       malformed: undefined,
-      payoutNumerators: ["100", "0", "0"],
-      userStakeCurrent: "4",
+      payoutNumerators: ['1000', '0', '0'],
+      userStakeCurrent: '4',
     });
 
     await expect(userCurrentDisputeStake).toContainEqual({
-      outcome: "1",
+      outcome: '1',
       isInvalid: undefined,
       malformed: undefined,
-      payoutNumerators: ["0", "100", "0"],
-      userStakeCurrent: "12",
+      payoutNumerators: ['0', '1000', '0'],
+      userStakeCurrent: '12',
     });
   });
 });

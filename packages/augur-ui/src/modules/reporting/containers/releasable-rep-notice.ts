@@ -3,7 +3,7 @@ import { connect } from 'react-redux';
 import {
   ZERO,
 } from 'modules/common/constants';
-import { AppState } from 'store';
+import { AppState } from 'appStore';
 import { DISMISSABLE_NOTICE_BUTTON_TYPES } from 'modules/reporting/common';
 import { DismissableNotice } from 'modules/reporting/common';
 import { createBigNumber } from 'utils/create-big-number';
@@ -29,13 +29,13 @@ const mapStateToProps = (state: AppState) => {
   }
   if (hasForked  && hasStakedRep) show = true;
 
-  if (!show) return null;
+  if (!show) return {};
 
   return {
     show,
     buttonType: DISMISSABLE_NOTICE_BUTTON_TYPES.NONE,
-    title: 'You Still have REP locked up in dispute Bonds and Participation Tokens.',
-    description: 'please follow the instructions given in the banner at the top of this site or the notification in your account summary.',
+    title: 'You Still have REPv2 locked up in dispute Bonds and Participation Tokens.',
+    description: 'Please follow the instructions given in the banner at the top of this site or the notification in your account summary.',
   };
 };
 

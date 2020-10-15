@@ -1,7 +1,7 @@
 @import (reference) '~assets/styles/shared';
 
 .MarketsView {
-  max-width: 1136px;
+  max-width: 1200px;
   margin: auto;
   padding: 0 @size-16;
 
@@ -14,14 +14,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: @size-8;
 
     > div:first-of-type {
       flex: 2;
     }
 
     > div:nth-of-type(2) {
-      margin: @size-8 @size-24 0 0;
+      margin: @size-4 @size-24 @size-4 0;
     }
 
     @media @breakpoint-mobile {
@@ -29,7 +28,7 @@
       margin: 0;
 
       > div:nth-of-type(2) {
-        margin-right: 0;
+        display: none;
       }
 
       // Hide DropDownFilter on mobile
@@ -44,5 +43,34 @@
   > div {
     pointer-events: none;
     opacity: 0.5;
+  }
+}
+
+
+@media @breakpoint-tablet {
+  .MarketsView {
+    > div:first-of-type {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      margin-top: 0;
+
+      > div:first-of-type {
+        margin-top: @size-8;
+      }
+
+      > div:nth-of-type(2) {
+        justify-content: flex-end;
+        align-items: center;
+        margin-right: 0;
+
+        > span {
+          display: flex;
+        }
+      }
+
+      > div:last-of-type {
+        display: none;
+      }
+    }
   }
 }

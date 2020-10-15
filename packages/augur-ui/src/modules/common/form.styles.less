@@ -7,7 +7,7 @@
   > li {
     margin-top: @size-12;
     display: grid;
-    grid-row: 44px;
+    grid-row: @size-44;
 
     > div:nth-of-type(2) {
       margin-left: @size-12;
@@ -29,6 +29,14 @@
         grid-column: 2 / span 1;
         height: @size-32;
         margin: 0;
+      }
+
+      > div {
+        width: unset;
+
+        > div {
+          min-width: unset;
+        }
       }
 
       > button {
@@ -68,7 +76,7 @@
     }
   }
 
-  @media @breakpoint-mobile-mid {
+  @media @breakpoint-mobile {
     > li {
       > div:nth-of-type(2) {
         margin-left: 0;
@@ -91,6 +99,11 @@
         > svg {
           grid-column: 2 / span 1;
         }
+
+        > button {
+          grid-row: 1;
+          grid-column: 4;
+        }
       }
 
       > div,
@@ -107,12 +120,30 @@
         grid-column: 2 / span 1;
       }
     }
+
+    &.CustomPrimary {
+      > li:first-of-type {
+        > div:nth-of-type(2) {
+          grid-column: 1;
+        }
+      }
+    }
+    &.CustomTertiary {
+      > li:last-of-type {
+        > div:last-of-type {
+          grid-column: unset;
+          > div > input {
+            min-width: @size-210;
+          }
+        }
+      }
+    }
   }
 }
 
 .RadioStyleSelection {
   background: @color-secondary-action;
-  border: 1px solid @color-secondary-action-outline;
+  border: @size-1 solid @color-secondary-action-outline;
   border-radius: @border-radius-default;
 
   > h5 {
@@ -129,11 +160,11 @@
 
   &:hover,
   &:focus {
-    border: 1px solid @color-primary-action;
+    border: @size-1 solid @color-primary-action;
   }
 
   &:disabled {
-    border: 1px solid @color-inactive-text;
+    border: @size-1 solid @color-inactive-text;
 
     > svg > circle {
       stroke: @color-inactive-text;
@@ -149,10 +180,11 @@
 .LocationDisplay {
   align-items: center;
   border-radius: @border-radius-default;
-  border: 1px solid @color-secondary-action-outline;
+  border: @size-1 solid @color-secondary-action-outline;
   display: flex;
   justify-content: center;
   padding: @size-16 @size-12;
+  margin-bottom: @size-24;
 
   > span {
     .text-12-bold;
@@ -176,12 +208,13 @@
     }
   }
 
-  @media @breakpoint-mobile-mid {
+  @media @breakpoint-mobile {
     border: 0;
     padding: 0;
     overflow-x: auto;
     max-width: 100%;
     justify-content: flex-start;
+    margin-bottom: @size-18;
 
     > span:first-of-type {
       padding-left: @size-8;
@@ -245,19 +278,50 @@
     grid-row: 1;
     margin: auto;
 
+    // EmptyRadio
     > circle:first-of-type {
-      stroke: @color-primary-text;
+      stroke: @color-secondary-action-outline;
       fill: none;
     }
 
     > circle {
-      fill: @color-primary-text;
+      fill: none;
+    }
+  }
+
+  &:hover {
+    > svg {
+      > circle:not(:first-of-type) {
+        fill: @color-secondary-action-outline;
+      }
     }
   }
 
   > h5 {
     grid-column: 2;
     grid-row: 1;
+  }
+
+  // FilledRadio
+  &.Checked {
+    > svg {
+      > circle:first-of-type {
+        stroke: @color-secondary-action-outline;
+        fill: none;
+      }
+
+      > circle {
+        fill: @color-primary-text;
+      }
+    }
+
+    &:hover {
+      > svg {
+        > circle:not(:first-of-type) {
+          fill: @color-primary-text;
+        }
+      }
+    }
   }
 
   &.MultiSelect {
@@ -284,7 +348,7 @@
   height: auto;
 
   &.Checked {
-    border: 1px solid @color-negative;
+    border: @size-1 solid @color-negative;
 
     > svg {
       > circle:last-of-type {
@@ -329,7 +393,7 @@
     }
   }
 
-  @media @breakpoint-mobile-mid {
+  @media @breakpoint-mobile {
     > div {
       grid-column: 1 / span 3;
       margin-left: @size-16;
@@ -360,8 +424,10 @@
   cursor: pointer;
   height: unset;
   grid-template-columns: 52px 1fr;
+  padding-right: @size-16;
 
-  @media @breakpoint-mobile-mid {
+
+  @media @breakpoint-mobile {
     > svg {
       grid-row: 1 / span 4;
     }
@@ -377,8 +443,10 @@
     grid-row: 2;
     margin-top: @size-20;
 
-    @media @breakpoint-mobile-mid {
+    @media @breakpoint-mobile {
       .text-14;
+
+      margin-top: @size-16;
     }
 
     &.RenderMarkdown {
@@ -397,11 +465,11 @@
     padding: 0;
     line-height: 160%;
 
-    @media @breakpoint-mobile-mid {
+    @media @breakpoint-mobile {
       .text-12;
 
-      max-height: 50px;
       white-space: normal;
+      margin-bottom: @size-16;
     }
   }
 
@@ -421,13 +489,13 @@
       margin-top: @size-16;
     }
 
-    @media @breakpoint-mobile-mid {
+    @media @breakpoint-mobile {
       width: unset;
     }
   }
 
   &.Checked {
-    border: 2px solid @color-primary-action;
+    border: @size-2 solid @color-primary-action;
   }
 }
 
@@ -469,13 +537,13 @@
   }
 
   > section {
-    border-bottom: 1px solid @color-secondary-action-outline;
+    border-bottom: @size-1 solid @color-secondary-action-outline;
     margin-bottom: @size-32;
     padding-bottom: @size-32;
   }
 
   > section:nth-of-type(2) {
-    border-bottom: 1px solid @color-error;
+    border-bottom: @size-1 solid @color-error;
     padding-bottom: @size-16;
 
     > svg {
@@ -507,7 +575,7 @@
   }
 
   > div {
-    width: 210px;
+    width: @size-210;
 
     &:last-of-type {
       margin-bottom: @size-20;
@@ -517,7 +585,7 @@
 
 .RadioBarError {
   background: @color-dark-grey;
-  border: 1px solid @color-error;
+  border: @size-1 solid @color-error;
 }
 
 .RadioCardGroup {
@@ -529,8 +597,9 @@
     margin-right: @size-20;
   }
 
-  @media @breakpoint-mobile-mid {
+  @media @breakpoint-mobile {
     grid-template-columns: repeat(1, 1fr);
+    grid-row-gap: @size-8;
 
     > div:not(:last-of-type) {
       margin-right: 0;
@@ -540,12 +609,17 @@
 
 .Additional {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
+  justify-content: left;
+  text-align: left;
 
-  @media @breakpoint-mobile-mid {
-    justify-content: flex-start;
+  > p {
+    > span {
+      padding-right: 0.25rem;
+    }
+  }
+
+  @media @breakpoint-mobile {
+    justify-content: center;
   }
 }
 
@@ -557,36 +631,44 @@
   grid-template-rows: @size-20 auto auto auto;
   grid-template-columns: 100%;
   max-height: 230px;
-  max-width: 210px;
+  max-width: @size-210;
   min-height: 154px;
-  min-width: 210px;
+  min-width: @size-210;
+  border: @size-1 solid transparent;
+  box-shadow: 0 0 0 @size-1 @color-secondary-action-outline;
 
-  @media @breakpoint-mobile-mid {
+  &.hover,
+  &.active {
+    border: @size-4 solid transparent;
+    box-shadow: 0 0 0 @size-1 @color-primary-action;
+  }
+
+  @media @breakpoint-mobile {
     min-height: 75px;
     max-width: 100%;
     grid-template-columns: 65px auto;
     grid-template-rows: @size-20 @size-20 auto;
-    padding-bottom: @size-16;
+    border: @size-4 solid transparent;
   }
 
   > div {
     border-radius: @border-radius-default;
     display: flex;
     bottom: 5%;
-    left: 91%;
+    left: calc(~'100% - @{size-18}');
     align-items: center;
     justify-content: center;
     position: relative;
     height: @size-20;
     width: @size-20;
-    background: @color-positive;
+    background: @color-primary-action;
     visibility: hidden;
     opacity: 0;
 
-    @media @breakpoint-mobile-mid {
+    @media @breakpoint-mobile {
       grid-column: 2;
       grid-row: 1;
-      left: 95%;
+      left: calc(~'100% - @{size-18}');
     }
 
     > svg {
@@ -594,7 +676,7 @@
       width: @size-16;
 
       > path {
-        stroke: @color-inactive-text;
+        stroke: @color-secondary-action;
       }
     }
   }
@@ -604,18 +686,18 @@
     width: @size-40;
     margin: @size-4 auto 0;
 
-    @media @breakpoint-mobile-mid {
+    @media @breakpoint-mobile {
       align-self: center;
       justify-self: center;
       grid-column: 1;
       grid-row: span 3;
-      height: @size-24;
-      margin: @size-24 @size-11;
-      width: @size-24;
+      margin: 0;
+      height: unset;
+      width: @size-32;
     }
 
     > circle {
-      fill: @color-positive;
+      fill: @color-primary-action;
     }
   }
 
@@ -626,7 +708,7 @@
     text-align: center;
     text-transform: capitalize;
 
-    @media @breakpoint-mobile-mid {
+    @media @breakpoint-mobile {
       grid-column: 2;
       grid-row: 2;
       margin: 0;
@@ -642,10 +724,10 @@
     margin: @size-12 0 @size-24;
     text-align: center;
 
-    @media @breakpoint-mobile-mid {
+    @media @breakpoint-mobile {
       grid-column: 2;
       grid-row: 3;
-      margin: 0 @size-4 0 0;
+      margin: 0 @size-4 @size-16 0;
       text-align: left;
     }
   }
@@ -659,15 +741,32 @@
         stroke: @color-primary-text;
       }
 
-      @media @breakpoint-mobile-mid {
+      @media @breakpoint-mobile {
         margin: @size-13;
+      }
+    }
+  }
+
+  &.InverseFill {
+    svg {
+      > path {
+        stroke: unset;
+        fill: @color-primary-text;
+      }
+    }
+  }
+
+  &.EmptyIcon {
+    svg {
+      > circle {
+        fill: unset;
       }
     }
   }
 }
 
 .RadioCardActive {
-  border: @size-4 solid @color-positive;
+  border: @size-4 solid @color-primary-action;
 
   > div {
     visibility: visible;
@@ -675,7 +774,7 @@
   }
 
   > svg {
-    @media @breakpoint-mobile-mid {
+    @media @breakpoint-mobile {
       align-self: center;
       justify-self: center;
       grid-column: 1;
@@ -688,7 +787,7 @@
 
   &:hover,
   &:focus {
-    border: @size-4 solid @color-positive;
+    border: @size-4 solid @color-primary-action;
   }
 }
 
@@ -707,7 +806,7 @@
 
   > span {
     background-color: transparent;
-    border: 1px solid @color-primary-text;
+    border: @size-1 solid @color-primary-text;
     border-radius: @border-radius-default;
     height: @size-16;
     left: 0;
@@ -740,7 +839,7 @@
 
 .Checkbox input:checked ~ span {
   background: transparent;
-  border: 1px solid @color-primary-text;
+  border: @size-1 solid @color-primary-text;
 
   > svg {
     display: block;
@@ -755,7 +854,7 @@
   height: @size-16;
   width: @size-16;
 
-  @media @breakpoint-mobile-mid {
+  @media @breakpoint-mobile {
     height: @size-24;
     width: @size-24;
   }
@@ -774,29 +873,30 @@
     > textarea {
       .text-14;
 
-      background-color: @color-secondary-action;
+      background-color: @color-dark-grey;
       border-radius: @border-radius-default;
-      border: 1px solid @color-secondary-action-outline;
+      border: @size-1 solid @color-secondary-action;
       color: @color-primary-text;
-      height: 44px;
-      min-width: 150px;
+      height: @size-44;
+      min-width: @size-150;
 
       &::placeholder {
         color: @color-secondary-text;
+        opacity: 0.75;
       }
 
       &:hover {
-        border: 1px solid @color-primary-text;
+        border: @size-1 solid @color-secondary-action-outline;
         cursor: pointer;
       }
 
       &:focus {
-        border: 1px solid @color-primary-text;
+        border: @size-1 solid @color-secondary-action-outline;
       }
 
       &:disabled {
         background-color: @color-dark-grey;
-        border: 1px solid @color-inactive-text;
+        border: @size-1 solid @color-inactive-text;
         color: @color-inactive-text;
 
         &::placeholder {
@@ -812,12 +912,17 @@
       position: absolute;
       right: 0;
       top: 106%;
-      width: 100%;
+      width: min-content;
       z-index: @mask;
+
+      &.OpenTop {
+        top: unset;
+        bottom: @size-24;
+      }
 
       &.active {
         display: block;
-        max-height: 400px;
+        max-height: @size-400;
         overflow-x: hidden;
         overflow-y: auto;
       }
@@ -826,7 +931,7 @@
         .text-10;
 
         color: @color-dark-grey;
-        height: 2rem;
+        height: @size-32;
         line-height: @size-12;
         padding: @size-10 @size-12;
         position: relative;
@@ -843,7 +948,7 @@
           background-color: fade(@color-primary-action, 10%);
           bottom: 0;
           content: '';
-          height: 1px;
+          height: @size-1;
           left: @size-12;
           position: absolute;
           right: @size-12;
@@ -858,8 +963,10 @@
       color: @color-secondary-text;
     }
 
-    > .Trailing {
-      margin-left: @size-12;
+    @media @breakpoint-mobile {
+      .Hide {
+        display: none;
+      }
     }
 
     > .Inner {
@@ -872,6 +979,11 @@
       margin-left: @size-24;
     }
 
+    > .Trailing {
+      margin-left: @size-12;
+      white-space: nowrap;
+    }
+
     input[type='number']::-webkit-inner-spin-button,
     input[type='number']::-webkit-outer-spin-button {
       -webkit-appearance: none;
@@ -879,20 +991,19 @@
     }
 
     > textarea {
-      min-height: 88px;
+      min-height: @size-88;
     }
 
     > input {
-      min-width: 210px;
+      min-width: @size-210;
     }
   }
-}
 
-.ErrorText {
-  .text-12;
-
-  color: @color-error;
-  margin-top: @size-4;
+  @media @breakpoint-mobile {
+    > div > input {
+      min-width: unset;
+    }
+  }
 }
 
 .FormDropdown {
@@ -904,9 +1015,9 @@
 
     background-color: @color-dark-grey;
     border-radius: @border-radius-default;
-    border: 1px solid @color-module-background;
-    min-width: 210px;
-    min-height: 44px;
+    border: @size-1 solid @color-module-background;
+    min-width: @size-210;
+    min-height: @size-44;
     max-width: unset;
 
     > div {
@@ -918,14 +1029,17 @@
       .text-14;
 
       background-color: transparent;
-      color: @color-primary-action;
+
+      > span {
+        color: @color-secondary-text;
+        text-transform: capitalize;
+      }
 
       > svg {
-        min-height: @size-12;
-        min-width: @size-12;
+        min-width: @size-10;
 
         > path {
-          stroke: @color-primary-text;
+          stroke: @color-secondary-text;
         }
       }
 
@@ -936,23 +1050,31 @@
 
     > button[class*='SelectedLabel'] {
       color: @color-primary-text;
+
+      > span {
+        color: @color-primary-text;
+      }
+    }
+
+    > div {
+      right: unset;
     }
 
     &:hover {
       background-color: @color-dark-grey;
-      border: 1px solid @color-primary-action;
+      border: @size-1 solid @color-primary-action;
       cursor: pointer;
     }
 
     &.disabled {
       background-color: @color-dark-grey;
-      border: 1px solid @color-inactive-text;
+      border: @size-1 solid @color-inactive-text;
       color: @color-inactive-text;
       opacity: 0.5;
     }
 
     &.error {
-      border: 1px solid fade(@color-error, 50%);
+      border: @size-1 solid fade(@color-error, 50%);
     }
   }
 }
@@ -969,7 +1091,7 @@ div.FormDropdownActive {
 
   &:hover {
     background-color: @color-dark-grey;
-    border: 1px solid @color-primary-text;
+    border: @size-1 solid @color-primary-text;
     color: @color-primary-text;
   }
 }
@@ -1023,7 +1145,7 @@ div.FormDropdownActive {
       stroke: @color-inactive-text;
     }
 
-    @media @breakpoint-mobile-mid {
+    @media @breakpoint-mobile {
       max-height: @size-24;
       min-height: @size-24;
       min-width: @size-24;
@@ -1045,8 +1167,8 @@ div.FormDropdownActive {
   text-transform: capitalize;
 }
 
-.MaxDark {
-  background-color: @color-primary-text !important;
+button.MaxDark {
+  background-color: @color-primary-text;
 }
 
 .Incremental {
@@ -1135,15 +1257,15 @@ div.FormDropdownActive {
       display: block;
     }
 
-    .SingleDatePickerInput {
-      background: none !important;
+    div.SingleDatePickerInput {
+      background: none;
       border: none;
-      border-radius: @border-radius-default !important;
+      border-radius: @border-radius-default;
     }
 
-    .DateInput {
-      background: none !important;
-      border-radius: @border-radius-default !important;
+    div.DateInput {
+      background: none;
+      border-radius: @border-radius-default;
       width: auto;
     }
 
@@ -1151,12 +1273,12 @@ div.FormDropdownActive {
     .DateInput_input__focused,
     .DateInput_input__focused_2 {
       border-radius: @border-radius-default;
-      border: 1px solid @color-secondary-action-outline;
-      min-height: 44px;
-      min-width: 210px;
+      border: @size-1 solid @color-secondary-action-outline;
+      min-height: @size-44;
+      min-width: @size-210;
 
       @media @breakpoint-mobile {
-        min-width: 155px;
+        min-width: @size-155;
       }
     }
 
@@ -1200,7 +1322,7 @@ div.FormDropdownActive {
     .DayPicker__horizontal_2 {
       background-color: @color-primary-text;
       border-radius: 0;
-      box-shadow: 0 2px @size-4 rgba(0, 0, 0, 0.5);
+      box-shadow: 0 @size-2 @size-4 rgba(0, 0, 0, 0.5);
       font-size: @size-12;
       line-height: @size-12;
       text-transform: uppercase;
@@ -1216,7 +1338,7 @@ div.FormDropdownActive {
       .mono-12;
 
       background-color: @color-dark-grey;
-      border: 1px solid @color-secondary-action-outline;
+      border: @size-1 solid @color-secondary-action-outline;
       border-radius: @border-radius-default;
       color: @color-primary-text;
     }
@@ -1226,7 +1348,11 @@ div.FormDropdownActive {
 
       background-color: @color-dark-grey;
       color: @color-primary-text;
-      border: 1px solid @color-secondary-action-outline;
+      border: @size-1 solid @color-secondary-action;
+
+      &.DateInput_input__disabled {
+        color: @color-inactive-text;
+      }
     }
 
     .DateInput_1 {
@@ -1253,6 +1379,7 @@ div.FormDropdownActive {
     .DateInput_input__focused {
       border: 0;
     }
+
 
     .CalendarMonth_1,
     .CalendarMonthGrid_1,
@@ -1343,7 +1470,7 @@ div.FormDropdownActive {
       .mono-default;
 
       background: none;
-      border: 1px solid @color-primary-text;
+      border: @size-1 solid @color-primary-text;
       color: @color-inactive-text;
 
       &.CalendarDay__selected_2:hover {
@@ -1356,7 +1483,7 @@ div.FormDropdownActive {
 
         &:hover {
           background: @color-primary-action;
-          border: 1px solid @color-primary-text;
+          border: @size-1 solid @color-primary-text;
           color: @color-primary-text;
         }
       }
@@ -1364,13 +1491,13 @@ div.FormDropdownActive {
       &.CalendarDay__blocked_out_of_range_2.CalendarDay__blocked_out_of_range_2,
       &:hover {
         background: fade(@color-primary-action, 10%);
-        border: 1px solid @color-primary-text;
+        border: @size-1 solid @color-primary-text;
         color: @color-inactive-text;
       }
 
       &.CalendarDay__blocked_out_of_range_2.CalendarDay__blocked_out_of_range_2:hover {
         background: fade(@color-primary-action, 10%);
-        border: 1px solid @color-primary-text;
+        border: @size-1 solid @color-primary-text;
       }
 
       &:hover {
@@ -1402,6 +1529,20 @@ div.FormDropdownActive {
         padding: @size-2 @size-4;
         min-height: unset;
         width: 80px;
+
+        &::placeholder {
+          .mono-9;
+        }
+      }
+    }
+  }
+
+  &.OpenTop {
+    :global {
+      .DateInput_1 {
+        > svg {
+          display: none;
+        }
       }
     }
   }
@@ -1438,7 +1579,7 @@ div.FormDropdownActive {
     .text-18;
 
     background-color: @color-secondary-action;
-    box-shadow: 0 2px @size-4 rgba(0, 0, 0, 0.5);
+    box-shadow: 0 @size-2 @size-4 rgba(0, 0, 0, 0.5);
     color: @color-primary-text;
     display: none;
     line-height: @size-24;
@@ -1506,8 +1647,12 @@ div.FormDropdownActive {
 
 .TimeSelector {
   position: relative;
-  max-height: 44px;
-  min-width: 210px;
+  max-height: @size-44;
+  min-width: @size-210;
+
+  @media @breakpoint-mobile {
+    max-height: unset;
+  }
 
   > button {
     .text-14;
@@ -1515,10 +1660,10 @@ div.FormDropdownActive {
     align-items: center;
     background-color: @color-dark-grey;
     border-radius: @border-radius-default;
-    border: 1px solid @color-secondary-action-outline;
+    border: @size-1 solid @color-secondary-action;
     color: @color-primary-text;
     display: flex;
-    height: 44px;
+    height: @size-44;
     padding: @size-12;
     text-align: left;
     width: 100%;
@@ -1539,7 +1684,7 @@ div.FormDropdownActive {
 
   > div {
     background: @color-primary-text;
-    border: 1px solid @color-secondary-action-outline;
+    border: @size-1 solid @color-secondary-action-outline;
     color: @color-primary-text;
     display: flex;
     left: 0;
@@ -1598,7 +1743,7 @@ div.FormDropdownActive {
       width: 55px;
 
       > span {
-        .mono-9;
+        .mono-9-bold;
 
         text-transform: uppercase;
         color: @color-primary-text;
@@ -1607,6 +1752,40 @@ div.FormDropdownActive {
       > svg {
         display: none;
       }
+    }
+
+    &.Default {
+      > button > span {
+        .mono-9;
+
+        color: @color-secondary-text;
+      }
+    }
+  }
+
+  &.Default {
+    > button {
+      color: @color-secondary-text;
+    }
+  }
+
+  &.OpenTop {
+    > div {
+      top: unset;
+      bottom: 24px;
+      left: unset;
+      right: 0;
+    }
+
+    > svg {
+      display: none;
+    }
+  }
+
+  &.Disabled {
+    > button {
+      border: @size-1 solid @color-inactive-text;
+      color: @color-inactive-text;
     }
   }
 }
@@ -1627,7 +1806,7 @@ div.FormDropdownActive {
     .mono-14;
 
     background-color: @color-primary-text;
-    border: 1px solid @color-inactive-text;
+    border: @size-1 solid @color-inactive-text;
     color: @color-inactive-text;
     height: @size-40;
     margin: @size-14 0;
@@ -1636,16 +1815,16 @@ div.FormDropdownActive {
     width: @size-40;
 
     &:hover {
-      border: 1px solid @color-secondary-text;
+      border: @size-1 solid @color-secondary-text;
     }
 
     &:focus {
-      border: 1px solid @color-dark-grey;
+      border: @size-1 solid @color-dark-grey;
     }
 
     &:disabled {
       background-color: @color-inactive-text;
-      border: 1px solid @color-inactive-text;
+      border: @size-1 solid @color-inactive-text;
       color: @color-secondary-text;
     }
   }
@@ -1681,7 +1860,7 @@ div.FormDropdownActive {
 .ErrorLabel {
   background: fade(@color-error, 20%);
   border-radius: @border-radius-default;
-  border: 1px solid @color-error;
+  border: @size-1 solid @color-error;
   border-left-width: @size-4;
   display: flex;
   padding: @size-12;
@@ -1730,7 +1909,7 @@ div.FormDropdownActive {
     background: transparent;
     padding: @size-20 @size-20 @size-24;
     border-radius: @size-8;
-    border: 1px solid @color-primary-action;
+    border: @size-1 solid @color-primary-action;
 
     > div {
       > span:first-of-type {
@@ -1752,11 +1931,11 @@ div.FormDropdownActive {
 textarea.error,
 input.error,
 button.error {
-  border: 1px solid fade(@color-error, 50%) !important;
+  border: @size-1 solid fade(@color-error, 50%);
 }
 
 div.error > div > div > div > div > input {
-  border: 1px solid fade(@color-error, 50%) !important;
+  border: @size-1 solid fade(@color-error, 50%);
 }
 
 .Timezones {
@@ -1775,80 +1954,170 @@ div.error > div > div > div > div > input {
         min-width: unset;
         width: @size-34;
         height: unset;
+
+        &::placeholder {
+         .mono-9;
+        }
       }
 
       > div {
-        width: 120px;
         left: 0;
       }
     }
   }
 }
 
+.PreFilled {
+  display: flex;
+  justify-content: space-between;
+
+  > div:nth-of-type(1) {
+    > span > label > svg {
+      > circle {
+        stroke: @color-secondary-text;
+      }
+
+      > path {
+        fill: @color-secondary-text;
+      }
+    }
+  }
+
+  > div:nth-of-type(2) {
+    flex-direction: row;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+
+    > span {
+      margin-bottom: 0;
+      margin-right: @size-4;
+    }
+  }
+}
+
+// Used in category-filters.styles.less
 .CategoryRow {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
   text-transform: capitalize;
-  margin: @size-8 0;
+  margin: @size-13 0;
   user-select: none;
   cursor: pointer;
 
-  > span:first-of-type {
-    .text-11;
+  @media @breakpoint-mobile {
+    margin: @size-24 0;
+  }
 
-    color: @color-primary-text;
+  > span:first-of-type {
+    .text-12-bold;
+
+    color: @color-secondary-text;
     display: flex;
+    line-height: 100%;
 
     > svg {
+      width: @size-12;
+      height: @size-12;
       margin-right: @size-10;
+      transform: translateY(-@size-1);
+
+      > path {
+        stroke: @color-secondary-text;
+      }
     }
 
     @media @breakpoint-mobile {
-      .text-14;
+      .text-14-bold;
+
+      line-height: 100%;
+
+      > svg {
+        width: @size-16;
+        height: @size-16;
+        margin-right: @size-16;
+        transform: translateY(-@size-2);
+
+        > path {
+          stroke: @color-secondary-text;
+        }
+      }
     }
   }
 
   > span:last-of-type {
-    .text-10;
+    .text-10-bold;
 
-    color: @color-primary-text;
-    background: @color-secondary-text;
-    border-radius: 4px;
+    color: @color-secondary-text;
+    background: @color-secondary-action;
+    border: @size-1 solid @color-secondary-action-outline;
+    border-radius: @border-radius-default;
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 20px;
-    height: 16px;
-    background: rgba(175, 167, 193, 0.15);
-  }
-
-  &.active span:first-of-type {
-    .text-11-bold;
+    padding: 0px @size-3;
+    min-width: @size-21;
+    height: @size-16;
 
     @media @breakpoint-mobile {
-      .text-14;
-    }
-  }
+      .text-12-bold;
 
-  &.active span:last-of-type {
-    .text-10-bold;
+      min-width: @size-23;
+      height: @size-17;
+    }
   }
 
   &.loading {
     > span:last-of-type {
       background: none;
       animation: spin 2s linear infinite;
+      border: none;
+
+      > svg {
+        width: @size-12;
+        height: @size-12;
+        transform: translateY(-@size-1);
+
+        > path {
+          stroke: @color-secondary-text;
+        }
+      }
+    }
+  }
+
+  // When a category is selected
+  &.active {
+    > span:first-of-type {
+      .text-12-bold;
+
+      color: @color-primary-text;
+
+      @media @breakpoint-mobile {
+        .text-14-bold;
+      }
+    }
+
+    > span:last-of-type {
+      color: @color-primary-text;
     }
   }
 
   &.disabled {
     cursor: default;
+    > span:last-of-type {
+      background: none;
+      border: none;
+    }
   }
 }
 
 .CategoryRow:hover span:first-of-type {
+  color: @color-primary-text;
+}
+
+.CategoryRow:hover span:last-of-type {
   color: @color-primary-text;
 }
 
@@ -1861,7 +2130,7 @@ div.error > div > div > div > div > input {
 .MigrateRepInfo {
   .text-14;
 
-  border: 1px solid @color-secondary-action-outline;
+  border: @size-1 solid @color-secondary-action-outline;
   box-sizing: border-box;
   border-radius: @size-8;
   color: @color-secondary-text;
@@ -1874,6 +2143,12 @@ div.error > div > div > div > div > input {
     .text-18-bold;
 
     color: @color-primary-text;
-    margin: 0 @size-8;
   }
+}
+
+.ErrorText {
+  .text-12;
+
+  color: @color-error;
+  margin-top: @size-4;
 }

@@ -8,11 +8,29 @@ import * as VIEWS from 'modules/routes/constants/views';
 import * as COMPONENTS from 'modules/routes/constants/components';
 
 import { withPageAnalytic } from 'services/analytics';
+import { isLocalHost } from 'utils/is-localhost';
+import { ThunkDispatch } from 'redux-thunk';
+import { Action } from 'redux';
+import { AppState } from 'appStore';
+import { connect } from 'react-redux';
+import { page } from 'services/analytics/helpers';
+
+const mapStateToProps = (state: AppState) => ({});
+
+const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Action>) => ({
+  page: (eventName, payload) => dispatch(page(eventName, payload)),
+});
 
 const getLoggedInAccountFromLocalStorage = () => {
   let loggedInAccount = null;
   if (window.localStorage && window.localStorage.getItem) {
-    loggedInAccount = window.localStorage.getItem('loggedInAccount');
+    try {
+      const loggedInUser = JSON.parse(window.localStorage.getItem('loggedInUser'));
+      loggedInAccount = loggedInUser && loggedInUser.address;
+    } catch(error) {
+      // swallow
+      loggedInAccount = null;
+    }
   }
   return loggedInAccount;
 };
@@ -41,10 +59,10 @@ const Routes = p => {
         path={makePath(VIEWS.TRANSACTIONS)}
         component={COMPONENTS.Account}
       />
-      <AuthenticatedRoute
+      {!p.disableMarketCreation && <AuthenticatedRoute
         path={makePath(VIEWS.CREATE_MARKET)}
         component={COMPONENTS.CreateMarket}
-      />
+      />}
       <Route
         path={makePath(VIEWS.DISPUTING)}
         component={COMPONENTS.Disputing}
@@ -57,4 +75,12 @@ const Routes = p => {
     </Switch>
   );
 };
-export default withRouter(withPageAnalytic(Routes));
+
+export default isLocalHost()
+  ? withRouter(Routes)
+  : withRouter(
+      connect(
+        mapStateToProps,
+        mapDispatchToProps
+      )(withPageAnalytic(Routes))
+    );

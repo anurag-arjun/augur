@@ -13,12 +13,22 @@ sleep 10s
 # XXX - defensive
 cd /augur
 
-# couldn't get dp deploy to work had to split it up, contract addresses were reloaded
-yarn workspace @augurproject/tools flash run deploy --write-artifacts
-yarn workspace @augurproject/tools build
-yarn workspace @augurproject/tools flash run faucet --amount 10000000000000000000
-yarn workspace @augurproject/tools flash run rep-faucet --amount 100000
-yarn workspace @augurproject/tools flash run create-canned-markets-and-orders
+###############################################################################
+# PG: This section is idenntical to one-docker-to-rule-them-all.sh some time we
+# should move it all into flash and fix the Addresses so that they can be
+# reloaded.
+# Until then -- Make sure changes work in BOTH scripts
+
+if [ "$NORMAL_TIME" == "true" ]; then
+  yarn flash normal-all --createMarkets
+else
+  yarn flash fake-all --createMarkets
+fi
+
+# Still need to double-check builds after deploy
+# yarn build
+
+###############################################################################
 
 # debug info
 geth version | tee /augur/geth-version.txt

@@ -1,43 +1,54 @@
 import React from 'react';
 import classNames from 'classnames';
 
-import { CategoryTagTrail, InReportingLabel } from 'modules/common/labels';
 import {
-  OutcomeGroup,
-  LabelValue,
+  CategoryTagTrail,
+  InReportingLabel,
+  MarketTypeLabel,
+  RedFlag,
+  TemplateShield,
+  Archived,
+  CustomMarketLabel,
+} from 'modules/common/labels';
+import {
   HoverIcon,
+  LabelValue,
+  OutcomeGroup,
   ResolvedOutcomes,
+  TentativeWinner,
 } from 'modules/market-cards/common';
 import toggleCategory from 'modules/routes/helpers/toggle-category';
-import { MARKETS } from 'modules/routes/constants/views';
+import { DISPUTING, MARKETS } from 'modules/routes/constants/views';
 import makePath from 'modules/routes/helpers/make-path';
 import {
-  COPY_MARKET_ID,
   COPY_AUTHOR,
-  REPORTING_STATE,
+  COPY_MARKET_ID,
+  HEADER_TYPE,
   MARKET_REPORTING,
+  REPORTING_STATE,
   SCALAR,
 } from 'modules/common/constants';
 import { FavoritesButton } from 'modules/common/buttons';
 import Clipboard from 'clipboard';
 import { DotSelection } from 'modules/common/selection';
+import SocialMediaButtons from 'modules/market/containers/social-media-buttons';
 import {
-  PaperClip,
-  Person,
-  MarketCreator,
-  PositionIcon,
   DesignatedReporter,
   DisputeStake,
-  TemplateIcon,
+  MarketCreator,
+  CopyAlternateIcon,
+  Person,
+  EthIcon,
 } from 'modules/common/icons';
 import { MarketProgress } from 'modules/common/progress';
 import ChevronFlip from 'modules/common/chevron-flip';
 import { MarketData } from 'modules/types';
 import { formatAttoRep } from 'utils/format-number';
 import MigrateMarketNotice from 'modules/market-cards/containers/migrate-market-notice';
-
 import Styles from 'modules/market-cards/market-card.styles.less';
 import MarketTitle from 'modules/market/containers/market-title';
+import { MARKET_LIST_CARD } from 'services/analytics/helpers';
+import { isSameAddress } from 'utils/isSameAddress';
 
 interface MarketCardProps {
   market: MarketData;
@@ -56,6 +67,10 @@ interface MarketCardProps {
   hasStaked?: boolean;
   dispute: Function;
   migrateMarketModal: Function;
+  marketLinkCopied: Function;
+  forkingMarket: string | null;
+  isForking?: boolean;
+  forkingEndTime?: number;
 }
 
 interface MarketCardState {
@@ -96,6 +111,10 @@ export default class MarketCard extends React.Component<
       hasPosition,
       hasStaked,
       dispute,
+      marketLinkCopied,
+      forkingMarket,
+      isForking,
+      forkingEndTime
     } = this.props;
 
     const s = this.state;
@@ -116,7 +135,10 @@ export default class MarketCard extends React.Component<
       disputeInfo,
       endTimeFormatted,
       designatedReporter,
-      isTemplate
+      isTemplate,
+      consensusFormatted,
+      mostLikelyInvalid,
+      isWarpSync,
     } = market;
 
     if (loading) {
@@ -141,35 +163,38 @@ export default class MarketCard extends React.Component<
       );
     }
 
-    const InfoIcons = (
+    const InfoIcons = ({ id }) => (
       <>
-        {address && address.toUpperCase() === author.toUpperCase() && (
+        {address && isSameAddress(address, author) && (
           <HoverIcon
-            label='marketCreator'
+            id={id}
+            label="marketCreator"
             icon={MarketCreator}
-            hoverText='Market Creator'
+            hoverText="Market Creator"
           />
         )}
-        {address &&
-          address.toUpperCase() === designatedReporter.toUpperCase() && (
-            <HoverIcon
-              label='reporter'
-              icon={DesignatedReporter}
-              hoverText='Designated Reporter'
-            />
-          )}
+        {address && isSameAddress(address, designatedReporter) && (
+          <HoverIcon
+            id={id}
+            label="reporter"
+            icon={DesignatedReporter}
+            hoverText="Designated Reporter"
+          />
+        )}
         {hasPosition && (
           <HoverIcon
-            label='Position'
-            icon={PositionIcon}
-            hoverText='Position'
+            id={id}
+            label="Position"
+            icon={EthIcon}
+            hoverText="Position"
           />
         )}
         {hasStaked && (
           <HoverIcon
-            label='dispute'
+            id={id}
+            label="dispute"
             icon={DisputeStake}
-            hoverText='Dispute Stake'
+            hoverText="Dispute Stake"
           />
         )}
       </>
@@ -192,96 +217,153 @@ export default class MarketCard extends React.Component<
         ),
       }));
 
-    const marketResolved = reportingState === REPORTING_STATE.FINALIZED;
+    const marketResolved =
+      reportingState === REPORTING_STATE.FINALIZED ||
+      reportingState === REPORTING_STATE.AWAITING_FINALIZATION;
+    const isScalar = marketType === SCALAR;
     const inDispute =
       reportingState === REPORTING_STATE.CROWDSOURCING_DISPUTE ||
       reportingState === REPORTING_STATE.AWAITING_NEXT_WINDOW;
     let showOutcomeNumber = inDispute
       ? MARKET_CARD_FOLD_OUTCOME_COUNT
       : NON_DISPUTING_SHOW_NUM_OUTCOMES;
-    if (marketType === SCALAR && inDispute) {
+    if (isScalar && inDispute) {
       showOutcomeNumber = MARKET_CARD_FOLD_OUTCOME_COUNT - 1;
     }
-    const canDispute =
+    let canDispute =
       inDispute &&
       reportingState !== REPORTING_STATE.AWAITING_NEXT_WINDOW &&
       isLogged;
+
+    if (forkingMarket && canDispute) {
+      canDispute = forkingMarket === id;
+    }
+
     const canSupport = !disputeInfo.disputePacingOn;
+
+    const headerType =
+      location.pathname === makePath(DISPUTING)
+        ? HEADER_TYPE.H2
+        : location.pathname === makePath(MARKETS)
+        ? HEADER_TYPE.H3
+        : undefined;
+
+    const restOfOutcomes =
+      isScalar && inDispute
+        ? disputeInfo.stakes.length - showOutcomeNumber - 1
+        : outcomesFormatted.length - showOutcomeNumber;
+
+    const expandedOptionShowing = restOfOutcomes > 0 && !expandedView;
 
     return (
       <div
-        className={classNames(Styles.MarketCard, { [Styles.Loading]: loading })}
+        className={classNames(Styles.MarketCard, {
+          [Styles.Loading]: loading,
+          [Styles.Nonexpanding]: !expandedOptionShowing || condensed,
+          [Styles.Condensed]: condensed,
+          [Styles.Forking]: isForking && forkingMarket !== id,
+        })}
       >
         <>
-          <div>{InfoIcons}</div>
           <div>
-            {marketStatus === MARKET_REPORTING && (
-              <InReportingLabel
-                marketStatus={marketStatus}
-                reportingState={reportingState}
-                disputeInfo={disputeInfo}
-              />
-            )}
-            {isTemplate && TemplateIcon}<CategoryTagTrail categories={categoriesWithClick} />
-            <MarketProgress
-              reportingState={reportingState}
-              currentTime={currentAugurTimestamp}
-              endTimeFormatted={endTimeFormatted}
-              reportingWindowEndTime={disputeInfo.disputeWindow.endTime}
-              alignRight
-            />
-            <div>
-              <div>{InfoIcons}</div>
-              <FavoritesButton
-                action={this.addToFavorites}
-                isFavorite={isFavorite}
-                hideText
-                disabled={!isLogged}
-              />
-            </div>
-            <DotSelection>
-              <div id='copy_marketId' data-clipboard-text={id}>
-                {PaperClip} {COPY_MARKET_ID}
-              </div>
-              <div id='copy_author' data-clipboard-text={author}>
-                {Person} {COPY_AUTHOR}
-              </div>
-            </DotSelection>
-          </div>
-          <div>
-            {reportingState === REPORTING_STATE.PRE_REPORTING && (
+            {(reportingState === REPORTING_STATE.PRE_REPORTING || reportingState === REPORTING_STATE.UNKNOWN) && (
               <>
                 <LabelValue
-                  label='Total Volume'
-                  value={volumeFormatted.formatted}
+                  label={condensed ? 'Volume' : 'Total Volume'}
+                  value={`${volumeFormatted.formatted} ETH`}
+                  loading={reportingState === REPORTING_STATE.UNKNOWN}
                   condensed
                 />
                 {!condensed && (
                   <LabelValue
-                    label='Open Interest'
-                    value={openInterestFormatted.formatted}
+                    label="Open Interest"
+                    value={`${openInterestFormatted.formatted} ETH`}
+                    loading={reportingState === REPORTING_STATE.UNKNOWN}
                     condensed
                   />
                 )}
               </>
             )}
-            {reportingState !== REPORTING_STATE.PRE_REPORTING && (
+            {(reportingState !== REPORTING_STATE.PRE_REPORTING && reportingState !== REPORTING_STATE.UNKNOWN) && (
               <LabelValue
                 condensed
-                label='Total Dispute Stake'
-                value={formatAttoRep(disputeInfo.stakeCompletedTotal).formatted}
+                label="Total Dispute Stake"
+                value={
+                  formatAttoRep(disputeInfo.stakeCompletedTotal, {
+                    zeroStyled: false,
+                  }).full
+                }
               />
             )}
+            <div className={Styles.hoverIconTray}>
+              <InfoIcons id={id} />
+            </div>
             <MarketProgress
               reportingState={reportingState}
               currentTime={currentAugurTimestamp}
               endTimeFormatted={endTimeFormatted}
               reportingWindowEndTime={disputeInfo.disputeWindow.endTime}
-              alignRight
+              forkingMarket={isForking && forkingMarket === id}
+              forkingEndTime={forkingEndTime}
             />
           </div>
+          <div className={classNames(Styles.TopRow, Styles.HasCircularIcons, {
+            [Styles.HasScalarOrInReportingLabels]: isScalar || (!marketResolved && reportingState !== REPORTING_STATE.PRE_REPORTING),
+            [Styles.CustomMarket]: market.isTemplate === false,
+           })}>
+            <div>
+              <CustomMarketLabel isTemplate={market.isTemplate} />
+              <RedFlag market={market} />
+              <TemplateShield market={market} />
+              <Archived market={market} />
+              {isScalar && !isWarpSync && (
+                <MarketTypeLabel marketType={marketType} />
+              )}
+              {marketStatus === MARKET_REPORTING && (
+                <InReportingLabel
+                  marketStatus={marketStatus}
+                  reportingState={reportingState}
+                  disputeInfo={disputeInfo}
+                  isWarpSync={market.isWarpSync}
+                  isForkingMarket={isForking && forkingMarket === id}
+                />
+              )}
+            </div>
+            <CategoryTagTrail categories={categoriesWithClick} />
+            <MarketProgress
+              reportingState={reportingState}
+              currentTime={currentAugurTimestamp}
+              endTimeFormatted={endTimeFormatted}
+              reportingWindowEndTime={disputeInfo.disputeWindow.endTime}
+              forkingMarket={isForking && forkingMarket === id}
+              forkingEndTime={forkingEndTime}
+            />
+            <FavoritesButton
+              action={this.addToFavorites}
+              isFavorite={isFavorite}
+              hideText
+              disabled={!isLogged}
+            />
+            <DotSelection>
+              <SocialMediaButtons
+                listView={true}
+                marketDescription={market.description}
+                marketAddress={market.id}
+              />
+              <div
+                id="copy_marketId"
+                data-clipboard-text={id}
+                onClick={() => marketLinkCopied(market.id, MARKET_LIST_CARD)}
+              >
+                {CopyAlternateIcon} {COPY_MARKET_ID}
+              </div>
+              <div id="copy_author" data-clipboard-text={author}>
+                {Person} {COPY_AUTHOR}
+              </div>
+            </DotSelection>
+          </div>
 
-          <MarketTitle id={id} />
+          <MarketTitle id={id} headerType={headerType} showCustomLabel={false} />
           {!condensed && !marketResolved ? (
             <>
               <OutcomeGroup
@@ -298,33 +380,57 @@ export default class MarketCard extends React.Component<
                 showOutcomeNumber={showOutcomeNumber}
                 canDispute={canDispute}
                 canSupport={canSupport}
+                marketId={id}
+                isWarpSync={market.isWarpSync}
+                forkingMarket={isForking && forkingMarket === id}
               />
-              {outcomesFormatted &&
-                outcomesFormatted.length > showOutcomeNumber &&
-                !expandedView && (
-                  <button onClick={this.expand}>
-                    <ChevronFlip
-                      stroke='#fff'
-                      pointDown={s.expanded}
-                      quick
-                      filledInIcon
-                      hover
-                    />
-                    {s.expanded ? 'show less' : 'view all outcomes'}
-                  </button>
-                )}
+              {expandedOptionShowing && (
+                <button onClick={this.expand}>
+                  <ChevronFlip
+                    stroke="#fff"
+                    pointDown={s.expanded}
+                    quick
+                    filledInIcon
+                    hover
+                  />
+                  {s.expanded
+                    ? 'show less'
+                    : `${restOfOutcomes} more outcome${
+                        restOfOutcomes > 1 ? 's' : ''
+                      }`}
+                </button>
+              )}
             </>
           ) : (
             <div style={{ display: 'none' }}></div>
           )}
-          <MigrateMarketNotice marketId={id} />
+          {isForking && forkingMarket !== id && (
+            <div className={Styles.MigrateMarketNotice}>
+              <MigrateMarketNotice marketId={id} />
+            </div>
+          )}
           {marketResolved && (
             <ResolvedOutcomes
+              consensusFormatted={consensusFormatted}
               outcomes={outcomesFormatted}
               expanded={expandedView}
             />
           )}
+          {condensed && inDispute && (
+            <TentativeWinner
+              market={market}
+              tentativeWinner={disputeInfo.stakes.find(
+                stake => stake.tentativeWinning
+              )}
+              dispute={dispute}
+              isForkingMarket={isForking && forkingMarket === id}
+              canDispute={canDispute}
+            />
+          )}
         </>
+        <div>
+          <InfoIcons id={id} />
+        </div>
       </div>
     );
   }

@@ -1,18 +1,19 @@
 import React from 'react';
-import { Helmet } from 'react-helmet';
 import Media from 'react-media';
 
 import MarketsInDispute from 'modules/reporting/containers/markets-in-dispute';
 import DisputeWindowProgress from 'modules/reporting/containers/disputing-window-progress';
 import UserRepDisplay from 'modules/reporting/containers/user-rep-display';
 import { ReportingModalButton } from 'modules/reporting/common';
-import ParticipationTokensView from 'modules/reporting/containers/participation-tokens-view';
-import { TABLET_MAX } from 'modules/common/constants';
+import FeePoolView from 'modules/reporting/containers/fee-pool-view';
+import { HEADER_TYPE, SMALL_MOBILE } from 'modules/common/constants';
 import ModuleTabs from 'modules/market/components/common/module-tabs/module-tabs';
 import ModulePane from 'modules/market/components/common/module-tabs/module-pane';
 
 import Styles from 'modules/reporting/disputing.styles.less';
 import { ButtonActionType } from 'modules/types';
+import { DISPUTING_HEAD_TAGS } from 'modules/seo/helmet-configs';
+import { HelmetTag } from 'modules/seo/helmet-tag';
 
 interface DisputingProps {
   isConnected: boolean;
@@ -33,23 +34,22 @@ const Disputing: React.FC<DisputingProps> = ({
 
   return (
     <section className={Styles.Disputing}>
-      <Helmet>
-        <title>Disputing</title>
-      </Helmet>
-      <Media query={TABLET_MAX}>
+      <HelmetTag {...DISPUTING_HEAD_TAGS} />
+      <Media query={SMALL_MOBILE}>
         {matches =>
           matches ? (
             <ModuleTabs selected={0} fillWidth noBorder>
               <ModulePane label="disputing overview">
-                <UserRepDisplay />
-                <ParticipationTokensView />
-                <DisputeWindowProgress />
                 <ReportingModalButton
-                  text="Need Help? Disputing Quick Guide"
+                  highlightedText='Need Help?'
+                  text="Disputing Quick Guide"
                   action={openDisputingModal}
                 />
+                <UserRepDisplay />
+                <FeePoolView />
+                <DisputeWindowProgress />
               </ModulePane>
-              <ModulePane label="markets in dispute">
+              <ModulePane label="markets in dispute" headerType={HEADER_TYPE.H1}>
                 <MarketsInDispute />
               </ModulePane>
             </ModuleTabs>
@@ -58,13 +58,14 @@ const Disputing: React.FC<DisputingProps> = ({
               <MarketsInDispute />
               <div>
                 <ReportingModalButton
-                  text="Need Help? Disputing Quick Guide"
+                  highlightedText='Need Help?'
+                  text="Disputing Quick Guide"
                   action={openDisputingModal}
                 />
                 <UserRepDisplay />
               </div>
               <DisputeWindowProgress />
-              <ParticipationTokensView />
+              <FeePoolView />
             </>
           )
         }

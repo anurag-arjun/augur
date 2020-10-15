@@ -1,98 +1,68 @@
 from eth_tester.exceptions import TransactionFailed
-from utils import longToHexString, nullAddress
+from utils import longToHexString, nullAddress, stringToBytes
 from pytest import raises
+import codecs
+import functools
+from old_eth_utils import sha3
 
-def test_rep_oracle(contractsFixture, market, universe):
-    repOracle = contractsFixture.contracts["RepPriceOracle"]
-    cash = contractsFixture.contracts["Cash"]
-    reputationToken = contractsFixture.applySignature('TestNetReputationToken', universe.getReputationToken())
+def test_rep_oracle(contractsFixture, augur, cash, market, universe):
+    if contractsFixture.paraAugur:
+        return
+    reputationTokenAddress = universe.getReputationToken()
+    reputationToken = contractsFixture.applySignature('TestNetReputationToken', reputationTokenAddress)
+    repOracle = contractsFixture.contracts["RepOracle"]
+    repExchange = contractsFixture.applySignature("UniswapV2Pair", repOracle.getExchange(reputationTokenAddress))
 
     account = contractsFixture.accounts[0]
 
-    uniswapExchangeAddress = repOracle.getOrCreateUniswapExchange(reputationToken.address)
-    assert uniswapExchangeAddress != nullAddress
-    uniswap = contractsFixture.applySignature('UniswapV2', uniswapExchangeAddress)
-
     # Initially the price will just be the initialization value
     initialPrice = repOracle.genesisInitialRepPriceinAttoCash()
-    assert repOracle.pokeRepPriceInAttoCash(reputationToken.address) == initialPrice
+    assert roughlyEqual(repOracle.poke(reputationTokenAddress), initialPrice)
+
+    token0IsCash = cash.address < reputationTokenAddress
 
     # Add liquidity to suggest the price is 1 REP = 20 Cash
     cashAmount = 20 * 10**18
     repAmount = 1 * 10**18
-    addLiquidity(uniswap, cash, reputationToken, cashAmount, repAmount, account)
+    addLiquidity(repExchange, cash, reputationToken, cashAmount, repAmount, account)
 
-    # The reserves have been modified so we will have new cumulative values which will affect the perceived price weighted by a single block
-    (reserves0, reserves1) = uniswap.getReservesCumulative()
-    if cash.address > reputationToken.address:
-        repReserves, cashReserves = reserves0, reserves1
-    else:
-        cashReserves, repReserves = reserves0, reserves1
+    # The reserves have been modified, however little time has passed so the price will not have diverged much
+    repOracle.poke(reputationTokenAddress)
+    assert roughlyEqual(repOracle.poke(reputationTokenAddress), initialPrice)
 
-    assert cashReserves == cashAmount
-    assert repReserves == repAmount
+    # If we "mine" a block and advance the time 1/2 the period value of the oracle we should see the new value significantly closer to the price dictated by reserves. Specifically about half of the difference
+    period = repOracle.PERIOD()
+    mineBlock(contractsFixture, period / 2)
 
-    tau = repOracle.tau()
+    expectedNewRepPrice = initialPrice + ((cashAmount - initialPrice) / 2)
+    assert roughlyEqual(repOracle.poke(reputationTokenAddress), expectedNewRepPrice)
 
-    (exchangeAddress, cashAmount, repAmount, lastBlockNumber, price) = repOracle.exchangeData(reputationToken.address)
-    blockNumber = contractsFixture.getBlockNumber()
-    weight = repOracle.getWeight(blockNumber - lastBlockNumber)
-    deltaPrice = cashReserves * 10**18 / repReserves
-    expectedNewRepPrice = ((initialPrice * (10**18 - weight)) + (deltaPrice * weight)) / 10**18
-    assert roughlyEqual(repOracle.pokeRepPriceInAttoCash(reputationToken.address), expectedNewRepPrice)
+    # Just calling poke again will be a no op
+    assert roughlyEqual(repOracle.poke(reputationTokenAddress), expectedNewRepPrice)
 
-    # If we "mine" tau / 2 blocks we should see the new value significantly closer to the price dictated by reserves. Specifically about half of the difference
-    # TODO: refactor below when Uniswap contracts are public
-    token0, token1 = (cash.address, reputationToken.address) if cash.address < reputationToken.address else (reputationToken.address, cash.address)
-    if (token0 == cash.address):
-        mineBlocks(contractsFixture, uniswap, tau / 2, cashReserves, repReserves)
-    else:
-        mineBlocks(contractsFixture, uniswap, tau / 2, repReserves, cashReserves)
+    # If we "mine" a block after period time then the new value will simply be the price
+    mineBlock(contractsFixture, period)
 
-    (exchangeAddress, cashAmount, repAmount, lastBlockNumber, price) = repOracle.exchangeData(reputationToken.address)
-    blockNumber = contractsFixture.getBlockNumber()
-    weight = repOracle.getWeight(blockNumber - lastBlockNumber)
-    deltaPrice = cashReserves * 10**18 / repReserves
-    expectedNewRepPrice = ((initialPrice * (10**18 - weight)) + (deltaPrice * weight)) / 10**18
-    assert roughlyEqual(repOracle.pokeRepPriceInAttoCash(reputationToken.address), expectedNewRepPrice)
-    assert roughlyEqual(expectedNewRepPrice - initialPrice, (cashAmount - initialPrice) / 2)
-
-    # If we "mine" tau blocks then the new value will simply be the price
-    # TODO: refactor below when Uniswap contracts are public
-    if (token0 == cash.address):
-        mineBlocks(contractsFixture, uniswap, tau, cashReserves, repReserves)
-    else:
-        mineBlocks(contractsFixture, uniswap, tau, repReserves, cashReserves)
-
-    assert roughlyEqual(repOracle.pokeRepPriceInAttoCash(reputationToken.address), cashAmount)
+    assert roughlyEqual(repOracle.poke(reputationTokenAddress), cashAmount)
 
     # Buy REP and manipulate blockNumber to affect cummulative amounts
     cashAmount = 10**18 # Trade 1 Dai for ~.05 REP
-    buyRep(uniswap, cash, cashAmount, account)
-    # TODO: remove below when Uniswap contracts are public
-    cashReserves = 21 * 10**18
-    repReserves = 95 * 10**16
-    if (token0 == cash.address):
-        mineBlocks(contractsFixture, uniswap, tau, cashReserves, repReserves)
-    else:
-        mineBlocks(contractsFixture, uniswap, tau, repReserves, cashReserves)
+    repAmount = 4.7 * 10**16
+    buyRep(repExchange, cash, cashAmount, repAmount, token0IsCash, account)
+    mineBlock(contractsFixture, period)
 
     expectedNewRepPrice = 22 * 10**18 # Cash reserves of ~ 21 Dai and REP reserves of ~.95 REP means a price of 22 Dai / REP
-    assert roughlyEqual(repOracle.pokeRepPriceInAttoCash(reputationToken.address), expectedNewRepPrice, 2 * 10**17)
+    assert roughlyEqual(repOracle.poke(reputationTokenAddress), expectedNewRepPrice, 2 * 10**17)
 
     # Now Sell REP
-    repAmount = 1 * 10**17 # Trade .1 REP for 2.2 DAI
-    sellRep(uniswap, reputationToken, repAmount, account)
-    # TODO: remove below when Uniswap contracts are public
-    cashReserves = 188 * 10**17
-    repReserves = 105 * 10**16
-    if (token0 == cash.address):
-        mineBlocks(contractsFixture, uniswap, tau, cashReserves, repReserves)
-    else:
-        mineBlocks(contractsFixture, uniswap, tau, repReserves, cashReserves)
+    repAmount = 1 * 10**17 # Trade .1 REP for 1.8 DAI
+    cashAmount = 1.8 * 10**18
+    sellRep(repExchange, reputationToken, repAmount, cashAmount, token0IsCash, account)
+    mineBlock(contractsFixture, period)
 
-    expectedNewRepPrice = 179 * 10**17 # Cash reserves of ~ 18.8 Dai and REP reserves of ~1.05 REP means a price of 17.9 Dai / REP
-    assert roughlyEqual(repOracle.pokeRepPriceInAttoCash(reputationToken.address), expectedNewRepPrice, 2 * 10**17)
+    expectedNewRepPrice = 18.2 * 10**18 # Cash reserves of ~ 19.2 Dai and REP reserves of ~1.05 REP means a price of ~18.2 Dai / REP
+    assert roughlyEqual(repOracle.poke(reputationTokenAddress), expectedNewRepPrice, 2 * 10**17)
+
 
 def addLiquidity(exchange, cash, reputationToken, cashAmount, repAmount, address):
     cash.faucet(cashAmount)
@@ -101,32 +71,55 @@ def addLiquidity(exchange, cash, reputationToken, cashAmount, repAmount, address
     cash.transfer(exchange.address, cashAmount)
     reputationToken.transfer(exchange.address, repAmount)
 
-    exchange.mintLiquidity(address)
-    # TODO: remove below when Uniswap contracts are public
-    token0, token1 = (cash.address, reputationToken.address) if cash.address < reputationToken.address else (reputationToken.address, cash.address)
-    if (token0 == cash.address):
-        exchange.setReservesCumulative(cashAmount, repAmount)
-    else:
-        exchange.setReservesCumulative(repAmount, cashAmount)
+    exchange.mint(address)
 
-def buyRep(exchange, cash, cashAmount, address):
+def buyRep(exchange, cash, cashAmount, repAmount, token0IsCash, address):
     cash.faucet(cashAmount)
     cash.transfer(exchange.address, cashAmount)
 
-    exchange.swap(cash.address, address)
+    exchange.swap(0 if token0IsCash else repAmount, repAmount if token0IsCash else 0, address, "")
 
-def sellRep(exchange, reputationToken, repAmount, address):
+def sellRep(exchange, reputationToken, repAmount, cashAmount, token0IsCash, address):
     reputationToken.faucet(repAmount)
     reputationToken.transfer(exchange.address, repAmount)
 
-    exchange.swap(reputationToken.address, address)
+    exchange.swap(cashAmount if token0IsCash else 0, 0 if token0IsCash else cashAmount, address, "")
 
-def mineBlocks(contractsFixture, exchange, numBlocks, token0Amount, token1Amount):
-    contractsFixture.mineBlocks(numBlocks)
-
-    # TODO: remove below when Uniswap contracts are public
-    oldToken0Amount, oldToken1Amount = exchange.getReservesCumulative()
-    exchange.setReservesCumulative(oldToken0Amount + token0Amount * numBlocks, oldToken1Amount + token1Amount * numBlocks)
+def mineBlock(contractsFixture, timePassed):
+    timestamp = contractsFixture.eth_tester.backend.chain.header.timestamp
+    contractsFixture.eth_tester.time_travel(int(timestamp + timePassed))
 
 def roughlyEqual(amount1, amount2, tolerance=5 * 10**16):
     return abs(amount1 - amount2) < tolerance
+
+def is_bytes(value):
+    return isinstance(value, (bytes, bytearray))
+
+def combine(f, g):
+    return lambda x: f(g(x))
+
+def compose(*functions):
+    return functools.reduce(combine, functions, lambda x: x)
+
+# ensure we have the *correct* sha3 installed (keccak)
+assert codecs.encode(sha3(b''), 'hex') == b'c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470'  # noqa
+
+def _sub_hash(value, label):
+    return sha3(value + sha3(label))
+
+def namehash(name):
+    node = b'\x00' * 32
+    if name:
+        if is_bytes(name):
+            encoded_name = name
+        else:
+            encoded_name = codecs.encode(name, 'utf8')
+
+        labels = encoded_name.split(b'.')
+
+        return compose(*(
+            functools.partial(_sub_hash, label=label)
+            for label
+            in labels
+        ))(node)
+    return node

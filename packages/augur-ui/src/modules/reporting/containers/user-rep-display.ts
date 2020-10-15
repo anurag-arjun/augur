@@ -5,7 +5,7 @@ import {
 } from 'modules/account/selectors/select-reporting-balances';
 import { UserRepDisplay } from 'modules/reporting/common';
 import { updateModal } from 'modules/modal/actions/update-modal';
-import { MODAL_ADD_FUNDS, REP } from 'modules/common/constants';
+import { MODAL_ADD_FUNDS, REP, ADD_FUNDS_SWAP } from 'modules/common/constants';
 
 const mapStateToProps = state => {
   const isLoggedIn = state.authStatus.isLogged;
@@ -15,12 +15,20 @@ const mapStateToProps = state => {
   return {
     ...repBalances,
     isLoggedIn,
+    account: state.loginAccount?.address,
+    blockNumber: state.blockchain.currentBlockNumber,
   };
 };
 
 const mapDispatchToProps = dispatch => ({
   openGetRepModal: () =>
-    dispatch(updateModal({ type: MODAL_ADD_FUNDS, fundType: REP })),
+    dispatch(
+      updateModal({
+        type: MODAL_ADD_FUNDS,
+        tokenToAdd: REP,
+        initialAddFundsFlow: ADD_FUNDS_SWAP,
+      })
+    ),
 });
 
 const ReportingReportingContainer = connect(

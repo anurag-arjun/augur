@@ -2,7 +2,6 @@ import React, { ReactNode } from 'react';
 import classNames from 'classnames';
 
 import Styles from 'modules/portfolio/components/common/box-header.styles.less';
-import { TwoArrowsOutline } from 'modules/common/icons';
 import { ToggleExtendButton } from 'modules/common/buttons';
 
 export interface BoxHeaderProps {
@@ -22,62 +21,85 @@ export interface BoxHeaderProps {
   toggle?: Function;
   hide?: boolean;
   extend?: boolean;
+  showHeaderOnMobile?: boolean;
+  h1Title?: boolean;
 }
 
-const BoxHeader = (props: BoxHeaderProps) => (
+const BoxHeader = ({
+  title,
+  leftContent,
+  rightContent,
+  rows,
+  bottomBarContent,
+  bottomRightBarContent,
+  switchHeaders,
+  noBackgroundBottom,
+  mostRightContent,
+  extraTitlePadding,
+  noBorders,
+  normalOnMobile,
+  showToggle,
+  toggle,
+  hide,
+  extend,
+  showHeaderOnMobile,
+  h1Title,
+}: BoxHeaderProps) => (
   <>
-    <div className={Styles.ShowOnMobile}>
-      <div>
-        <div className={Styles.RightContent}>{props.rightContent}</div>
-        {props.bottomRightBarContent && (
-          <div className={Styles.BottomRightContent}>
-            {props.bottomRightBarContent}
-          </div>
-        )}
+    {!normalOnMobile && (
+      <div className={Styles.ShowOnMobile}>
+        <div>
+          {rightContent && (
+            <div className={Styles.RightContent}>{rightContent}</div>
+          )}
+          {showHeaderOnMobile && <div className={Styles.Title}>{title}</div>}
+          {bottomRightBarContent && (
+            <div className={Styles.BottomRightContent}>
+              {bottomRightBarContent}
+            </div>
+          )}
+        </div>
+        <div
+          className={classNames(Styles.Middle, {
+            [Styles.isSwitched]: switchHeaders,
+          })}
+        >
+          {bottomBarContent && (
+            <div
+              className={classNames(Styles.BottomContent, {
+                [Styles.noBackground]: noBackgroundBottom,
+                [Styles.NoTopMargin]: title,
+              })}
+            >
+              {bottomBarContent}
+            </div>
+          )}
+          {mostRightContent && (
+            <div className={Styles.MostRightContent}>{mostRightContent}</div>
+          )}
+        </div>
       </div>
-      <div
-        className={classNames(Styles.Middle, {
-          [Styles.isSwitched]: props.switchHeaders,
-        })}
-      >
-        {props.bottomBarContent && (
-          <div
-            className={classNames(Styles.BottomContent, {
-              [Styles.noBackground]: props.noBackgroundBottom,
-            })}
-          >
-            {props.bottomBarContent}
-          </div>
-        )}
-        {props.mostRightContent && (
-          <div className={Styles.MostRightContent}>
-            {props.mostRightContent}
-          </div>
-        )}
-      </div>
-    </div>
+    )}
     <div
       className={classNames(Styles.BoxHeader, {
-        [Styles.HideOnMobile]: !props.normalOnMobile,
-        [Styles.ExtraTitlePadding]: props.extraTitlePadding,
-        [Styles.NoBorders]: props.noBorders,
-        [Styles.Normal]: props.normalOnMobile,
+        [Styles.HideOnMobile]: !normalOnMobile,
+        [Styles.ExtraTitlePadding]: extraTitlePadding,
+        [Styles.NoBorders]: noBorders,
+        [Styles.Normal]: normalOnMobile,
       })}
     >
       <div>
-        <div>{props.title}</div>
+        <div>{h1Title ? <h1>{title}</h1> : title}</div>
         <div>
-          {props.rightContent}
-          {props.mostRightContent}
-          {props.showToggle &&
-            <ToggleExtendButton toggle={props.toggle} />
-          }
+          {rightContent}
+          {mostRightContent}
+          {showToggle && <ToggleExtendButton toggle={toggle} />}
         </div>
       </div>
-      {props.bottomBarContent && (
+      {bottomBarContent && (
         <div>
-          {props.bottomBarContent}
-          {props.bottomRightBarContent}
+          {bottomBarContent}
+          {bottomRightBarContent}
         </div>
       )}
     </div>

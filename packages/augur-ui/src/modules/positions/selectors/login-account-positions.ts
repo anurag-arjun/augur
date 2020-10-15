@@ -1,13 +1,14 @@
 import { createSelector } from 'reselect';
 
-import store from 'store';
-import { selectAccountPositionsState, selectMarketInfosState } from 'store/select-state';
+import store from 'appStore';
+import { selectAccountPositionsState, selectMarketInfosState } from 'appStore/select-state';
 import { selectMarket } from 'modules/markets/selectors/market';
 import { selectMarketPositionsSummary } from 'modules/markets/selectors/select-market-position-summary';
 import { selectUserMarketPositions } from 'modules/markets/selectors/select-user-market-positions';
+import { MarketData } from 'modules/types';
 
 export default function() {
-  const markets = selectLoginAccountPositionsMarkets(store.getState());
+  const markets: MarketData[] = selectLoginAccountPositionsMarkets(store.getState());
 
   const marketsWithPositions = markets.map(market => ({
     ...market,

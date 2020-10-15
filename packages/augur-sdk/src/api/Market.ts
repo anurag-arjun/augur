@@ -1,7 +1,7 @@
-import { BigNumber } from "bignumber.js";
-import { Augur } from "../Augur";
-import { formatBytes32String } from "ethers/utils";
-import { ContractInterfaces } from "@augurproject/core";
+import { ContractInterfaces } from '@augurproject/core';
+import { NULL_ADDRESS } from '@augurproject/sdk-lite';
+import { BigNumber } from 'bignumber.js';
+import { Augur } from '../Augur';
 
 export interface CreateYesNoMarketParams {
   endTime: BigNumber;
@@ -40,10 +40,11 @@ export class Market {
     this.augur = augur;
   }
 
-  async createYesNoMarket(params: CreateYesNoMarketParams): Promise<ContractInterfaces.Market> {
-    const universe = this.augur.contracts.universe;
-    // TODO
-    const affiliateValidator = params.affiliateValidator || "0x0000000000000000000000000000000000000000";
+  async createYesNoMarket(
+    params: CreateYesNoMarketParams
+  ): Promise<ContractInterfaces.Market> {
+    const universe = await this.augur.contracts.getOriginUniverse();
+    const affiliateValidator = params.affiliateValidator || NULL_ADDRESS;
 
     const events = await universe.createYesNoMarket(
       params.endTime,
@@ -51,16 +52,17 @@ export class Market {
       affiliateValidator,
       params.affiliateFeeDivisor,
       params.designatedReporter,
-      params.extraInfo)
-    ;
+      params.extraInfo
+    );
     const marketId = this.extractMarketIdFromEvents(events);
     return this.augur.contracts.marketFromAddress(marketId);
   }
 
-  async createCategoricalMarket(params: CreateCategoricalMarketParams): Promise<ContractInterfaces.Market> {
-    const universe = this.augur.contracts.universe;
-    // TODO
-    const affiliateValidator = params.affiliateValidator || "0x0000000000000000000000000000000000000000";
+  async createCategoricalMarket(
+    params: CreateCategoricalMarketParams
+  ): Promise<ContractInterfaces.Market> {
+    const universe = await this.augur.contracts.getOriginUniverse();
+    const affiliateValidator = params.affiliateValidator || NULL_ADDRESS;
 
     const events = await universe.createCategoricalMarket(
       params.endTime,
@@ -75,10 +77,11 @@ export class Market {
     return this.augur.contracts.marketFromAddress(marketId);
   }
 
-  async createScalarMarket(params: CreateScalarMarketParams): Promise<ContractInterfaces.Market> {
-    const universe = this.augur.contracts.universe;
-    // TODO
-    const affiliateValidator = params.affiliateValidator || "0x0000000000000000000000000000000000000000";
+  async createScalarMarket(
+    params: CreateScalarMarketParams
+  ): Promise<ContractInterfaces.Market> {
+    const universe = await this.augur.contracts.getOriginUniverse();
+    const affiliateValidator = params.affiliateValidator || NULL_ADDRESS;
 
     const events = await universe.createScalarMarket(
       params.endTime,
@@ -95,9 +98,9 @@ export class Market {
   }
 
   extractMarketIdFromEvents(events): string {
-    let marketId = "";
+    let marketId = '';
     for (const ev of events) {
-      if (ev.name === "MarketCreated") {
+      if (ev.name === 'MarketCreated') {
         interface HasMarket {
           market: string;
         }

@@ -8,12 +8,15 @@ import {
 import {
   MARKET_ID_PARAM_NAME,
   RETURN_PARAM_NAME,
+  OUTCOME_ID_PARAM_NAME,
+  CREATE_MARKET_FORM_PARAM_NAME,
 } from './routes/constants/param-names';
 import { AnyAction } from 'redux';
-import { EthersSigner } from 'contract-dependencies-ethers/build/ContractDependenciesEthers';
-import { Getters, PayoutNumeratorValue } from '@augurproject/sdk';
-import { TransactionMetadataParams } from 'contract-dependencies-ethers/build';
-import { BigNumber } from 'utils/create-big-number';
+import type { Getters, PayoutNumeratorValue } from '@augurproject/sdk';
+import type { TransactionMetadataParams, EthersSigner } from '@augurproject/contract-dependencies-ethers';
+import type { BigNumber } from 'utils/create-big-number';
+import type { Template } from '@augurproject/templates';
+import { JsonRpcProvider } from '@ethersproject/providers';
 
 export enum SizeTypes {
   SMALL = 'small',
@@ -36,6 +39,7 @@ export interface TextObject {
 export interface Alert {
   id: string;
   uniqueId: string;
+  toast: boolean;
   title: string;
   name: string;
   description: string;
@@ -50,24 +54,22 @@ export interface Alert {
 
 export interface TimezoneDateObject {
   formattedUtc: string;
-  formattedTimezone: string;
+  formattedLocalShortDateTimeWithTimezone: string;
   timestamp: number;
 }
 
 export interface DateFormattedObject {
   value: Date;
-  formatted: string;
-  formattedShortDate: string;
+  formattedUtcShortTime: string;
   formattedShortTime: string;
-  formattedShort: string;
-  formattedLocalShort: string;
-  formattedLocalShortTime: string;
+  formattedLocalShortDate: string;
+  formattedLocalShortWithUtcOffset: string;
   formattedLocalShortDateSecondary: string;
   timestamp: number;
   utcLocalOffset: number;
   clockTimeLocal: string;
-  formattedTimezone: string;
-  formattedShortTimezone: string;
+  formattedLocalShortDateTimeWithTimezone: string;
+  formattedLocalShortDateTimeNoTimezone: string;
   formattedSimpleData: string;
   formattedUtcShortDate: string;
   clockTimeUtc: string;
@@ -77,7 +79,8 @@ export interface DateFormattedObject {
 
 export interface ValueLabelPair {
   label: string;
-  value: string;
+  value: string | FormattedNumber;
+  useFull?: boolean;
 }
 export interface CoreStats {
   availableFunds: ValueLabelPair;
@@ -91,7 +94,7 @@ export interface MarketInfos {
 export interface Outcomes extends Getters.Markets.MarketInfoOutcome {
   name?: string;
 }
-export interface Consensus extends PayoutNumeratorValue {
+export interface ConsensusFormatted extends PayoutNumeratorValue {
   winningOutcome: string | null;
   outcomeName: string | null;
 }
@@ -122,11 +125,15 @@ export interface MarketData extends Getters.Markets.MarketInfo {
   unclaimedCreatorFeesFormatted: FormattedNumber;
   marketCreatorFeesCollectedFormatted: FormattedNumber;
   finalizationTimeFormatted: DateFormattedObject | null;
+  isArchived: boolean;
   // TODO: add this to getter Getters.Markets.MarketInfo
   // disputeInfo: object; this needs to get filled in on getter
-  consensusFormatted: Consensus | null;
+  consensusFormatted: ConsensusFormatted | null;
   outcomesFormatted: OutcomeFormatted[];
   isTemplate: boolean;
+  pending?: boolean;
+  status?: string;
+  hasPendingLiquidityOrders?: boolean;
 }
 
 export interface ForkingInfo {
@@ -142,6 +149,7 @@ export interface Universe extends Getters.Universe.UniverseDetails {
   forkingInfo?: ForkingInfo;
   forkEndTime?: string;
   timeframeData?: Getters.Platform.PlatformActivityStatsResult;
+  maxMarketEndTime?: number;
 }
 
 export interface UserReports {
@@ -151,7 +159,7 @@ export interface UserReports {
 }
 export interface FormattedNumber {
   fullPrecision: number | string;
-  roundedValue: number | BigNumber;
+  roundedValue: BigNumber;
   roundedFormatted: string;
   formatted: string;
   formattedValue: number | string;
@@ -160,12 +168,13 @@ export interface FormattedNumber {
   value: number;
   rounded: number | string;
   full: number | string;
+  percent: number | string;
 }
 
 export interface FormattedNumberOptions {
   decimals?: number;
   decimalsRounded?: number;
-  denomination?: string;
+  denomination?: Function;
   roundUp?: boolean;
   roundDown?: boolean;
   positiveSign?: boolean;
@@ -173,6 +182,7 @@ export interface FormattedNumberOptions {
   minimized?: boolean;
   blankZero?: boolean;
   bigUnitPostfix?: boolean;
+  removeComma?: boolean;
 }
 
 export interface CreateMarketData {
@@ -194,6 +204,7 @@ export interface PendingQueue {
     [pendingId: string]: {
       status: string;
       blockNumber: number;
+      hash: string;
       parameters?: UIOrder | NewMarket;
       data: CreateMarketData;
     };
@@ -203,27 +214,61 @@ export interface PendingOrders {
   [marketId: string]: UIOrder[];
 }
 
-export interface OrderBooks {
-  [marketId: string]: Getters.Markets.OutcomeOrderBook;
+export interface QuantityOrderBookOrder
+  extends Getters.Markets.MarketOrderBookOrder {
+  quantityScale: number;
+  percent: number;
+  mySize: string;
+  price: string;
+  cumulativeShares: string;
+}
+export interface QuantityOutcomeOrderBook {
+  spread: string | BigNumber | null;
+  bids: QuantityOrderBookOrder[];
+  asks: QuantityOrderBookOrder[];
 }
 
-export interface OutcomeOrderBook {
+export interface OutcomeTestTradingOrder {
+  [outcomeId: number]: TestTradingOrder[];
+}
+export interface TestTradingOrder {
+  disappear: boolean;
+  avgPrice: FormattedNumber;
+  cumulativeShares: string;
+  id: string;
+  mySize: string;
+  orderEstimate: BigNumber;
+  outcomeId: string;
+  outcomeName: string;
+  price: string;
+  quantity: string;
+  shares: string;
+  sharesEscrowed: FormattedNumber;
+  tokensEscrowed: FormattedNumber;
+  type: string;
+  unmatchedShares: FormattedNumber;
+}
+export interface OrderBooks {
+  [marketId: string]: Getters.Markets.MarketOrderBook;
+}
+export interface IndividualOutcomeOrderBook {
   spread: string | BigNumber | null;
   bids: Getters.Markets.MarketOrderBookOrder[];
   asks: Getters.Markets.MarketOrderBookOrder[];
 }
-
 export interface MyPositionsSummary {
   currentValue: FormattedNumber;
   totalPercent: FormattedNumber;
   totalReturns: FormattedNumber;
   valueChange: FormattedNumber;
+  valueChange24Hr: FormattedNumber;
 }
 
 export interface Notification {
   id: string;
   type: string;
   isImportant: boolean;
+  redIcon?: boolean;
   isNew: boolean;
   title: string;
   buttonLabel: string;
@@ -233,6 +278,10 @@ export interface Notification {
   markets: string[];
   claimReportingFees?: object;
   totalProceeds?: number;
+  queueName?: string;
+  queueId?: string;
+  hideCheckbox?: boolean;
+  hideNotification?: boolean;
 }
 
 export interface OrderStatus {
@@ -263,8 +312,14 @@ export interface UIOrder {
   hash?: string;
   numTicks: number;
   minPrice: string;
+  creationTime?: DateFormattedObject;
+  blockNumber?: number;
 }
 
+export interface CreateLiquidityOrders {
+  marketId: string;
+  chunkOrders: boolean;
+}
 export interface LiquidityOrders {
   [txParamHash: string]: {
     [outcome: number]: LiquidityOrder[];
@@ -299,27 +354,37 @@ export interface NewMarketPropertiesValidations {
   meridiem?: string;
   outcomes?: string | string[];
   settlementFee?: string;
-  affiliateFee?: number;
+  affiliateFee?: string;
   inputs?: NewMarketPropertiesValidations[];
 }
 
 export interface NewMarketPropertyValidations {
   settlementFee?: string;
   scalarDenomination?: string;
-  affiliateFee?: number;
+  affiliateFee?: string;
   inputs?: NewMarketPropertiesValidations[];
   outcomes?: string | string[];
 }
+
+export interface DateTimeComponents {
+  endTime: number;
+  endTimeFormatted: DateFormattedObject;
+  setEndTime: number;
+  hour: string;
+  minute: string;
+  meridiem: string;
+  offsetName: string;
+  offset: number;
+  timezone: string;
+}
 export interface NewMarket {
-  uniqueId: number;
+  uniqueId: string;
   isValid: boolean;
-  validations:
-    | NewMarketPropertiesValidations
-    | NewMarketPropertyValidations;
+  validations: NewMarketPropertiesValidations | NewMarketPropertyValidations;
   currentStep: number;
   type: string;
   outcomes: string[];
-  scalarSmallNum: string;
+  outcomesFormatted: OutcomeFormatted[];
   scalarBigNum: string;
   scalarDenomination: string;
   description: string;
@@ -337,8 +402,10 @@ export interface NewMarket {
   meridiem: string;
   marketType: string;
   detailsText: string;
+  navCategories: string[];
   categories: string[];
   settlementFee: number;
+  settlementFeePercent: FormattedNumber;
   affiliateFee: number;
   orderBook: { [outcome: number]: LiquidityOrder[] };
   orderBookSorted: { [outcome: number]: LiquidityOrder[] };
@@ -356,19 +423,19 @@ export interface NewMarket {
 export interface LinkContent {
   content: string;
   link?: string;
-};
+}
 
 export interface Draft {
-  uniqueId: number;
+  uniqueId: string;
   created: number;
   updated: number;
   isValid: boolean;
   validations:
-  NewMarketPropertiesValidations[] | NewMarketPropertyValidations[]
+    | NewMarketPropertiesValidations[]
+    | NewMarketPropertyValidations[];
   currentStep: number;
   type: string;
   outcomes: string[];
-  scalarSmallNum: string;
   scalarBigNum: string;
   scalarDenomination: string;
   description: string;
@@ -398,6 +465,21 @@ export interface Drafts {
   [uniqueId: string]: Draft;
 }
 
+export interface Analytics {
+  [id: string]: Analytic;
+}
+
+export interface Analytic {
+  type: string;
+  eventName: string;
+  payload: AnalyticPayload;
+}
+
+export interface AnalyticPayload {
+  addedTimestamp: number;
+  userAgent: string;
+}
+
 export interface MarketsList {
   isSearching: boolean;
   meta: {
@@ -406,6 +488,7 @@ export interface MarketsList {
     categories: object;
   };
   selectedCategories: string[];
+  selectedCategory: string;
   marketCardFormat: string;
   isSearchInPlace: boolean;
 }
@@ -434,7 +517,7 @@ export interface ReportingListState {
   };
 }
 export interface FilledOrders {
-  [account: string]: Getters.Trading.Orders;
+  [account: string]: Getters.Trading.MarketTradingHistory;
 }
 
 export interface OpenOrders {
@@ -445,8 +528,7 @@ export interface GasPriceInfo {
   average: number;
   fast: number;
   safeLow: number;
-  userDefinedGasPrice: string;
-  blockNumber: string;
+  userDefinedGasPrice: number;
 }
 
 export enum INVALID_OPTIONS {
@@ -456,39 +538,30 @@ export enum INVALID_OPTIONS {
 
 export interface FilterSortOptions {
   marketFilter: string;
-  marketSort: string;
+  sortBy: string;
   maxFee: string;
   maxLiquiditySpread: string;
   includeInvalidMarkets: INVALID_OPTIONS;
   transactionPeriod: string;
   templateFilter: string;
+  marketTypeFilter: string;
+  limit: number;
+  offset: number;
 }
 
 export interface Favorite {
   [marketId: string]: number;
 }
 
-export interface EthereumNodeOptions {
-  blockRetention: number;
-  connectionTimeout: number;
-  http: string;
-  pollingIntervalMilliseconds: number;
-  ws: string;
-}
-
-export interface EnvObject {
-  'ethereum-node': EthereumNodeOptions;
-  universe?: string;
-  useWeb3Transport: boolean;
-}
-
 export interface QueryEndpoints {
   ethereum_node_http?: string;
   ethereum_node_ws?: string;
   [MARKET_ID_PARAM_NAME]?: string;
+  [OUTCOME_ID_PARAM_NAME]?: string;
   [RETURN_PARAM_NAME]?: string;
   [CATEGORY_PARAM_NAME]?: string;
   [TAGS_PARAM_NAME]?: string;
+  [CREATE_MARKET_FORM_PARAM_NAME]?: string;
 }
 export interface Endpoints {
   ethereumNodeHTTP: string;
@@ -520,13 +593,17 @@ export interface AppStatus {
   isMobile?: boolean;
   isMobileSmall?: boolean;
   isHelpMenuOpen: boolean;
+  ethToDaiRate: FormattedNumber;
+  repToDaiRate: FormattedNumber;
+  usdtToDaiRate: FormattedNumber;
+  usdcToDaiRate: FormattedNumber;
+  zeroXEnabled: boolean;
+  walletStatus: string;
 }
 
 export interface AuthStatus {
   isLogged?: boolean;
   restoredAccount?: boolean;
-  edgeLoading?: boolean;
-  edgeContext?: string;
   isConnectionTrayOpen?: boolean;
 }
 
@@ -557,17 +634,33 @@ export interface TimeframeData {
   successfulDisputes: number;
   redeemedPositions: number;
 }
+
 export interface AccountBalances {
-  eth: number;
-  rep: number;
-  dai: number;
+  eth: string;
+  weth: string;
+  rep: string;
+  dai: string;
+  usdt: string;
+  usdc: string;
+  legacyRep: string;
   attoRep: string;
+  legacyAttoRep?: string;
+  signerBalances: {
+    eth: string;
+    weth: string;
+    rep: string;
+    dai: string;
+    usdt: string;
+    usdc: string;
+    legacyRep: string;
+  }
 }
 
 export interface LoginAccountMeta {
   accountType: string;
   address: string;
   signer: any | EthersSigner;
+  provider: JsonRpcProvider;
   isWeb3: boolean;
   profileImage?: string;
   email?: string;
@@ -577,6 +670,15 @@ export interface LoginAccountMeta {
 export interface LoginAccountSettings {
   showInvalidMarketsBannerFeesOrLiquiditySpread?: boolean;
   showInvalidMarketsBannerHideOrShow?: boolean;
+  templateFilter?: boolean;
+  maxFee?: boolean;
+  spread?: boolean;
+  marketTypeFilter?: boolean;
+  marketFilter?: string;
+  showInvalid?: boolean;
+  sortBy?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export interface LoginAccount {
@@ -585,13 +687,14 @@ export interface LoginAccount {
   meta?: LoginAccountMeta;
   totalFrozenFunds?: string;
   totalRealizedPL?: string;
+  totalOpenOrdersFrozenFunds?: string;
   tradingPositionsTotal?: UnrealizedRevenue;
   timeframeData?: TimeframeData;
-  allowanceFormatted?: FormattedNumber;
-  allowance?: BigNumber;
+  tradingApproved?: boolean;
   balances: AccountBalances;
   reporting: Getters.Accounts.AccountReportingHistory;
   settings?: LoginAccountSettings;
+  affiliate?: string;
 }
 
 export interface Web3 {
@@ -604,12 +707,17 @@ export interface WindowApp extends Window {
   ethereum: {
     selectedAddress;
     networkVersion: string;
+    isMetaMask?: boolean;
+    on?: Function;
+    enable?: Function;
+    send?: Function;
   };
   localStorage: Storage;
   integrationHelpers: any;
   fm?: any;
   torus?: any;
   portis?: any;
+  showIndexedDbSize?: Function;
 }
 
 export type ButtonActionType = (
@@ -656,14 +764,15 @@ export interface WalletObject {
 export interface Trade {
   numShares: FormattedNumber;
   limitPrice: FormattedNumber;
-  potentialDaiProfit: FormattedNumber;
-  potentialDaiLoss: FormattedNumber;
+  potentialTradeProfit: FormattedNumber;
+  potentialTradeLoss: FormattedNumber;
   totalCost: FormattedNumber;
   sharesFilled: FormattedNumber;
   shareCost: FormattedNumber;
   side: typeof BUY | typeof SELL;
   orderShareProfit: FormattedNumber;
   orderShareTradingFee: FormattedNumber;
+  numFills: number;
 }
 
 export interface PriceTimeSeriesData {
@@ -680,20 +789,22 @@ export interface PriceTimeSeriesData {
 export interface MarketClaimablePositions {
   markets: MarketData[];
   totals: {
-    totalUnclaimedProfit: BigNumber,
-    totalUnclaimedProceeds: BigNumber
-  }
+    totalUnclaimedProfit: BigNumber;
+    totalUnclaimedProceeds: BigNumber;
+    totalFees: BigNumber;
+  };
   positions: {
     [marketId: string]: {
       unclaimedProfit: string;
       unclaimedProceeds: string;
+      fee: string;
     };
   };
 }
 
 export interface ClaimReportingOptions {
-  reportingParticipants: string[],
-  disputeWindows: string[],
+  reportingParticipants: string[];
+  disputeWindows: string[];
   estimateGas?: boolean;
   disavowed?: boolean;
   isForkingMarket?: boolean;
@@ -734,6 +845,9 @@ export interface NavMenuItem {
   title: string;
   requireLogin?: boolean;
   disabled?: boolean;
+  showAlert?: boolean;
+  button?: boolean;
+  alternateStyle?: boolean;
 }
 
 export interface SortedGroup {

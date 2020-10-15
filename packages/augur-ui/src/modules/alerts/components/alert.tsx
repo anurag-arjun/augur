@@ -17,7 +17,7 @@ interface AlertProps {
   onClick?: Function;
   removeAlert: Function;
   seen: boolean;
-  timestampInMilliseconds: number;
+  timestampInMilliseconds?: number;
   toggleAlerts: Function;
   noShow?: boolean;
   showToast?: boolean;
@@ -74,16 +74,16 @@ export default class Alert extends Component<AlertProps, {}> {
               <>
                 <span className={Styles.Timestamp}>
                   {
-                    convertUnixToFormattedDate(timestampInMilliseconds / 1000)
-                      .formattedLocalShortTime
+                    timestampInMilliseconds && convertUnixToFormattedDate(timestampInMilliseconds / 1000)
+                      .formattedLocalShortWithUtcOffset
                   }
                 </span>
                 <span className={Styles.EtherLink}>
-                  <ViewTransactionDetailsButton
+                  {id && <ViewTransactionDetailsButton
                     light
                     transactionHash={id}
                     label="view etherscan"
-                  />
+                  />}
                 </span>
               </>
             )}

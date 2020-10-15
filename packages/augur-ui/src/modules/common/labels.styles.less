@@ -1,5 +1,6 @@
 @import (reference) '~assets/styles/shared';
 
+// Many labels can be used in Betting UI
 .TimeLabel {
   display: flex;
   flex-flow: row wrap;
@@ -9,13 +10,12 @@
 
     color: @color-secondary-text;
     line-height: @size-14;
-    text-transform: uppercase;
     line-height: 160%;
   }
 
   > span:first-of-type {
     display: flex;
-    align-items: center;
+    align-items: end;
 
     > label {
       display: inline-block;
@@ -24,18 +24,16 @@
       width: @size-12;
 
       > svg {
-        fill: none;
         height: @size-12;
         width: @size-12;
 
         > circle {
-          fill: @color-primary-text;
-          stroke: @color-primary-text;
-          stroke-width: 1.5;
+          fill: none;
+          stroke: @color-secondary-text;
         }
 
         > path {
-          fill: @color-inactive-text;
+          fill: @color-secondary-text;
         }
       }
     }
@@ -67,13 +65,21 @@
   color: inherit;
   z-index: @default-z-index;
 
+  &.DarkDash {
+    color: @color-secondary-text;
+  }
+
+  &.Alert {
+    color: @color-error;
+  }
+
   > label {
     color: inherit;
     cursor: inherit;
     margin: 0;
 
     > span {
-      color: @color-secondary-text;
+      color: @color-primary-text;
     }
   }
 }
@@ -93,11 +99,10 @@
 }
 
 .TextLabel {
+  .text-12;
+
   color: inherit;
-  font-size: @size-12;
-  font-weight: 400;
   letter-spacing: 0.3px;
-  line-height: @size-12;
   text-transform: capitalize;
   z-index: @default-z-index;
 
@@ -115,6 +120,38 @@
     max-width: 320px;
     padding: @size-12 @size-12 @size-8;
   }
+}
+
+.InvalidLabel {
+  color: @color-outcome-invalid;
+  display: flex;
+
+  > label {
+    margin-left: @size-8;
+    margin-bottom: 0;
+
+    > svg {
+      cursor: pointer;
+      height: @size-12;
+      width: @size-12;
+
+      > circle {
+        stroke: @color-secondary-text;
+        fill: none;
+      }
+
+      > path {
+        fill: @color-secondary-text;
+      }
+    }
+  }
+}
+
+.CountdownLabel {
+  .text-12-medium;
+
+  color: @color-secondary-text;
+  margin-right: @size-12;
 }
 
 .HoverValueLabel {
@@ -139,18 +176,19 @@
   }
 }
 
+// Used in market-header in market detail page.
 .PropertyLabel {
   display: flex;
   flex-flow: column nowrap;
 
   > span:first-of-type {
-    .mono-9-bold;
+    .text-10-medium;
 
-    align-items: center;
+    align-items: end;
     color: @color-secondary-text;
     display: flex;
     flex-flow: row nowrap;
-    text-transform: uppercase;
+    text-transform: capitalize;
     line-height: 160%;
 
     > label {
@@ -160,25 +198,23 @@
       width: @size-12;
 
       > svg {
-        fill: none;
         height: @size-12;
         width: @size-12;
 
         > circle {
-          fill: @color-primary-text;
-          stroke: @color-primary-text;
-          stroke-width: 1.5;
+          fill: none;
+          stroke: @color-secondary-text;
         }
 
         > path {
-          fill: @color-inactive-text;
+          fill: @color-secondary-text;
         }
       }
     }
   }
 
   > span:last-of-type {
-    .mono-11;
+    .mono-12-medium;
 
     color: @color-primary-text;
     line-height: 160%;
@@ -247,12 +283,16 @@
   }
 
   > span:first-of-type {
-    .mono-10;
+    .text-10-medium;
 
     align-items: center;
-    color: @color-inactive-text;
+    color: @color-secondary-text;
     flex-flow: row nowrap;
     text-transform: uppercase;
+
+    &.RegularCase {
+      text-transform: unset;
+    }
 
     > label {
       margin: 0 0 0 @size-4;
@@ -273,13 +313,23 @@
 
   > span:nth-of-type(2),
   > span:last-of-type {
-    .mono-9;
+    .mono-12-medium;
 
     color: @color-primary-text;
     padding-left: @size-8;
 
+    &.isHighlighted {
+      color: @color-reporting;
+    }
     &.isAccented {
       color: @color-error;
+    }
+    &.isSecondary {
+      color: @color-secondary-text;
+    }
+    &.underline {
+      cursor: pointer;
+      text-decoration: underline;
     }
   }
 
@@ -292,9 +342,9 @@
 
   &.HighlightFirst {
     > span:first-of-type {
-      .mono-9-bold;
+      .mono-10-bold;
 
-      color: @color-inactive-text;
+      color: @color-secondary-text;
     }
   }
 
@@ -315,10 +365,6 @@
     }
   }
 
-  > span:nth-of-type(2) {
-    display: none;
-  }
-
   @media @breakpoint-mobile {
     &.HighlightFirst,
     &.Highlight {
@@ -335,22 +381,20 @@
     }
 
     > span:first-of-type {
-      .mono-9;
+      .mono-10-medium;
+
+      color: @color-secondary-text;
     }
 
     > span:nth-of-type(2),
     > span:last-of-type {
-      .mono-10;
+      .mono-12-medium;
 
       color: @color-primary-text;
     }
 
     > span:nth-of-type(2) {
       display: block;
-    }
-
-    > span:last-of-type {
-      display: none;
     }
   }
 }
@@ -365,12 +409,12 @@ div.LinearPropertyViewTransaction {
   align-items: baseline;
   display: flex;
   flex-flow: row wrap;
-  max-width: 175px;
+  max-width: 300px;
   width: fit-content;
 
   &.Alternate {
     > span:first-of-type {
-      .mono-10;
+      .mono-12-semi-bold;
 
       color: @color-secondary-text;
     }
@@ -385,6 +429,8 @@ div.LinearPropertyViewTransaction {
       .mono-default;
 
       color: @color-secondary-text;
+      position: relative;
+      top: @size-3;
     }
   }
 
@@ -397,7 +443,6 @@ div.LinearPropertyViewTransaction {
 
     color: @color-primary-text;
     flex: 0 auto;
-    text-transform: uppercase;
 
     @media @breakpoint-mobile {
       .mono-14;
@@ -431,13 +476,13 @@ div.LinearPropertyViewTransaction {
 
   &.Larger {
     > span:nth-of-type(2) {
-      .mono-24;
+      .mono-22-bold;
     }
   }
 }
 
 .MarketTypeLabel {
-  .mono-9-bold;
+  .mono-10-medium;
 
   background: fade(@color-secondary-text, 30%);
   border-radius: @border-radius-default;
@@ -445,20 +490,46 @@ div.LinearPropertyViewTransaction {
   color: @color-primary-text;
   line-height: @size-11;
   max-width: fit-content;
-  padding: 0 @size-2;
+  padding: 0 @size-4;
   text-transform: uppercase;
+  white-space: nowrap;
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+
+  &.MarketScalarLabel {
+    display: inline-block;
+    background: fade(@color-scalar, 20%);
+    color: @color-scalar;
+
+    > svg {
+      fill: none;
+      height: @size-6;
+      width: @size-20;
+
+      > rect {
+        fill: @color-scalar;
+        height: 1.5px;
+        width: @size-20;
+      }
+
+      > path {
+        fill: @color-scalar;
+      }
+    }
+  }
 }
 
 .MarketStatus {
-  .mono-9;
+  .mono-9-bold;
 
-  border: 1px solid transparent;
+  border: @size-1 solid transparent;
   color: @color-primary-text;
   line-height: @size-11;
-  padding: 0 1px;
-  position: relative;
+  padding: 0 @size-2;
   border-radius: @border-radius-default;
   text-transform: uppercase;
+  width: max-content;
 }
 
 .MarketStatus_open {
@@ -474,6 +545,53 @@ div.LinearPropertyViewTransaction {
 .MarketStatus_resolved {
   background: fade(@color-resolved, 15%);
   color: @color-resolved;
+}
+
+.MarketStatus_warpSync {
+  background: fade(@color-primary-action, 20%);
+  color: @color-primary-action;
+}
+
+.MarketStatus_isTitle {
+  margin: @size-8 0;
+}
+
+.MarketStatus_forking {
+  background: fade(@color-error, 20%);
+  color: @color-error;
+  display: flex;
+
+  > svg {
+    width: @size-10;
+    height: @size-10;
+    margin-right: @size-4;
+
+    > circle {
+      fill: @color-error;
+    }
+  }
+}
+
+.Archived {
+  &:hover {
+    > svg > g > path {
+      stroke: @color-primary-text;
+    }
+  }
+}
+
+.LiquidityDepletedLabel {
+  .text-9-medium;
+
+  margin-left: @size-10;
+  color: @color-outcome-five;
+  background: fade(@color-outcome-five, 15%);
+  border-radius: @border-radius-default;
+  padding: 1px 2px;
+}
+
+.CustomMarketCaution {
+  color: @color-primary-text;
 }
 
 .InReporting_reportingDetails {
@@ -550,6 +668,12 @@ div.LinearPropertyViewTransaction {
   }
 }
 
+span.PendingLabel {
+  > div {
+    max-width: unset;
+  }
+}
+
 .ConfirmedLabel {
   .PendingLabel;
 
@@ -576,11 +700,11 @@ div.LinearPropertyViewTransaction {
 
 .MovementLabel_Text {
   &_small {
-    .mono-9;
+    .mono-9-bold;
   }
 
   &_normal {
-    .mono-9;
+    .mono-12-medium;
   }
 
   &_large {
@@ -593,6 +717,10 @@ div.LinearPropertyViewTransaction {
 
   &_negative {
     color: @color-negative;
+  }
+
+  &_neutral {
+    color: @color-secondary-text;
   }
 }
 
@@ -643,25 +771,33 @@ div.LinearPropertyViewTransaction {
 }
 
 .PillLabel {
-  .mono-10;
+  .mono-10-medium;
 
   align-items: center;
-  background: @color-secondary-action-outline;
-  border-radius: 0.375rem;
+  background: transparent;
+  border: 1px solid @color-outline;
+  border-radius: @border-radius-default;
+  color: @color-outline;
   display: flex;
   justify-content: center;
-  padding: 0 0.375rem;
+  height: @size-18;
+  min-height: @size-18;
+  max-height: @size-18;
+  padding: @size-2 @size-3;
+  text-transform: capitalize;
 
   &.HideOnMobile {
     display: flex;
 
-    @media @breakpoint-mobile-mid {
+    @media @breakpoint-mobile {
       display: none;
     }
   }
 }
 
 .PositionTypeLabel {
+  .mono-9-bold;
+
   color: @color-positive;
   font-weight: bold;
   text-transform: uppercase;
@@ -681,9 +817,10 @@ div.LinearPropertyViewTransaction {
   // Required to make ellipsis work.
   min-width: 0;
 
-  > svg {
+  > label {
     display: flex;
     margin-right: @size-8;
+    margin-bottom: 0;
   }
 
   > button {
@@ -720,6 +857,35 @@ div.LinearPropertyViewTransaction {
   }
 }
 
+.DataArchivedLabel {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+
+  > label {
+    .text-12;
+
+    color: @color-secondary-text;
+    display: flex;
+    align-items: center;
+
+    > svg {
+      height: @size-12;
+      margin-left: @size-2;
+      width: @size-12;
+
+      > circle {
+        stroke: @color-secondary-text;
+      }
+
+      > path {
+        fill: @color-secondary-text;
+      }
+    }
+  }
+}
+
 .CategoryTagTrail {
   display: flex;
   // Required to make ellipsis work.
@@ -738,7 +904,7 @@ div.LinearPropertyViewTransaction {
   margin-right: @size-5;
 }
 
-.BulkTxLabel {
+.ModalMessageLabel {
   margin: 0 @size-24 @size-24;
 
   @media @breakpoint-mobile {
@@ -746,19 +912,43 @@ div.LinearPropertyViewTransaction {
   }
 }
 
+.ModalMessageLabelInitWallet {
+  margin: unset;
+
+  @media @breakpoint-mobile {
+    margin: unset;
+  }
+}
+
+.ModalMessageAutoCancel {
+  margin: @size-24 0;
+
+  @media @breakpoint-mobile {
+    margin: @size-24 0;
+  }
+}
+
 .MarketLabel {
-  .text-11;
+  .text-12-semi-bold;
 
   align-items: center;
-  color: @color-inactive-text;
+  color: @color-secondary-text;
   cursor: pointer;
   display: flex;
   justify-content: flex-start;
-  padding-bottom: @size-12;
+  padding: @size-9 0;
   text-transform: uppercase;
+
+  @media @breakpoint-mobile{
+    padding-top: @size-6;
+  }
 
   > div:nth-child(even) {
     margin: 0 0 0 @size-4;
+  }
+
+  &:hover {
+    color: @color-primary-text;
   }
 
   &.loading {
@@ -766,20 +956,23 @@ div.LinearPropertyViewTransaction {
 
     > div:last-of-type {
       > span svg {
+        height: @size-10;
+        width: @size-10;
         animation: spin 2s linear infinite;
 
         path {
-          stroke: @color-inactive-text;
+          stroke: @color-secondary-text;
         }
       }
     }
   }
 
   &.selected {
-    .text-11-bold;
+    .text-12-semi-bold;
 
     color: @color-primary-text;
-    border-bottom: 1px solid @color-primary-text;
+    padding: @size-9 0 @size-7 0;
+    border-bottom: @size-2 solid @color-primary-text;
 
     &.open {
       border-color: @color-open;
@@ -795,7 +988,7 @@ div.LinearPropertyViewTransaction {
 
     > div:nth-child(even) {
       font-weight: bold;
-      margin: 0 0 0 @size-8;
+      margin: 0 0 0 @size-4;
     }
 
     > div:last-of-type {
@@ -809,5 +1002,143 @@ div.LinearPropertyViewTransaction {
 @keyframes spin {
   100% {
     transform: rotate(360deg);
+  }
+}
+
+.discordLink {
+  .text-14-paragraph;
+
+  color: @color-primary-text;
+
+  @media @breakpoint-mobile {
+    .text-12-paragraph;
+  }
+
+  > a {
+    color: @color-primary-action;
+  }
+}
+
+.LabelWithTooltip {
+  > span > label[class*="TooltipHint"] {
+    display: inline-block;
+    margin-bottom: 0;
+  }
+}
+
+.TEXT {
+  position: relative;
+  white-space: nowrap;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+}
+
+.StatusDotTooltip {
+  display: flex;
+
+  > span {
+    border-radius: 50%;
+    height: @size-8;
+    margin-right: @size-4;
+    align-self: center;
+    width: @size-8;
+
+    &.Ready {
+      background: @color-open;
+    }
+    &.Lag {
+      background: @color-reporting;
+      cursor: pointer;
+    }
+    &.Error {
+      background: @color-error;
+      cursor: pointer;
+    }
+  }
+}
+
+
+.StatusErrorMessage {
+  display: flex;
+  justify-content: center;
+  padding: @size-5 0;
+  left: 0;
+  right: 0;
+  z-index: @mask;
+  background: @color-module-background-action-focus;
+
+  @media @breakpoint-mobile {
+    position: fixed;
+  }
+
+  > span {
+    .text-10-bold;
+
+    display: flex;
+    background: fade(@color-error, 20%);
+    border-bottom: @size-2 solid @color-error;
+    border-left: @size-4 solid @color-error;
+    border-right: @size-2 solid @color-error;
+    border-top: @size-2 solid @color-error;
+    border-radius: 3px;
+    color: @color-primary-text;
+    padding: 0.5rem 0;
+    width: 21.125rem;
+    text-transform: uppercase;
+
+    @media @breakpoint-mobile {
+      margin: 0 @size-5;
+      width: 100%;
+    }
+
+    > svg {
+      align-self: center;
+      grid-row: span 2;
+      fill: none;
+      height: @size-12;
+      margin: 0 0.35rem;
+      width: @size-12;
+
+      > circle {
+        stroke: @color-error;
+      }
+
+      > rect,
+      > path {
+        fill: @color-error;
+      }
+    }
+  }
+}
+
+.Checkbox {
+  .text-10;
+
+  align-items: center;
+  color: @color-primary-text;
+  display: grid;
+  grid-template-rows: auto;
+  grid-template-columns: @size-40 auto @size-16;
+  width: 304px;
+  padding: 0 0 @size-8;
+
+  > svg {
+    margin: 0 @size-12;
+    width: @size-20;
+
+    > rect {
+      stroke: @color-secondary-action-outline;
+    }
+
+    > path {
+      stroke: @color-primary-text;
+    }
+  }
+}
+
+.CheckboxChecked {
+  > svg > rect {
+    fill: @color-secondary-action;
+    fill-opacity: 0.3;
   }
 }

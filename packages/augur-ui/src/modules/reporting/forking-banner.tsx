@@ -1,11 +1,17 @@
 import React from 'react';
 import classNames from 'classnames';
-import Styles from 'modules/reporting/forking.styles.less';
+import { ProcessingButton, SubmitTextButton } from 'modules/common/buttons';
+import {
+  MIGRATEOUTBYPAYOUT,
+  SIXTY_DAYS,
+  TRANSACTIONS,
+} from 'modules/common/constants';
 import { ExclamationCircle } from 'modules/common/icons';
-import { CountdownProgress, formatTime } from 'modules/common/progress';
-import { PrimaryButton, SecondaryButton } from 'modules/common/buttons';
+import { CountdownProgress } from 'modules/common/progress';
+
 import { DateFormattedObject } from 'modules/types';
-import { SIXTY_DAYS } from 'modules/common/constants';
+
+import Styles from 'modules/reporting/forking.styles.less';
 
 interface ForkingProps {
   show: boolean;
@@ -13,45 +19,47 @@ interface ForkingProps {
   hasRepBalance?: boolean;
   isForking?: boolean;
   forkTime?: DateFormattedObject;
-  currentTime?: DateFormattedObject;
   hasStakedRepAction: Function;
   hasRepMigrationAction: Function;
 }
 
-export const Forking = (props: ForkingProps) => (
+export const Forking = ({ hasRepBalance, show, isForking, hasRepMigrationAction, hasStakedRep, forkTime, hasStakedRepAction }: ForkingProps) => (
   <div
     className={classNames(Styles.ForkingLabel, {
-      [Styles.Hide]: !props.show,
+      [Styles.Hide]: !show,
     })}
   >
     {ExclamationCircle}
     <div>
-      <span>{'A fork has been initiated. The Universe is now Locked'}</span>
+      <span>A fork has been initiated. The Universe is now Locked</span>
       <span>
-        {
-          'If you are a REP holder, please release any outstanding REP. Then, migrate your REP to your chosen child universe.  The forking period will end on [date] or when more than 50% of all REP has been migrated to a child universe. REP migration must happen before the 60 days cut-off. If not your REP will be stuck in the current universe (Genesis Universe). Learn more.'
-        }
+
+          If you are a REPv2 holder, please release any outstanding REPv2. Then, migrate your REPv2 to your chosen child universe.  The forking period will end on {forkTime ? forkTime.formattedSimpleData : '[date]'} or when more than 50% of all REPv2 has been migrated to a child universe. REPv2 migration must happen before the 60 days cut-off. If not your REPv2 will be stuck in the current universe (Genesis Universe).
+        <a href="https://augur.gitbook.io/help-center/forking-explained" target="_blank" rel="noopener noreferrer">
+          Learn more
+        </a>
       </span>
       <div>
-        {props.hasStakedRep && (
-          <SecondaryButton
-            action={props.hasStakedRepAction}
-            text={'Release my REP'}
+        {hasStakedRep && (
+          <SubmitTextButton
+            action={hasStakedRepAction}
+            text={'Release my REPv2'}
           />
         )}
-        {props.hasRepBalance && props.isForking && (
-          <PrimaryButton
-            action={props.hasRepMigrationAction}
-            text={'Migrate REP'}
+        {hasRepBalance && isForking && (
+          <ProcessingButton
+            action={hasRepMigrationAction}
+            text='Migrate REPv2'
+            queueName={TRANSACTIONS}
+            queueId={MIGRATEOUTBYPAYOUT}
           />
         )}
       </div>
     </div>
     <div>
       <CountdownProgress
-        label={'Time remaining in Fork Window'}
-        time={props.forkTime}
-        currentTime={props.currentTime}
+        label='Time remaining in Fork Window'
+        time={forkTime}
         countdownBreakpoint={SIXTY_DAYS}
       />
     </div>

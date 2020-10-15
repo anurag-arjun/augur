@@ -1,13 +1,14 @@
 import { createSelector } from "reselect";
 import {
   selectAccountPositionsState,
-  selectMarketInfosState
-} from "store/select-state";
+} from "appStore/select-state";
 import { positionSummary } from "modules/positions/selectors/positions-summary";
-import { Getters } from "@augurproject/sdk";
+import type { Getters } from "@augurproject/sdk";
+import { selectMarket } from "modules/markets/selectors/market";
+import { MarketData } from "modules/types";
 
-function selectMarketsDataStateMarket(state, marketId) {
-  return selectMarketInfosState(state)[marketId];
+function selectMarketsDataStateMarket(state, marketId): MarketData {
+  return selectMarket(marketId);
 }
 
 function selectMarketUserPositions(state, marketId) {
@@ -19,14 +20,15 @@ export const selectUserMarketPositions = createSelector(
   selectMarketUserPositions,
   (marketInfo, marketAccountPositions): Getters.Users.TradingPosition[] => {
     if (!marketInfo || !marketAccountPositions || !marketAccountPositions.tradingPositions) return [];
-
+      const { marketType, reportingState } = marketInfo;
+      const isFullLoss = marketAccountPositions.tradingPositionsPerMarket?.fullLoss;
       const userPositions = Object.values(
         marketAccountPositions.tradingPositions || []
       ).map((value) => {
         const position = value as Getters.Users.TradingPosition;
-        const outcome = marketInfo.outcomes[position.outcome];
+        const outcome = marketInfo.outcomesFormatted[position.outcome];
         return {
-          ...positionSummary(position, outcome),
+          ...positionSummary(position, outcome, marketType, reportingState, isFullLoss),
           outcomeName: outcome.description
         };
       });

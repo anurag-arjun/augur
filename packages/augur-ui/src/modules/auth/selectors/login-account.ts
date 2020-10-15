@@ -1,12 +1,13 @@
 import { createSelector } from "reselect";
-import { selectLoginAccountState } from "store/select-state";
-import { formatRep, formatEther, formatDai } from "utils/format-number";
+import { selectLoginAccountState } from "appStore/select-state";
+import { formatRep, formatEther, formatDaiPrice, formatDai } from "utils/format-number";
 import generateDownloadAccountLink from "modules/auth/helpers/generate-download-account-link";
-import store from "store";
+import store from "appStore";
 
 import getValue from "utils/get-value";
-import { createBigNumber } from "utils/create-big-number";
+import { createBigNumber, BigNumber } from "utils/create-big-number";
 import { ZERO } from "modules/common/constants";
+import { LoginAccount } from "modules/types";
 
 export default function() {
   return selectLoginAccount(store.getState());
@@ -30,7 +31,7 @@ export const selectLoginAccount = createSelector(
         zeroStyled: false,
         decimalsRounded: 4,
       }),
-      dai: formatDai(loginAccount.balances.dai, {
+      weth: formatEther(loginAccount.balances.weth, {
         zeroStyled: false,
         decimalsRounded: 2,
       }),
@@ -48,13 +49,18 @@ export const selectAccountFunds = createSelector(
     let totalAvailableTradingBalance = ZERO;
     let totalFrozenFunds = ZERO;
     let totalRealizedPL = ZERO;
+    let totalOpenOrderFunds = loginAccount.totalOpenOrdersFrozenFunds
+      ? loginAccount.totalOpenOrdersFrozenFunds
+      : ZERO;
 
-    if (loginAccount.balances.dai && loginAccount.balances.dai) {
-      totalAvailableTradingBalance = createBigNumber(loginAccount.balances.dai);
+    if (loginAccount.balances.dai && loginAccount.balances.weth) {
+      totalAvailableTradingBalance = createBigNumber(loginAccount.balances.weth).minus(totalOpenOrderFunds);
     }
 
     if (loginAccount.totalFrozenFunds) {
-      totalFrozenFunds = createBigNumber(loginAccount.totalFrozenFunds);
+      totalFrozenFunds = createBigNumber(loginAccount.totalFrozenFunds).plus(
+        totalOpenOrderFunds
+      );
     }
 
     if (loginAccount.totalRealizedPL) {
@@ -73,3 +79,9 @@ export const selectAccountFunds = createSelector(
     };
   }
 );
+
+export const totalTradingBalance = (loginAccount: LoginAccount): BigNumber => {
+  return createBigNumber(loginAccount.balances.weth).minus(
+    loginAccount.totalOpenOrdersFrozenFunds
+  );
+};

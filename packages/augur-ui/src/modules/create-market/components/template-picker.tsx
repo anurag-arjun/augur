@@ -8,6 +8,7 @@ import {
   createTemplateOutcomes,
   buildMarketDescription,
   getTemplateCategoriesList,
+  getFormattedOutcomes,
 } from 'modules/create-market/get-template';
 import { YES_NO, SCALAR, CATEGORICAL } from 'modules/common/constants';
 import {
@@ -17,14 +18,15 @@ import {
 import deepClone from 'utils/deep-clone';
 import { NewMarket } from 'modules/types';
 import classNames from 'classnames';
+import { createBigNumber } from 'utils/create-big-number';
 
 export const TemplatePicker = ({ newMarket, updateNewMarket }) => {
-  const { categories, marketType } = newMarket;
-  const tertiaryOptions = newMarket.categories[1]
+  const { navCategories, marketType } = newMarket;
+  const tertiaryOptions = newMarket.navCategories[1]
     ? getTemplateCategoriesList(
         {
-          primary: newMarket.categories[0],
-          secondary: newMarket.categories[1],
+          primary: newMarket.navCategories[0],
+          secondary: newMarket.navCategories[1],
           tertiary: '',
         },
         marketType
@@ -35,8 +37,8 @@ export const TemplatePicker = ({ newMarket, updateNewMarket }) => {
   );
   const [defaultValue, setDefaultValue] = useState(null);
   const categoriesFormatted = {
-    primary: categories[0],
-    secondary: categories[1],
+    primary: navCategories[0],
+    secondary: navCategories[1],
     tertiary: tertiary.value,
   };
   const templates = getTemplates(categoriesFormatted, marketType);
@@ -86,36 +88,53 @@ export const TemplatePicker = ({ newMarket, updateNewMarket }) => {
             setDefaultValue(value);
             if (!value) return;
             const template = templates[value];
+            const scalarDenomination = newMarket.marketType === SCALAR && template.denomination;
+            const outcomes =
+            newMarket.marketType === CATEGORICAL
+              ? createTemplateOutcomes(template.inputs)
+              : ['', ''];
+            const outcomesFormatted = getFormattedOutcomes(newMarket.marketType, outcomes, scalarDenomination)
+            let minPrice = '0';
+            let maxPrice = '1';
+            if (newMarket.marketType === SCALAR) {
+              minPrice = '';
+              maxPrice = '';
+              if (template.minPrice !== undefined) minPrice = String(template.minPrice);
+              if (template.maxPrice !== undefined) maxPrice = String(template.maxPrice);
+            }
             updateNewMarket({
               ...deepClone<NewMarket>(EMPTY_STATE),
               description: buildMarketDescription(
                 template.question,
                 template.inputs
               ),
-              outcomes:
-                newMarket.marketType === CATEGORICAL
-                  ? createTemplateOutcomes(template.inputs)
-                  : ['', ''],
+              outcomes,
+              outcomesFormatted,
               currentStep: newMarket.currentStep,
               tickSize:
                 newMarket.marketType === SCALAR && template.tickSize
                   ? template.tickSize
                   : DEFAULT_TICK_SIZE,
-              scalarDenomination:
-                newMarket.marketType === SCALAR &&
-                template.denomination,
-              minPrice:
-                newMarket.marketType === SCALAR && template.minPrice
-                  ? template.minPrice
-                  : newMarket.minPrice,
-              maxPrice:
-                newMarket.marketType === SCALAR && template.maxPrice
-                  ? template.maxPrice
-                  : newMarket.maxPrice,
+              scalarDenomination,
+              minPrice,
+              maxPrice,
+              minPriceBigNumber:
+                minPrice != ''
+                    ? createBigNumber(minPrice)
+                    : null,
+              maxPriceBigNumber:
+                  maxPrice != ''
+                    ? createBigNumber(maxPrice)
+                    : null,
               marketType: newMarket.marketType,
               categories: [
-                newMarket.categories[0],
-                newMarket.categories[1],
+                newMarket.navCategories[0],
+                newMarket.navCategories[1],
+                tertiary.label,
+              ],
+              navCategories: [
+                newMarket.navCategories[0],
+                newMarket.navCategories[1],
                 tertiary.label,
               ],
               template,

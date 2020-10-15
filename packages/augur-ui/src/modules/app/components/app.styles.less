@@ -10,11 +10,12 @@ body {
   background: @color-page-background;
 
   // See Issue #3504
-  top: 0px !important;
+  top: 0 !important;
   position: initial !important;
 
   @media @breakpoint-mobile {
     --is-mobile: true;
+    overflow-y: auto;
   }
 
   @media @breakpoint-mobile-small {
@@ -28,7 +29,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: @roboto;
+  font-family: @Inter;
 }
 
 #root {
@@ -36,7 +37,7 @@ h6 {
 }
 
 .App--blur {
-  filter: blur(2px);
+  filter: blur(@size-2);
 }
 
 .Main {
@@ -50,6 +51,10 @@ h6 {
   @media @breakpoint-mobile {
     /* topbar mobile height */
     grid-template-rows: @top-bar-height-mobile auto;
+    display: block;
+    padding-top: @top-bar-height-mobile;
+    overflow-y: auto;
+    height: max-content;
   }
 
   &.TradingTutorial {
@@ -63,7 +68,7 @@ h6 {
   display: flex;
   justify-content: center;
   align-items: center;
-  border-bottom: 1px solid @color-secondary-action-outline;
+  border-bottom: @size-1 solid @color-secondary-action-outline;
 
   > span {
     .text-12-bold;
@@ -86,6 +91,16 @@ h6 {
   }
 }
 
+.TopBarOverlay {
+  position: fixed;
+  top: @tutorial-banner-height;
+  left: 0;
+  width: 100%;
+  height: calc(@top-bar-height + @top-nav-height);
+  background-color: transparent;
+  z-index: @mask-modal;
+}
+
 .Main__wrap {
   display: grid;
   overflow: hidden;
@@ -94,11 +109,34 @@ h6 {
     grid-template-columns: none;
     grid-template-rows: 0 auto;
     margin-left: 0;
+    display: block;
+    height: fit-content;
+    overflow-y: auto;
+
+    &.StatusErrorShowing {
+      > section {
+        padding-top: @size-42;
+      }
+    }
+
+    &.StatusErrorShowingMarket {
+      top: @top-bar-height-mobile;
+
+      > section {
+        > div:last-of-type {
+          > div {
+            > div:first-of-type {
+              top: calc(~"@{top-bar-height-mobile} + 42px");
+            }
+          }
+        }
+      }
+    }
   }
 }
 
 .Main__wrapMarkets {
-  grid-template-columns: minmax(auto, 250px) auto;
+  grid-template-columns: minmax(auto, @size-250) auto;
 
   @media @breakpoint-mobile {
     grid-template-columns: none;
@@ -111,29 +149,59 @@ h6 {
   }
 }
 
-
 .Main__content {
   height: calc(~"100vh - @{multi-top-bar-height}");
   -webkit-overflow-scrolling: touch;
   overflow-x: hidden;
   overflow-y: auto;
+  padding-bottom: @size-6;
 
   @media @breakpoint-mobile {
+    height: 100%;
     width: 100vw;
-    padding-bottom: @markets-list-footer-padding;
-    position: fixed;
+    padding-bottom: @size-6;
 
     &.SideNavOpen {
       opacity: 0.1;
+
+      > section {
+        pointer-events: none;
+      }
+    }
+  }
+
+  > .BettingUI {
+    display: none;
+
+    path {
+      &:nth-child(odd) {
+        fill: @color-secondary-text;
+        stroke: none;
+      }
+
+      &:nth-child(even) {
+        stroke: @color-secondary-text;
+      }
+    }
+
+    @media @breakpoint-mobile {
+      display: flex;
+      justify-content: center;
+      margin-top: @size-10;
+      width: 100%;
     }
   }
 
   &.Tutorial {
     height: calc(~"100vh - @{multi-top-bar-height} - @{tutorial-banner-height}");
   }
-  
+
   &.ModalShowing {
-    @media @breakpoint-max-tablet {
+    @media @breakpoint-mobile-tablet {
+      overflow-y: hidden;
+    }
+
+    @media @breakpoint-mobile {
       overflow-y: hidden;
     }
   }
@@ -141,18 +209,18 @@ h6 {
 
 .SideBar {
   background: @color-module-background;
-  border-right: 0.0625rem solid @color-dark-grey;
+  border-right: @size-1 solid @color-dark-grey;
+
+  > div:first-of-type {
+    left: 0;
+    position: absolute;
+    right: 0;
+    width: 100%;
+    z-index: @mask-toast;
+  }
 
   @media @breakpoint-mobile {
     padding-top: 0;
-  }
-
-  > div:first-of-type {
-    left: 0px;
-    position: absolute;
-    right: 0px;
-    width: 100%;
-    z-index: @mask-toast;
   }
 }
 
@@ -160,14 +228,18 @@ h6 {
 .SideBar__mobile-bars {
   top: 0;
   left: 0;
-  border-bottom: 1px solid @color-module-background;
+  border-bottom: @size-1 solid @color-module-background;
   display: none;
-  height: @top-bar-height-mobile;
+  height: @side-bar-top-menu-height-mobile;
   outline: none;
-  padding: 1rem;
+  padding: @size-16;
   position: fixed;
-  width: 3.125rem;
+  width: @size-50;
   z-index: @mask-modal;
+
+  &.Closed {
+    height: @top-bar-height-mobile;
+  }
 
   svg {
     height: 100%;
@@ -211,7 +283,44 @@ svg.SideBar__mobile-bars-unseen {
     z-index: @mask-modal;
 
     &.SideNavOpen {
-      opacity: 0.1;
+      background: @color-dark-grey;
+      opacity: 0.9;
+      > header {
+        > div:last-of-type {
+          opacity: 0.1;
+        }
+      }
     }
   }
+}
+
+.Footer {
+  .text-12;
+
+  display: flex;
+  justify-content: space-between;
+  color: @color-secondary-text;
+  border-top: @size-1 solid @color-dark-grey;
+
+  > div {
+    display: flex;
+    justify-content: flex-start;
+    padding: @size-12 @size-16;
+
+    > span {
+      color: @color-primary-text;
+      margin-left: @size-4;
+    }
+  }
+
+  @media @breakpoint-mobile {
+    > div:last-of-type {
+      display: none;
+    }
+  }
+}
+
+.TradingEth {
+    .text-14-bold;
+
 }

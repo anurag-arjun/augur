@@ -14,11 +14,11 @@
 
 // let connector: WebWorkerConnector;
 // let provider: EthersProvider;
-// let john: ContractAPI;
+// let john: TestContractAPI;
 // let addresses: any;
-// let db: Promise<DB>;
+//
 
-// const mock = makeDbMock();
+//
 
 // jest.mock("@augurproject/sdk/build/state/Sync.worker", () => {
 //   return {
@@ -34,9 +34,6 @@
 // jest.mock("@augurproject/sdk/build/state/index", () => {
 //   return {
 //     __esModule: true,
-//     buildAPI: () => {
-//       // return new API(john.augur, db);
-//     },
 //   };
 // });
 
@@ -47,13 +44,13 @@
 //   provider = contractData.provider;
 //   addresses = contractData.addresses;
 
-//   john = await ContractAPI.userWrapper(ACCOUNTS, 0, provider, addresses);
+//   john = await TestContractAPI.userWrapper(ACCOUNTS, 0, provider, addresses);
 //   db = mock.makeDB(john.augur, ACCOUNTS);
 
-//   await john.approveCentralAuthority();
+//   await john.approve();
 // }, 120000);
 
-test("WebWorkerConnector :: Should route correctly and handle events", async (done) => {
+test('WebWorkerConnector :: Should route correctly and handle events', async done => {
   // const universe = john.augur.contracts.universe;
   // const endTime = (await john.getTimestamp()).plus(SECONDS_IN_A_DAY);
   // const lowFeePerCashInAttoCash = new BigNumber(10).pow(18).div(20); // 5% creator fee

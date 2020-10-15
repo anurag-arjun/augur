@@ -25,7 +25,7 @@ const PositionsHeader = (props: PositionsHeaderProps) => (
     <li>Quantity</li>
     <li>
       Average
-      {props.extendedView ? " " : <br />}
+      <br />
       Price
     </li>
     {!props.extendedView && (
@@ -57,14 +57,14 @@ const PositionsHeader = (props: PositionsHeaderProps) => (
           Returns
         </span>
         <DaiPercentButton
-          showEth={!props.showPercent}
+          showDai={!props.showPercent}
           title="dai/percent"
           action={props.updateShowPercent}
         />
       </li>
     )}
-    {props.extendedView && <li>Unrealized P/L</li>}
-    {props.extendedView && <li>Realized P/L</li>}
+    {props.extendedView && <li>Unrealized<br/>P/L</li>}
+    {props.extendedView && <li>Realized<br/>P/L</li>}
   </ul>
 );
 

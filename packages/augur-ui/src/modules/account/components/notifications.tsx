@@ -9,19 +9,18 @@ import makeQuery from "modules/routes/helpers/make-query";
 
 import { NotificationCard } from "modules/account/components/notification-card";
 import { PillLabel } from "modules/common/labels";
-import { REPORTING, DISPUTING } from "modules/routes/constants/views";
+import { MARKET } from "modules/routes/constants/views";
 import {
   MARKET_ID_PARAM_NAME,
   RETURN_PARAM_NAME,
 } from "modules/routes/constants/param-names";
 import {
-  FinalizeTemplate,
   OpenOrdersResolvedMarketsTemplate,
   ReportEndingSoonTemplate,
   DisputeTemplate,
   ClaimReportingFeesTemplate,
   UnsignedOrdersTemplate,
-  ProceedsToClaimTemplate,
+  ProceedsToClaimTemplate, MostLikelyInvalidMarketsTemplate, FinalizeWarpSyncMarketTemplate,
 } from "modules/account/components/notifications-templates";
 
 import { Notification, DateFormattedObject, QueryEndpoints } from "modules/types";
@@ -33,6 +32,8 @@ import {
   NEW,
 } from "modules/common/constants";
 
+import Styles from "modules/account/components/notification.styles.less";
+
 export interface NotificationsProps extends RouteComponentProps {
   notifications: Notification[];
   updateReadNotifications: Function;
@@ -41,16 +42,24 @@ export interface NotificationsProps extends RouteComponentProps {
   disputingWindowEndTime: DateFormattedObject;
   finalizeMarketModal: Function;
   dispute: Function;
+  showReportingModal: Function;
   claimMarketsProceeds: Function;
   claimReportingFees: Function;
   unsignedOrdersModal: Function;
   openOrdersModal: Function;
   toggle: Function;
+  finalize: Function;
 }
 
 export interface NotificationsState {
   disabledNotifications: any;
 }
+
+const notificationsWithCountdown = [
+  NOTIFICATION_TYPES.marketsInDispute,
+  NOTIFICATION_TYPES.reportOnMarkets,
+  NOTIFICATION_TYPES.proceedsToClaim,
+];
 
 class Notifications extends React.Component<
   NotificationsProps,
@@ -80,26 +89,7 @@ class Notifications extends React.Component<
       case NOTIFICATION_TYPES.reportOnMarkets:
         buttonAction = () => {
           this.markAsRead(notification);
-          const queryLink: QueryEndpoints = {
-            [MARKET_ID_PARAM_NAME]: notification.market && notification.market.id,
-            [RETURN_PARAM_NAME]: location.hash,
-          };
-          history.push({
-            pathname: makePath(REPORTING, null),
-            search: makeQuery(queryLink),
-          });
-        };
-        break;
-
-      case NOTIFICATION_TYPES.finalizeMarkets:
-        buttonAction = () => {
-          this.markAsRead(notification);
-          this.disableNotification(notification.id, true);
-          if (notification.market) {
-            this.props.finalizeMarketModal(notification.market.id, () =>
-              this.disableNotification(notification.id, false)
-            );
-          }
+          this.props.showReportingModal(notification.market.id);
         };
         break;
 
@@ -117,11 +107,16 @@ class Notifications extends React.Component<
       case NOTIFICATION_TYPES.unsignedOrders:
         buttonAction = () => {
           this.markAsRead(notification);
-          this.disableNotification(notification.id, true);
           if (notification.market) {
-            this.props.unsignedOrdersModal(notification.market.id, () =>
-              this.disableNotification(notification.id, false)
-            );
+            this.props.unsignedOrdersModal(notification.market.id, () => {
+              const queryLink: QueryEndpoints = {
+                [MARKET_ID_PARAM_NAME]: notification.market && notification.market.id,
+              };
+              history.push({
+                pathname: makePath(MARKET, null),
+                search: makeQuery(queryLink),
+              });
+            });
           }
         };
         break;
@@ -129,10 +124,7 @@ class Notifications extends React.Component<
       case NOTIFICATION_TYPES.claimReportingFees:
         buttonAction = () => {
           this.markAsRead(notification);
-          this.disableNotification(notification.id, true);
-          this.props.claimReportingFees(notification.claimReportingFees, () =>
-            this.disableNotification(notification.id, false)
-          );
+          this.props.claimReportingFees(notification.claimReportingFees);
         };
         break;
 
@@ -145,6 +137,29 @@ class Notifications extends React.Component<
           );
         };
         break;
+
+      case NOTIFICATION_TYPES.marketIsMostLikelyInvalid:
+        buttonAction = () => {
+          this.markAsRead(notification);
+          const queryLink: QueryEndpoints = {
+            [MARKET_ID_PARAM_NAME]: notification.market && notification.market.id,
+          };
+          history.push({
+            pathname: makePath(MARKET, null),
+            search: makeQuery(queryLink),
+          });
+        };
+        break;
+
+      case NOTIFICATION_TYPES.finalizeMarket:
+          buttonAction = () => {
+            this.markAsRead(notification);
+            this.disableNotification(notification.id, true);
+            this.props.finalize(notification.market.id, () =>
+              this.disableNotification(notification.id, false)
+            );
+          };
+          break;
 
       default:
         buttonAction = () => {
@@ -191,10 +206,11 @@ class Notifications extends React.Component<
     const newNotificationCount = notifications.filter((item) => item.isNew)
       .length;
 
-    const rows = orderBy(notifications, 'isNew', ['desc']).map((notification) => {
+    const rows = orderBy(notifications, 'isNew', ['desc']).filter(notification => !notification.hideNotification).map((notification) => {
       const {
         id,
         isImportant,
+        redIcon,
         isNew,
         title,
         buttonLabel,
@@ -204,6 +220,9 @@ class Notifications extends React.Component<
         claimReportingFees,
         totalProceeds,
         type,
+        queueName,
+        queueId,
+        hideCheckbox,
       } = notification;
 
       const templateProps = {
@@ -216,25 +235,30 @@ class Notifications extends React.Component<
         buttonAction,
         buttonLabel,
         type,
+        queueName,
+        queueId,
       };
 
       const notificationCardProps = {
         id,
         type,
         isImportant,
+        redIcon,
         isNew,
         title,
         buttonLabel,
         buttonAction,
+        hideCheckbox
       };
 
       const isDisabled: boolean =
         this.state.disabledNotifications[id] &&
         this.state.disabledNotifications[id] === true;
-
+      const hasCounter = market && notificationsWithCountdown.includes(type);
       return (
         <NotificationCard
           key={id}
+          noCounter={!hasCounter}
           {...notificationCardProps}
         >
           {type === NOTIFICATION_TYPES.resolvedMarketsOpenOrders ? (
@@ -248,9 +272,6 @@ class Notifications extends React.Component<
               isDisabled={isDisabled}
               {...templateProps}
             />
-          ) as any : null}
-          {type === NOTIFICATION_TYPES.finalizeMarkets ? (
-            <FinalizeTemplate isDisabled={isDisabled} {...templateProps} />
           ) as any : null}
           {type === NOTIFICATION_TYPES.marketsInDispute ? (
             <DisputeTemplate isDisabled={isDisabled} {...templateProps} />
@@ -273,12 +294,24 @@ class Notifications extends React.Component<
               {...templateProps}
             />
           ) as any : null}
+          {type === NOTIFICATION_TYPES.marketIsMostLikelyInvalid ? (
+            <MostLikelyInvalidMarketsTemplate
+              isDisabled={isDisabled}
+              {...templateProps}
+            />
+          ) as any : null}
+          {type === NOTIFICATION_TYPES.finalizeMarket ? (
+            <FinalizeWarpSyncMarketTemplate
+              isDisabled={isDisabled}
+              {...templateProps}
+            />
+          ) as any : null}
         </NotificationCard>
       );
     });
 
     const labelContent = (
-      <div>
+      <div className={Styles.NewTopLabel}>
         {newNotificationCount > 0 && (
           <PillLabel label={`${newNotificationCount} ${NEW}`} hideOnMobile />
         )}
@@ -290,6 +323,7 @@ class Notifications extends React.Component<
         title={NOTIFICATIONS_TITLE}
         rightContent={labelContent}
         toggle={toggle}
+        customClass={notificationCount !== 0 && Styles.DarkBackgroundMobile}
         content={
           notificationCount === 0 ? (
             <EmptyDisplay

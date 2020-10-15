@@ -5,7 +5,7 @@ import { selectMarket } from 'modules/markets/selectors/market';
 import { closeModal } from 'modules/modal/actions/close-modal';
 import getUserOpenOrders from 'modules/orders/selectors/user-open-orders';
 import { cancelAllOpenOrders } from 'modules/orders/actions/cancel-order';
-import { AppState } from 'store';
+import { AppState } from 'appStore';
 import { ThunkDispatch } from 'redux-thunk';
 import { Action } from 'redux';
 
@@ -28,10 +28,11 @@ const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Action>) => ({
 
 const mergeProps = (sP, dP, oP) => {
   const openOrders = sP.userOpenOrders;
-  const { description: marketTitle } = sP.market;
+  const { description: marketTitle, marketId } = sP.market;
   return {
     title: 'Open Orders in resolved market',
     description: ['You have open orders in this resolved market:'],
+    marketId,
     openOrders: true,
     marketTitle,
     orders: openOrders,
@@ -40,6 +41,15 @@ const mergeProps = (sP, dP, oP) => {
         text: 'Cancel All',
         action: () => {
           dP.cancelAllOpenOrders(openOrders);
+          dP.closeModal();
+        },
+      },
+      {
+        text: 'Close',
+        action: () => {
+          if (sP.modal.cb) {
+            sP.modal.cb();
+          }
           dP.closeModal();
         },
       },

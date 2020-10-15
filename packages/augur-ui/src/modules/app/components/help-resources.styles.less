@@ -1,42 +1,40 @@
 @import (reference) '~assets/styles/shared';
 
-.HelpResources {
-  color: @color-primary-text;
-  position: relative;
-  display: flex;
-  flex: 1;
-  max-width: 57px;
+// Used in Betting UI
+.HelpIcon {
   z-index: @above-all-content-above;
-
-  @media @breakpoint-mobile {
-    display: none;
-  }
-
   > span {
     padding: @size-18;
     display: flex;
     cursor: pointer;
-    border: 1px solid @color-dark-grey;
+    border: @size-1 solid @color-dark-grey;
     border-bottom: 0;
+    max-height: @size-56;
 
     > svg {
       width: @size-20;
       height: @size-20;
 
-      > path {
+      > circle {
         fill: @color-primary-text;
+      }
+
+      > path {
+        fill: @color-dark-grey;
       }
     }
 
     &:hover {
-      border: 1px solid @color-module-background;
+      border: @size-1 solid @color-module-background;
       border-bottom: 0;
       background: @color-module-background;
     }
 
-
     @media @breakpoint-mobile {
       border: none;
+      max-height: @top-bar-height-mobile;
+      padding: @size-12;
+      align-items: center;
 
       &:hover {
         border: none;
@@ -45,78 +43,181 @@
     }
   }
 
-  > div {
-    position: absolute;
-    top: 0;
-    background: @color-module-background;
-    border: 1px solid @color-secondary-action-outline;
-    border-radius: @border-radius-default;
-    width: 210px;
-    top: 100%;
-    right: -1px;
-    margin-top: -1px;
-    border-top-right-radius: 0;
-    border-top-left-radius: 0;
-    display: flex;
-    flex-direction: column;
-
-    > span:first-of-type {
-      .mono-11-bold;
-
-      text-transform: uppercase;
-      padding: @size-22 @size-16;
-      color: @color-primary-text;
-      background: @color-module-background;
-    }
-
-    > span:not(:first-of-type) {
-      padding: @size-13 @size-16;
-      background: @color-table-header;
-      border-top: 1px solid @color-dark-grey;
-
-      &.hideOnTablet {
-        @media @breakpoint-smallish-desktop {
-          display: none;
-        }
-      }
-    }
-
-    > span:last-of-type {
-      border-bottom-left-radius: @border-radius-default;
-      border-bottom-right-radius: @border-radius-default;
-    }
-
-    @media @breakpoint-mobile {
-      bottom: unset;
-      margin-bottom: -1px;
-      border-bottom-right-radius: 0;
-      border-bottom-left-radius: 0;
-      position: absolute;
-      right: 0px;
-      top: 65px;
-
-      > span:not(:first-of-type) {
-        border-bottom: 1px solid @color-dark-grey;
-      }
-
-      > span:last-of-type {
-        border-top-left-radius: @border-radius-default;
-        border-top-right-radius: @border-radius-default;
-      }
-    }
-  }
-
   &.Open {
     > span {
-      border: 1px solid @color-secondary-action-outline;
       border-bottom: 0;
       background: @color-module-background;
       z-index: @above-all-content;
 
       @media @breakpoint-mobile {
-        border: 1px solid @color-secondary-action-outline;
         border-top: 0;
       }
     }
+  }
+}
+
+.HelpMenuList {
+  position: absolute;
+  background: @color-module-background;
+  border: @size-1 solid @color-secondary-action-outline;
+  border-radius: @border-radius-default;
+  width: @size-210;
+  top: 100%;
+  right: -@size-1;
+  margin-top: -@size-1;
+  border-top-right-radius: 0;
+  border-top-left-radius: 0;
+  display: flex;
+  flex-direction: column;
+
+  > li {
+      > button {
+      width: 100%;
+      justify-content: left;
+      background: none;
+      border: none;
+    }
+  }
+
+  > li:first-of-type {
+    .mono-11-bold;
+
+    text-transform: uppercase;
+    padding: @size-22 @size-16;
+    color: @color-primary-text;
+    background: @color-module-background;
+  }
+
+  > li:not(:first-of-type) {
+    padding: @size-13 @size-16;
+    background: @color-table-header;
+    border-top: @size-1 solid @color-dark-grey;
+
+    &.hideOnTablet {
+      @media @breakpoint-smallish-desktop {
+        display: none;
+      }
+    }
+  }
+
+  > li:last-of-type {
+    border-bottom-left-radius: @border-radius-default;
+    border-bottom-right-radius: @border-radius-default;
+  }
+
+  @media @breakpoint-mobile {
+    bottom: unset;
+    margin-bottom: -@size-1;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+    position: absolute;
+    right: 0px;
+    top: @size-72;
+    display: contents;
+
+    > li:not(:first-of-type) {
+      border-bottom: @size-1 solid @color-dark-grey;
+    }
+
+    > li:last-of-type {
+      border-top-left-radius: @border-radius-default;
+      border-top-right-radius: @border-radius-default;
+    }
+  }
+}
+
+.HelpMenu {
+  position: absolute;
+  background: @color-module-background;
+  border: @size-1 solid @color-secondary-action-outline;
+  border-radius: @border-radius-default;
+  width: @size-210;
+  top: 100%;
+  right: -@size-2;
+  margin-top: -@size-1;
+  border-top-right-radius: 0;
+  border-top-left-radius: 0;
+  display: flex;
+  flex-direction: column;
+
+  @media @breakpoint-mobile-tablet {
+    > span:nth-of-type(2) {
+      display: none;
+    }
+  }
+
+  > span {
+      > button {
+      width: 100%;
+      justify-content: left;
+      background: none;
+      border: none;
+    }
+  }
+
+  > span:first-of-type {
+    .mono-11-bold;
+
+    text-transform: uppercase;
+    padding: @size-22 @size-16;
+    color: @color-primary-text;
+    background: @color-module-background;
+  }
+
+  > span:not(:first-of-type) {
+    padding: @size-13 @size-16;
+    background: @color-table-header;
+    border-top: @size-1 solid @color-dark-grey;
+
+    &.hideOnTablet {
+      @media @breakpoint-smallish-desktop {
+        display: none;
+      }
+    }
+  }
+
+  > span:nth-of-type(3),
+  > span:nth-last-of-type(2) {
+    border-top-color: @color-secondary-action-outline;
+  }
+
+  > span:last-of-type {
+    border-bottom-left-radius: @border-radius-default;
+    border-bottom-right-radius: @border-radius-default;
+  }
+
+  @media @breakpoint-mobile {
+    bottom: unset;
+    margin-bottom: -@size-1;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+    position: absolute;
+    right: -@size-2;
+    top: @size-72;
+
+    > span:not(:first-of-type) {
+      border-bottom: @size-1 solid @color-dark-grey;
+    }
+
+    > span:last-of-type {
+      border-top-left-radius: @border-radius-default;
+      border-top-right-radius: @border-radius-default;
+    }
+  }
+}
+
+.HelpResources {
+  border-right: @size-1 solid @color-module-background;
+  color: @color-primary-text;
+  display: flex;
+  flex: 1;
+  max-height: @size-56;
+  max-width: @size-56;
+  position: relative;
+  z-index: @above-all-content-above;
+
+  @media @breakpoint-mobile {
+    max-height: @top-bar-height-mobile;
+    max-width: @top-bar-height-mobile;
   }
 }

@@ -1,5 +1,8 @@
-import { augurSdk } from 'services/augursdk';
+import type { Getters } from '@augurproject/sdk';
+import { GetMarketsSortBy, MarketReportingState } from '@augurproject/sdk-lite';
+import { AppState } from 'appStore';
 import {
+  FILTER_ALL,
   MARKET_CLOSED,
   MARKET_REPORTING,
   MARKET_SORT_PARAMS,
@@ -7,17 +10,20 @@ import {
   MAX_SPREAD_ALL_SPREADS,
   REPORTING_STATE,
 } from 'modules/common/constants';
-import { ThunkAction } from 'redux-thunk';
-import { AppState } from 'store';
-import { Getters, MarketReportingState } from '@augurproject/sdk';
-import { addUpdateMarketInfos, UpdateMarketsAction, } from 'modules/markets/actions/update-markets-data';
-import { getOneWeekInFutureTimestamp } from 'utils/format-date';
+import {
+  addUpdateMarketInfos,
+  UpdateMarketsAction,
+} from 'modules/markets/actions/update-markets-data';
 import { updateReportingList } from 'modules/reporting/actions/update-reporting-list';
 import { LoadReportingMarketsOptions } from 'modules/types';
 import { Action } from 'redux';
+import { ThunkAction } from 'redux-thunk';
+import { augurSdk } from 'services/augursdk';
+import { augurSdkLite } from 'services/augursdklite';
+import { getOneWeekInFutureTimestamp } from 'utils/format-date';
 
 interface SortOptions {
-  sortBy?: Getters.Markets.GetMarketsSortBy;
+  sortBy?: GetMarketsSortBy;
   isSortDescending?: boolean;
 }
 
@@ -32,71 +38,12 @@ export interface LoadMarketsFilterOptions {
   limit: number;
   offset: number;
   templateFilter?: string;
+  marketTypeFilter?: string;
 }
 
-export const loadMarketsByFilter = (
-  filterOptions: LoadMarketsFilterOptions,
-  cb: Function = () => {}
-): ThunkAction<void, AppState, void, UpdateMarketsAction> => async (
-  dispatch,
-  getState
-) => {
-  const { universe, connection } = getState();
-  if (!(universe && universe.id)) return;
-
-  // Check to see if SDK is connected first
-  // since URL parameters can trigger this action before the SDK is ready
-  if (!connection.isConnected) return;
-
-  const augur = augurSdk.get();
-
-  const reportingStates: string[] = [];
-  const sort: SortOptions = {};
-  switch (filterOptions.sort) {
-    case MARKET_SORT_PARAMS.RECENTLY_TRADED: {
-      // Sort By Recently Traded:
-      sort.sortBy = Getters.Markets.GetMarketsSortBy.lastTradedTimestamp;
-      sort.isSortDescending = true;
-      break;
-    }
-    case MARKET_SORT_PARAMS.END_DATE: {
-      // Sort By End Date (soonest first):
-      sort.sortBy = Getters.Markets.GetMarketsSortBy.endTime;
-      sort.isSortDescending = false;
-      break;
-    }
-    case MARKET_SORT_PARAMS.VOLUME: {
-      // Highest volume
-      sort.sortBy = Getters.Markets.GetMarketsSortBy.volume;
-      sort.isSortDescending = true;
-      break;
-    }
-    case MARKET_SORT_PARAMS.LIQUIDITY: {
-      // Highest liquidity
-      sort.sortBy = Getters.Markets.GetMarketsSortBy.liquidity;
-      sort.isSortDescending = true;
-      break;
-    }
-    case MARKET_SORT_PARAMS.CREATION_TIME: {
-      // Sort By Creation Date (most recent first):
-      sort.sortBy = Getters.Markets.GetMarketsSortBy.timestamp;
-      sort.isSortDescending = true;
-      break;
-    }
-    case MARKET_SORT_PARAMS.OPEN_INTEREST: {
-      sort.sortBy = Getters.Markets.GetMarketsSortBy.marketOI;
-      sort.isSortDescending = true;
-      break;
-    }
-    default: {
-      // Sort By Recently Traded
-      sort.sortBy = Getters.Markets.GetMarketsSortBy.lastTradedTimestamp;
-      sort.isSortDescending = true;
-      break;
-    }
-  }
-
-  switch (filterOptions.filter) {
+export const organizeReportingStates = (reportingState) => {
+  let reportingStates: string[] = [];
+  switch (reportingState) {
     case MARKET_REPORTING: {
       // reporting markets only:
       reportingStates.push(
@@ -121,7 +68,78 @@ export const loadMarketsByFilter = (
     }
   }
 
-  const paginationOffset = filterOptions.offset ? filterOptions.offset - 1 : 0;
+  return reportingStates;
+}
+
+export const loadMarketsByFilter = (
+  filterOptions: LoadMarketsFilterOptions,
+  cb: Function = () => {}
+): ThunkAction<void, AppState, void, UpdateMarketsAction> => async (
+  dispatch,
+  getState
+) => {
+  const { universe, connection } = getState();
+  if (!(universe && universe.id)) return;
+
+  // Check to see if SDK is connected first
+  // since URL parameters can trigger this action before the SDK is ready
+  if (!connection.isConnected) return;
+
+  const augur = augurSdk.get();
+
+  const reportingStates: string[] = organizeReportingStates(filterOptions.filter);
+  const sort: SortOptions = {};
+  switch (filterOptions.sort) {
+    case MARKET_SORT_PARAMS.MOST_TRADED: {
+      // Sort By Most Traded:
+      sort.sortBy = GetMarketsSortBy.numberOfTrades;
+      sort.isSortDescending = true;
+      break;
+    }
+    case MARKET_SORT_PARAMS.RECENTLY_TRADED: {
+      // Sort By Recently Traded:
+      sort.sortBy = GetMarketsSortBy.lastTradedTimestamp;
+      sort.isSortDescending = true;
+      break;
+    }
+    case MARKET_SORT_PARAMS.END_DATE: {
+      // Sort By End Date (soonest first):
+      sort.sortBy = GetMarketsSortBy.endTime;
+      sort.isSortDescending = false;
+      break;
+    }
+    case MARKET_SORT_PARAMS.VOLUME: {
+      // Highest volume
+      sort.sortBy = GetMarketsSortBy.volume;
+      sort.isSortDescending = true;
+      break;
+    }
+    case MARKET_SORT_PARAMS.LIQUIDITY: {
+      // Highest liquidity
+      sort.sortBy = GetMarketsSortBy.liquidity;
+      sort.isSortDescending = true;
+      break;
+    }
+    case MARKET_SORT_PARAMS.CREATION_TIME: {
+      // Sort By Creation Date (most recent first):
+      sort.sortBy = GetMarketsSortBy.timestamp;
+      sort.isSortDescending = true;
+      break;
+    }
+    case MARKET_SORT_PARAMS.OPEN_INTEREST: {
+      sort.sortBy = GetMarketsSortBy.marketOI;
+      sort.isSortDescending = true;
+      break;
+    }
+    default: {
+      // Sort By Recently Traded
+      sort.sortBy = GetMarketsSortBy.lastTradedTimestamp;
+      sort.isSortDescending = true;
+      break;
+    }
+  }
+
+  const paginationOffset = filterOptions.offset ? Number(filterOptions.offset) - 1 : 0;
 
   let params = {
     universe: universe.id,
@@ -129,18 +147,20 @@ export const loadMarketsByFilter = (
     search: filterOptions.search ? filterOptions.search : '',
     maxFee: filterOptions.maxFee,
     includeInvalidMarkets: filterOptions.includeInvalidMarkets,
-    limit: filterOptions.limit,
-    offset: paginationOffset * filterOptions.limit,
+    limit: Number(filterOptions.limit),
+    offset: paginationOffset * Number(filterOptions.limit),
     reportingStates,
     maxLiquiditySpread: filterOptions.maxLiquiditySpread as Getters.Markets.MaxLiquiditySpread,
     ...sort,
     templateFilter: filterOptions.templateFilter as Getters.Markets.TemplateFilters,
+    marketTypeFilter: filterOptions.marketTypeFilter,
   };
 
   // not pass properties at their max value
   if (filterOptions.maxFee === MAX_FEE_100_PERCENT) delete params.maxFee;
   if (filterOptions.maxLiquiditySpread === MAX_SPREAD_ALL_SPREADS)
     delete params.maxLiquiditySpread;
+  if (filterOptions.marketTypeFilter === FILTER_ALL) delete params.marketTypeFilter;
 
   const marketList = await augur.getMarkets({ ...params });
   dispatch(addUpdateMarketInfos(marketList.markets));
@@ -249,8 +269,9 @@ const loadReportingMarkets = (
     dispatch(updateReportingList(reportingState, [], filterOptions, true));
   }
   const params = {
-    sortBy: Getters.Markets.GetMarketsSortBy.endTime,
+    sortBy: GetMarketsSortBy.endTime,
     universe: universe.id,
+    includeWarpSyncMarkets: true,
     ...filterOptions,
   };
   // format offset to getters expectations
@@ -273,8 +294,12 @@ const loadReportingMarkets = (
   if (cb) cb(null, marketList);
 };
 
-export const hotloadMarket = (marketId) => {
+const hotLoadMarket = marketId => {
   console.log('Hot Loading Market', marketId);
-  const augur = augurSdk.get();
-  augur.hotloadMarket(marketId);
+  const augurLite = augurSdkLite.get();
+  return augurLite.hotloadMarket(marketId);
+};
+
+export const hotloadMarket = (marketId) => {
+  return hotLoadMarket(marketId);
 }

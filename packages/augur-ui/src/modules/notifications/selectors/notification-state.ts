@@ -1,53 +1,77 @@
-import { createSelector } from 'reselect';
-import { selectMarkets } from 'modules/markets/selectors/markets-all';
+import { MarketReportingState } from '@augurproject/sdk-lite';
+import store, { AppState } from 'appStore';
 import {
+  selectAccountPositionsState,
   selectLoginAccountAddress,
+  selectMarketInfosState,
   selectPendingLiquidityOrders,
   selectReadNotificationState,
-  selectAccountPositionsState,
-  selectMarketInfosState,
-} from 'store/select-state';
-import { MarketReportingState } from '@augurproject/sdk';
+  selectUserMarketOpenOrders,
+} from 'appStore/select-state';
 import {
-  NOTIFICATION_TYPES,
-  TYPE_DISPUTE,
-  TYPE_VIEW_ORDERS,
-  TYPE_VIEW_DETAILS,
-  RESOLVED_MARKETS_OPEN_ORDERS_TITLE,
-  REPORTING_ENDS_SOON_TITLE,
-  FINALIZE_MARKET_TITLE,
+  CANCELORDERS,
   CLAIM_REPORTING_FEES_TITLE,
-  UNSIGNED_ORDERS_TITLE,
+  CLAIMMARKETSPROCEEDS,
+  FINALIZE,
+  MARKET_IS_MOST_LIKELY_INVALID_TITLE,
+  NOTIFICATION_TYPES,
   PROCEEDS_TO_CLAIM_TITLE,
+  REDEEMSTAKE,
+  REPORTING_ENDS_SOON_TITLE,
   REPORTING_STATE,
+  RESOLVED_MARKETS_OPEN_ORDERS_TITLE,
+  SIGN_SEND_ORDERS,
+  SUBMIT_DISPUTE,
+  SUBMIT_REPORT,
+  TRANSACTIONS,
+  TYPE_DISPUTE,
+  TYPE_REPORT,
+  TYPE_VIEW_DETAILS,
+  TYPE_VIEW_ORDERS,
   ZERO,
 } from 'modules/common/constants';
+import { selectMarket } from 'modules/markets/selectors/market';
+import { selectMarkets } from 'modules/markets/selectors/markets-all';
 import userOpenOrders from 'modules/orders/selectors/user-open-orders';
-import store, { AppState } from 'store';
+import { selectLoginAccountClaimablePositions } from 'modules/positions/selectors/login-account-claimable-winnings';
+import { selectReportingWinningsByMarket } from 'modules/positions/selectors/select-reporting-winnings-by-market';
 import {
   MarketClaimablePositions,
   MarketReportClaimableContracts,
 } from 'modules/types';
-import { selectLoginAccountClaimablePositions } from 'modules/positions/selectors/login-account-claimable-winnings';
-import { selectReportingWinningsByMarket } from 'modules/positions/selectors/select-reporting-winnings-by-market';
-import { selectMarket } from 'modules/markets/selectors/market';
+import { createSelector } from 'reselect';
 import { isSameAddress } from 'utils/isSameAddress';
 
 // Get all the users CLOSED markets with OPEN ORDERS
 export const selectResolvedMarketsOpenOrders = createSelector(
-  selectMarkets,
-  markets => {
-    if (markets.length > 0) {
-      return markets
-        .filter(
-          market =>
-            market.reportingState === REPORTING_STATE.AWAITING_FINALIZATION ||
-            market.reportingState === REPORTING_STATE.FINALIZED
-        )
-        .filter(market => userOpenOrders(market.id).length > 0)
-        .map(getRequiredMarketData);
-    }
-    return [];
+  selectUserMarketOpenOrders,
+  openOrders => {
+    return Object.keys(openOrders)
+      .map(id => selectMarket(id))
+      .filter(
+        market =>
+        market && (market.reportingState == REPORTING_STATE.AWAITING_FINALIZATION ||
+          market.reportingState === REPORTING_STATE.FINALIZED)
+      )
+      .filter(market => userOpenOrders(market.id).length > 0)
+      .map(getRequiredMarketData);
+  }
+);
+
+export const selectMostLikelyInvalidMarkets = createSelector(
+  selectMarketInfosState,
+  selectUserMarketOpenOrders,
+  selectAccountPositionsState,
+  (markets, openOrders, positions) => {
+    let marketIds = Object.keys(positions);
+    return Object.keys(openOrders)
+      .map(id => selectMarket(id))
+      .filter(
+        market =>
+          market && market.mostLikelyInvalid
+      )
+      .filter(market => (userOpenOrders(market.id).length > 0 || marketIds.includes(market.id)))
+      .map(getRequiredMarketData);
   }
 );
 
@@ -69,17 +93,12 @@ export const selectReportOnMarkets = createSelector(
   }
 );
 
-// Get all the users markets that can be finalized to get their validity bond
-// not filtering out markets that resolve as invalid.
+// Tell user they can get REP if they finalize warp sync market
 export const selectFinalizeMarkets = createSelector(
   selectMarketInfosState,
-  selectLoginAccountAddress,
-  (marketInfos, address) => {
+  marketInfos => {
     const marketId = Object.keys(marketInfos).filter(
-      id =>
-        (isSameAddress(marketInfos[id].author, address) ||
-          isSameAddress(marketInfos[id].DesignatedReporter, address)) &&
-        marketInfos[id].reportingState === REPORTING_STATE.AWAITING_FINALIZATION
+      id => marketInfos[id].reportingState === REPORTING_STATE.AWAITING_FINALIZATION && marketInfos[id].isWarpSync
     );
     if (marketId.length > 0) {
       return marketId.map(id => selectMarket(id)).map(getRequiredMarketData);
@@ -96,8 +115,8 @@ export const selectMarketsInDispute = createSelector(
   (markets, positions, address) => {
     const state = store.getState() as AppState;
     let marketIds = Object.keys(positions);
-    const { reporting, disputing } = state.loginAccount;
-    if (disputing && disputing.contracts) {
+    const { reporting } = state.loginAccount;
+    if (reporting && reporting.disputing && reporting.disputing.contracts) {
       marketIds = Array.from(
         new Set([
           ...marketIds,
@@ -107,7 +126,7 @@ export const selectMarketsInDispute = createSelector(
         ])
       );
     }
-    if (reporting.reporting && reporting.reporting.contracts) {
+    if (reporting && reporting.reporting && reporting.reporting.contracts) {
       marketIds = Array.from(
         new Set([
           ...marketIds,
@@ -129,7 +148,11 @@ export const selectMarketsInDispute = createSelector(
           const market = selectMarket(id);
           if (!market) return p;
           if (
-            market.reportingState !== MarketReportingState.CrowdsourcingDispute
+            market.reportingState !==
+              MarketReportingState.CrowdsourcingDispute ||
+            !market.disputeInfo ||
+            !market.disputeInfo.disputeWindow ||
+            market.disputeInfo.disputeWindow.disputeRound === '1'
           )
             return p;
           return [...p, market];
@@ -164,19 +187,21 @@ export const selectUnsignedOrders = createSelector(
 export const selectNotifications = createSelector(
   selectReportOnMarkets,
   selectResolvedMarketsOpenOrders,
-  selectFinalizeMarkets,
   selectMarketsInDispute,
   selectReportingWinningsByMarket,
   selectUnsignedOrders,
+  selectMostLikelyInvalidMarkets,
+  selectFinalizeMarkets,
   selectReadNotificationState,
   (
     reportOnMarkets,
     resolvedMarketsOpenOrder,
-    finalizeMarkets,
     marketsInDispute,
     claimReportingFees,
     unsignedOrders,
-    readNotifications
+    mostLikelyInvalidMarkets,
+    finalizeMarkets,
+    readNotifications,
   ): Notification[] => {
     // Generate non-unquie notifications
     const reportOnMarketsNotifications = generateCards(
@@ -187,10 +212,6 @@ export const selectNotifications = createSelector(
       resolvedMarketsOpenOrder,
       NOTIFICATION_TYPES.resolvedMarketsOpenOrders
     );
-    const finalizeMarketsNotifications = generateCards(
-      finalizeMarkets,
-      NOTIFICATION_TYPES.finalizeMarkets
-    );
     const marketsInDisputeNotifications = generateCards(
       marketsInDispute,
       NOTIFICATION_TYPES.marketsInDispute
@@ -199,17 +220,26 @@ export const selectNotifications = createSelector(
       unsignedOrders,
       NOTIFICATION_TYPES.unsignedOrders
     );
-
+    const mostLikelyInvalidMarketsNotifications = generateCards(
+      mostLikelyInvalidMarkets,
+      NOTIFICATION_TYPES.marketIsMostLikelyInvalid
+    );
+    const finalizeNotifications = generateCards(
+      finalizeMarkets,
+      NOTIFICATION_TYPES.finalizeMarket
+    );
     // Add non unquie notifications
     let notifications = [
       ...reportOnMarketsNotifications,
       ...resolvedMarketsOpenOrderNotifications,
-      ...finalizeMarketsNotifications,
       ...marketsInDisputeNotifications,
       ...unsignedOrdersNotifications,
+      ...mostLikelyInvalidMarketsNotifications,
+      ...finalizeNotifications
     ];
 
     // Add unquie notifications
+    /* no notifications for participation token that change to fee pool
     if (
       claimReportingFees &&
       (claimReportingFees.participationContracts.unclaimedDai.gt(ZERO) ||
@@ -224,9 +254,12 @@ export const selectNotifications = createSelector(
         buttonLabel: TYPE_VIEW_DETAILS,
         market: null,
         claimReportingFees,
+        queueName: TRANSACTIONS,
+        queueId: REDEEMSTAKE,
         id: NOTIFICATION_TYPES.claimReportingFees,
       });
     }
+    */
 
     const accountMarketClaimablePositions: MarketClaimablePositions = selectLoginAccountClaimablePositions(
       store.getState()
@@ -242,6 +275,8 @@ export const selectNotifications = createSelector(
         markets: accountMarketClaimablePositions.markets,
         totalProceeds: accountMarketClaimablePositions.totals.totalUnclaimedProceeds.toString(),
         id: NOTIFICATION_TYPES.proceedsToClaim,
+        queueName: TRANSACTIONS,
+        queueId: CLAIMMARKETSPROCEEDS,
       });
     }
 
@@ -254,6 +289,7 @@ export const selectNotifications = createSelector(
         );
         if (storedNotification) {
           notification.isNew = storedNotification.isNew;
+          notification.hideNotification = storedNotification.hideNotification;
         }
         return notification;
       });
@@ -277,61 +313,79 @@ const getRequiredMarketData = market => ({
 
 // Build notification objects and include market data
 const generateCards = (markets, type) => {
-  let defaults = {};
-
-  if (type === NOTIFICATION_TYPES.resolvedMarketsOpenOrders) {
-    defaults = {
-      type,
-      isImportant: false,
-      isNew: true,
-      title: RESOLVED_MARKETS_OPEN_ORDERS_TITLE,
-      buttonLabel: TYPE_VIEW_ORDERS,
-    };
-  } else if (type === NOTIFICATION_TYPES.reportOnMarkets) {
-    defaults = {
-      type,
-      isImportant: true,
-      isNew: true,
-      title: REPORTING_ENDS_SOON_TITLE,
-      buttonLabel: TYPE_VIEW_DETAILS,
-    };
-  } else if (type === NOTIFICATION_TYPES.finalizeMarkets) {
-    defaults = {
-      type,
-      isImportant: false,
-      isNew: true,
-      title: FINALIZE_MARKET_TITLE,
-      buttonLabel: TYPE_VIEW_DETAILS,
-    };
-  } else if (type === NOTIFICATION_TYPES.marketsInDispute) {
-    defaults = {
-      type,
-      isImportant: false,
-      isNew: true,
-      title: TYPE_DISPUTE,
-      buttonLabel: TYPE_DISPUTE,
-    };
-  } else if (type === NOTIFICATION_TYPES.unsignedOrders) {
-    defaults = {
-      type,
-      isImportant: false,
-      isNew: true,
-      title: UNSIGNED_ORDERS_TITLE,
-      buttonLabel: TYPE_VIEW_ORDERS,
-    };
-  } else if (type === NOTIFICATION_TYPES.proceedsToClaim) {
-    defaults = {
-      type,
-      isImportant: false,
-      isNew: true,
-      title: PROCEEDS_TO_CLAIM_TITLE,
-      buttonLabel: TYPE_VIEW_DETAILS,
-    };
+  const getDefaults = market => {
+    let defaults = {};
+    if (type === NOTIFICATION_TYPES.resolvedMarketsOpenOrders) {
+      defaults = {
+        type,
+        isImportant: false,
+        isNew: true,
+        title: RESOLVED_MARKETS_OPEN_ORDERS_TITLE,
+        buttonLabel: TYPE_VIEW_ORDERS,
+        queueName: CANCELORDERS,
+        queueId: market.id,
+      };
+    } else if (type === NOTIFICATION_TYPES.reportOnMarkets) {
+      defaults = {
+        type,
+        isImportant: true,
+        redIcon: true,
+        isNew: true,
+        title: REPORTING_ENDS_SOON_TITLE,
+        buttonLabel: TYPE_REPORT,
+        queueName: SUBMIT_REPORT
+      };
+    } else if (type === NOTIFICATION_TYPES.marketsInDispute) {
+      defaults = {
+        type,
+        isImportant: false,
+        isNew: true,
+        title: TYPE_DISPUTE,
+        buttonLabel: TYPE_DISPUTE,
+        queueName: SUBMIT_DISPUTE,
+      };
+    } else if (type === NOTIFICATION_TYPES.unsignedOrders) {
+      defaults = {
+        type,
+        isImportant: false,
+        isNew: true,
+        title: SIGN_SEND_ORDERS,
+        buttonLabel: TYPE_VIEW_ORDERS,
+      };
+    } else if (type === NOTIFICATION_TYPES.proceedsToClaim) {
+      defaults = {
+        type,
+        isImportant: false,
+        isNew: true,
+        title: PROCEEDS_TO_CLAIM_TITLE,
+        buttonLabel: TYPE_VIEW_DETAILS,
+        queueName: TRANSACTIONS,
+        queueId: CLAIMMARKETSPROCEEDS,
+      };
+    } else if (type === NOTIFICATION_TYPES.marketIsMostLikelyInvalid) {
+      defaults = {
+        type,
+        isImportant: false,
+        isNew: true,
+        title: MARKET_IS_MOST_LIKELY_INVALID_TITLE,
+        buttonLabel: TYPE_VIEW_DETAILS,
+      };
+    } else if (type === NOTIFICATION_TYPES.finalizeMarket) {
+      defaults = {
+        type,
+        isImportant: false,
+        isNew: true,
+        title: 'Finalize Warp Sync Market',
+        buttonLabel: TYPE_VIEW_DETAILS,
+        queueName: TRANSACTIONS,
+        queueId: FINALIZE,
+      };
+    }
+    return defaults;
   }
-
   return markets.map(market => ({
     market,
-    ...defaults,
+    ...getDefaults(market),
     id: `${type}-${market.id}`,
   }));
 };

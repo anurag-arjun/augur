@@ -2,40 +2,76 @@
 
 .Headers {
   background: @color-table-header;
+  border-bottom: 1px solid @color-dark-grey;
   display: flex;
   overflow-x: auto;
+  min-height: @size-32;
 
   > ul {
-    border-bottom: 1px solid @color-dark-grey;
     display: flex;
     flex: 1;
     width: @size-40;
 
     > li {
       color: @color-secondary-text;
+      margin: 0 @size-8;
+      border-bottom: @size-2 solid transparent;
+
+      &.ActiveTab {
+        color: @color-primary-text;
+
+        @media @breakpoint-mobile {
+          border-bottom: @size-2 solid @color-primary-action;
+        }
+
+        .IsNew::before {
+          background: @color-outcome-five;
+          border-radius: @border-radius-default;
+          content: ' ';
+          height: @size-4;
+          position: absolute;
+          right: -@size-6;
+          top: @size-3;
+          width: @size-4;
+        }
+      }
 
       &:hover {
         color: @color-primary-text;
       }
 
       > button {
-        .mono-11-bold;
+        .mono-12-bold;
 
-        padding: @size-8 @size-16;
+        height: 100%;
+        padding: 0;
         position: relative;
         white-space: nowrap;
         text-transform: uppercase;
+
+        > h1 {
+          .mono-12-bold;
+
+          margin-bottom: 0;
+        }
       }
     }
   }
 
-  @media @breakpoint-mobile-mid {
+  @media @breakpoint-mobile {
+    height: @size-48;
+    max-height: @size-48;
+
     > ul {
       > li {
         > button {
-          .text-9-bold;
+          .text-12-bold;
 
-          padding: @size-12 @size-16;
+          > h1 {
+            .text-12-bold;
+
+            margin-bottom: 0;
+          }
         }
       }
     }
@@ -46,29 +82,14 @@
   position: relative;
 }
 
-.ActiveTab {
-  color: @color-primary-text !important;
-
-  .IsNew::before {
-    background: @color-outcome-four;
-    border-radius: @border-radius-default;
-    content: ' ';
-    height: @size-4;
-    position: absolute;
-    right: -@size-4;
-    top: -@size-4;
-    width: @size-4;
-  }
-}
-
 .IsNew::before {
-  background: @color-outcome-four;
+  background: @color-outcome-five;
   border-radius: @border-radius-default;
   content: ' ';
   height: @size-4;
   position: absolute;
-  right: -@size-4;
-  top: -@size-4;
+  right: -@size-6;
+  top: @size-3;
   width: @size-4;
 }
 
@@ -83,10 +104,26 @@
 }
 
 .ScrollOver {
-  display: grid;
-  grid-template-rows: @size-48 auto;
-  height: 100vh;
   overflow: hidden;
+  display: flex;
+  flex-flow: column nowrap;
+  padding-top: @size-48;
+
+  @media @breakpoint-mobile {
+    padding-top: @size-40;
+  }
+
+  > div.Headers {
+    position: fixed;
+    top: @top-bar-height-mobile;
+    z-index: @above-all-content;
+    width: 100%;
+    transition: top .15s ease-in-out;
+
+    &.scrolling {
+      top: 0;
+    }
+  }
 }
 
 .Content {
@@ -110,10 +147,6 @@
     align-items: center;
     display: flex;
     justify-content: center;
-
-    > button {
-      padding: @size-14 0;
-    }
   }
 }
 
@@ -131,6 +164,12 @@
 
   > li > button {
     .text-14;
+
+    > h1 {
+      .text-14;
+
+      margin-bottom: 0;
+    }
   }
 }
 
@@ -146,7 +185,6 @@
   background-color: unset;
   border: 0;
   overflow-x: auto;
-  padding: 0 @size-8;
 
   > li {
     > button {
@@ -154,6 +192,12 @@
 
       padding: @size-24 @size-8;
       text-transform: uppercase;
+
+      > h1 {
+        .text-12;
+
+        margin-bottom: 0;
+      }
     }
   }
 }
@@ -164,17 +208,5 @@
 
 .ActiveNoBorder {
   border: 0;
-  padding-bottom: @size-4;
   position: relative;
-
-  &::after {
-    background-color: @color-primary-action;
-    border-radius: @size-9;
-    bottom: 0;
-    content: "";
-    height: 2px;
-    left: 0;
-    position: absolute;
-    right: 0;
-  }
 }

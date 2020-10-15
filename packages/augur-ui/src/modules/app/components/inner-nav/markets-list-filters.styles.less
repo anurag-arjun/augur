@@ -2,25 +2,24 @@
 
 .Filters {
   display: flex;
-  border-top: 1px solid rgba(175, 167, 193, 0.15);
+  border-top: @size-1 solid @color-active-background;
   flex-direction: column;
-  margin: @size-16 0 0 0;
+  margin: @size-16 0 @size-48;
   overflow: auto;
   min-height: 100%;
 
   @media @breakpoint-mobile {
-    margin: 0;
+    border-top: none;
+    margin: 0 0 @size-16 0;
   }
 }
 
 .FiltersGroup {
   > div {
-    margin: @size-20 @size-32 @size-14 @size-32;
+    margin: @size-13 @size-32 0;
 
     > div {
-
-
-      grid-template-columns: 28px auto @size-16;
+      grid-template-columns: @size-32 auto @size-16;
       border: none;
       height: auto;
       margin: 0 0 @size-12 0;
@@ -28,27 +27,26 @@
       background: @color-module-background;
 
       @media @breakpoint-mobile {
-        grid-template-columns: 34px auto @size-16;
+        grid-template-columns: @size-34 auto @size-16;
         height: @size-32;
       }
 
-      > h5 {
-        .text-11;
+      > h5,
+      > span {
+        .text-12-medium;
 
+        color: @color-secondary-text;
         text-transform: capitalize;
 
         @media @breakpoint-mobile {
-          .text-14;
+          .text-14-medium;
         }
       }
 
+      // radio icon
       > svg {
         margin: 0;
-        height: 1rem;
-
-        @media @breakpoint-mobile {
-          height: 1.25rem;
-        }
+        height: @size-20;
       }
 
       &:hover {
@@ -57,32 +55,40 @@
     }
 
     > div:last-of-type {
-      margin: 0 0 @size-14 0;
+      margin: 0 0 @size-16 0;
     }
 
     @media @breakpoint-mobile {
-      margin-right: @size-16;
-      margin-left: @size-16;
+      margin: @size-13 @size-24 0;
     }
   }
 
+  // Filters header
   > div:first-of-type {
-    .text-11-bold;
+    .text-12-bold;
 
     text-transform: uppercase;
-    color: @color-secondary-text;
-    margin: @size-24 @size-32 0 @size-32;
+    color: @color-primary-text;
+    margin: @size-24 @size-32 @size-19 @size-32;
     display: flex;
     align-items: center;
+    cursor: pointer;
+
+    > span {
+      display: flex;
+      margin-left: @size-8;
+    }
 
     > svg {
-      margin-right: @size-12;
+      margin: 0 @size-15 0 @size-3;
+      width: @size-16;
+      height: @size-16;
     }
 
     @media @breakpoint-mobile {
       .text-14-bold;
 
-      margin: @size-24 @size-16 0 @size-16;
+      margin: @size-24;
     }
   }
 }
@@ -92,10 +98,10 @@
   display: flex;
 
   > span:first-of-type {
-    .text-11-bold;
+    .text-12-bold;
 
     text-transform: uppercase;
-    color:@color-secondary-text;
+    color:@color-primary-text;
 
     @media @breakpoint-mobile {
       .text-14-bold;
@@ -103,9 +109,10 @@
   }
 
   > span:last-of-type {
-
     > label {
       margin: 0;
+      width: @size-16;
+      height: @size-16;
     }
   }
 }
@@ -117,14 +124,13 @@
     fill: @color-secondary-text;
 
     @media @breakpoint-mobile {
-      height: @size-16;
-      width: @size-16;
+      margin-bottom: @size-1;
     }
   }
 }
 
 .Filter_TooltipContainer {
-  margin: 0 0 0 @size-6;
+  margin: 0 0 0 @size-4;
 }
 
 .Searching {

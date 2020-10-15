@@ -2,6 +2,7 @@
 //arrangements
 @default-behind: -1;
 @default-z-index: 1;
+@default-above: 2;
 //	Above Content
 @above-all-content: 10;
 @above-all-content-above: 11;
@@ -20,14 +21,20 @@
 
 //top bar height
 @top-bar-height: 3.5rem;
-@top-bar-height-mobile: 64px;
-@charts-min-height: 13.5rem;
-@charts-max-height: 16.5rem;
+@top-bar-height-mobile: 3rem; // 48px
+@side-bar-top-menu-height-mobile: 4.5rem;
+@charts-min-height: 14.5rem;
+@charts-max-height: 17.5rem;
+// top nav height
+@top-nav-height: 2.3125rem;
 // full top area height
-@multi-top-bar-height-mobile: 9.375rem;
+@multi-top-bar-height-mobile: 6rem;
 @multi-top-bar-height: 90px;
-
 @tutorial-banner-height: 2rem;
+// android chrome specific
+@chrome-address-bar: 6.5rem;
+
+@add-funds-height: 492px;
 
 @markets-list-footer-padding: 250px;
 
@@ -50,7 +57,6 @@
 
 // default measurements
 @button-height-default: @size-40; // 40px
-@button-padding-orders: @size-20 5.875rem; // 20px x 94px
 
 // borders
 @border-default: 1px solid transparent;
@@ -81,4 +87,13 @@
   .default-dashline;
 
   stroke-dasharray: @dash-long;
+}
+
+.limit-lines(@amount) {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: @amount;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
 }

@@ -24,7 +24,7 @@ const OrderMarketRow = (props: OrderMarketRowProps) => {
   }
 
   return (
-    <div className={Styles.OrderMarket}>
+    <section className={Styles.OrderMarket}>
       <div>
         <MarketTitle id={market.marketId} />
       </div>
@@ -33,11 +33,11 @@ const OrderMarketRow = (props: OrderMarketRowProps) => {
           filledOrders ? (
             <FilledOrder key={'sFilledOrder_' + order.id} filledOrder={order} />
           ) : (
-            <OpenOrder key={'sOpenOrder_' + order.id} openOrder={order} />
+            <OpenOrder key={'sOpenOrder_' + order.id} marketId={market.marketId} openOrder={order} />
           )
         )}
       </div>
-    </div>
+    </section>
   );
 };
 

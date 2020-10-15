@@ -6,6 +6,8 @@ import Styles from "modules/portfolio/components/common/data-table-header.styles
 interface OpenOrdersHeaderProps {
   extendedView?: Boolean;
   showTotalCost?: Boolean;
+  noRightMargin?: Boolean;
+  initialLiquidity?: Boolean;
 }
 
 const OpenOrdersHeader = (props: OpenOrdersHeaderProps) => (
@@ -13,6 +15,8 @@ const OpenOrdersHeader = (props: OpenOrdersHeaderProps) => (
     className={classNames(Styles.DataTableHeader, {
       [Styles.DataTableHeader__extended]: props.extendedView,
       [Styles.Extended]: props.showTotalCost,
+      [Styles.NoRightMargin]: props.noRightMargin,
+      [Styles.InitialLiquidity]: props.initialLiquidity
     })}
   >
     <li>Outcome</li>
@@ -23,7 +27,7 @@ const OpenOrdersHeader = (props: OpenOrdersHeaderProps) => (
       <li>
         Total Cost
         <br />
-        (DAI)
+        ($)
       </li>
     )}
     {props.extendedView && (
@@ -33,7 +37,6 @@ const OpenOrdersHeader = (props: OpenOrdersHeaderProps) => (
         (Shares)
       </li>
     )}
-    <li />
   </ul>
 );
 

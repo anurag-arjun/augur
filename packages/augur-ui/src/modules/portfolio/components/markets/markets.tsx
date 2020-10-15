@@ -1,24 +1,31 @@
-import React, { Component } from 'react';
+import { TXEventName } from '@augurproject/sdk-lite';
 import classNames from 'classnames';
-
-import FilterBox from 'modules/portfolio/containers/filter-box';
+import { CancelTextButton, SubmitTextButton } from 'modules/common/buttons';
+import { END_TIME } from 'modules/common/constants';
 import { LinearPropertyLabel, PendingLabel } from 'modules/common/labels';
 import { MarketProgress } from 'modules/common/progress';
-import { END_TIME } from 'modules/common/constants';
-import { TXEventName } from '@augurproject/sdk';
-import { CancelTextButton, SubmitTextButton } from 'modules/common/buttons';
 
 import Styles from 'modules/portfolio/components/common/quad.styles.less';
+
+import FilterBox from 'modules/portfolio/containers/filter-box';
 import { MarketData } from 'modules/types';
+import React, { Component } from 'react';
 
 const sortByOptions = [
+  {
+    label: 'Creation Time',
+    value: 'creationTime',
+    comp(marketA, marketB) {
+      return marketB.creationTime - marketA.creationTime;
+    },
+  },
   {
     label: 'Expiring Soonest',
     value: END_TIME,
     comp(marketA, marketB) {
       if (marketA.pending) return 1;
       if (marketB.pending) return 0;
-      return marketA.endTime.timestamp - marketB.endTime.timestamp;
+      return marketA.endTime - marketB.endTime;
     },
   },
   {
@@ -31,10 +38,12 @@ const sortByOptions = [
     },
   },
   {
-    label: 'Creation Time',
-    value: 'creationTime',
+    label: 'Most Recently Depleted',
+    value: 'recentlyDepleted',
     comp(marketA, marketB) {
-      return marketB.creationTime.timestamp - marketA.creationTime.timestamp;
+      return (
+        marketB.recentlyDepleted.timestamp - marketA.recentlyDepleted.timestamp
+      );
     },
   },
 ];
@@ -47,7 +56,7 @@ function filterComp(input, market) {
 }
 
 interface MyMarketsProps {
-  myMarkets: Array<MarketData>;
+  myMarkets: MarketData[];
   currentAugurTimestamp: number;
   disputingWindowEndTime: number;
   removePendingMarket: Function;
@@ -103,14 +112,14 @@ class MyMarkets extends Component<MyMarketsProps> {
               <LinearPropertyLabel
                 label="Volume"
                 highlightFirst
-                value={`${market.volumeFormatted &&
-                  market.volumeFormatted.formatted} DAI`}
+                value={`$${market.volumeFormatted &&
+                  market.volumeFormatted.formatted}`}
               />
               <LinearPropertyLabel
                 label="Open Interest"
                 highlightFirst
-                value={`${market.openInterestFormatted &&
-                  market.openInterestFormatted.formatted} DAI`}
+                value={`$${market.openInterestFormatted &&
+                  market.openInterestFormatted.formatted}`}
               />
             </div>
           )}
@@ -160,11 +169,13 @@ class MyMarkets extends Component<MyMarketsProps> {
         toggle={toggle}
         hide={hide}
         extend={extend}
+        showLiquidityDepleted
         pickVariables={[
           'id',
           'description',
           'reportingState',
           'recentlyTraded',
+          'recentlyDepleted',
           'creationTime',
           'endTime',
         ]}

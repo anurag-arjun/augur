@@ -1,0 +1,208 @@
+{
+  "networkId": "42",
+  "logLevel": 0,
+  "uploadBlockNumber": 21486181,
+  "ethereum": {
+    "network": "kovan",
+    "http": "https://kovan.infura.io/v3/595111ad66e2410784d484708624f7b1",
+    "rpcRetryCount": 5,
+    "rpcRetryInterval": 0,
+    "rpcConcurrency": 8,
+    "ws": "ws://localhost:8546"
+  },
+  "gas": {
+    "price": 20000000000,
+    "limit": 10000000,
+    "override": false
+  },
+  "deploy": {
+    "isProduction": false,
+    "enableFaucets": true,
+    "normalTime": true,
+    "externalAddresses": {
+      "Exchange": "0x4eacd0aF335451709e1e7B570B8Ea68EdEC8bc97",
+      "WETH9": "0x7290c2b7D5Fc91a112d462fe06aBBB8948668f56",
+      "Cash": "0x25e27c08B7B3f2159aC23e4711801e0F7aD270A3",
+      "USDC": "0x03722982dBb5b038348feF5a1Bc7f6e0f3d4C34E",
+      "USDT": "0x1997d08B1a9aeD5143b995e929707400625D5f6C"
+    },
+    "writeArtifacts": true,
+    "serial": true
+  },
+  "uniswap": {
+    "exchangeRateBufferMultiplier": 1.075
+  },
+  "gsn": {
+    "enabled": true,
+    "minDaiForSignerETHBalanceInDAI": 50,
+    "desiredSignerBalanceInETH": 0.1
+  },
+  "zeroX": {
+    "rpc": {
+      "enabled": false,
+      "ws": "wss://v2.augur.net/0x-ws"
+    },
+    "mesh": {
+      "verbosity": 1,
+      "enabled": true,
+      "useBootstrapList": true,
+      "bootstrapList": [
+        "/ip4/3.214.190.67/tcp/60558/ipfs/16Uiu2HAmGx8Z6gdq5T5AQE54GMtqDhDFhizywTy1o28NJbAMMumF",
+        "/ip4/3.214.190.67/tcp/60559/ws/ipfs/16Uiu2HAmGx8Z6gdq5T5AQE54GMtqDhDFhizywTy1o28NJbAMMumF",
+        "/dns4/bootstrap-0.mesh.0x.org/tcp/60558/ipfs/16Uiu2HAmGx8Z6gdq5T5AQE54GMtqDhDFhizywTy1o28NJbAMMumF",
+        "/dns4/bootstrap-0.mesh.0x.org/tcp/60559/ws/ipfs/16Uiu2HAmGx8Z6gdq5T5AQE54GMtqDhDFhizywTy1o28NJbAMMumF",
+        "/dns4/bootstrap-0.mesh.0x.org/tcp/443/wss/ipfs/16Uiu2HAmGx8Z6gdq5T5AQE54GMtqDhDFhizywTy1o28NJbAMMumF",
+        "/ip4/18.200.96.60/tcp/60558/ipfs/16Uiu2HAkwsDZk4LzXy2rnWANRsyBjB4fhjnsNeJmjgsBqxPGTL32",
+        "/ip4/18.200.96.60/tcp/60559/ws/ipfs/16Uiu2HAkwsDZk4LzXy2rnWANRsyBjB4fhjnsNeJmjgsBqxPGTL32",
+        "/dns4/bootstrap-1.mesh.0x.org/tcp/60558/ipfs/16Uiu2HAkwsDZk4LzXy2rnWANRsyBjB4fhjnsNeJmjgsBqxPGTL32",
+        "/dns4/bootstrap-1.mesh.0x.org/tcp/60559/ws/ipfs/16Uiu2HAkwsDZk4LzXy2rnWANRsyBjB4fhjnsNeJmjgsBqxPGTL32",
+        "/dns4/bootstrap-1.mesh.0x.org/tcp/443/wss/ipfs/16Uiu2HAkwsDZk4LzXy2rnWANRsyBjB4fhjnsNeJmjgsBqxPGTL32",
+        "/ip4/13.232.193.142/tcp/60558/ipfs/16Uiu2HAkykwoBxwyvoEbaEkuKMeKrmJDPZ2uKFPUKtqd2JbGHUNH",
+        "/ip4/13.232.193.142/tcp/60559/ws/ipfs/16Uiu2HAkykwoBxwyvoEbaEkuKMeKrmJDPZ2uKFPUKtqd2JbGHUNH",
+        "/dns4/bootstrap-2.mesh.0x.org/tcp/60558/ipfs/16Uiu2HAkykwoBxwyvoEbaEkuKMeKrmJDPZ2uKFPUKtqd2JbGHUNH",
+        "/dns4/bootstrap-2.mesh.0x.org/tcp/60559/ws/ipfs/16Uiu2HAkykwoBxwyvoEbaEkuKMeKrmJDPZ2uKFPUKtqd2JbGHUNH",
+        "/dns4/bootstrap-2.mesh.0x.org/tcp/443/wss/ipfs/16Uiu2HAkykwoBxwyvoEbaEkuKMeKrmJDPZ2uKFPUKtqd2JbGHUNH",
+        "/ip4/167.172.201.142/tcp/60558/ipfs/16Uiu2HAkzuS8DfyZ2CPzZbxGCXLSHvvbvh8nvGCHjY6wEXe2jhAm",
+        "/dns4/fra1.relayer.mesh.0x.org/tcp/443/wss/ipfs/16Uiu2HAkzuS8DfyZ2CPzZbxGCXLSHvvbvh8nvGCHjY6wEXe2jhAm",
+        "/ip4/167.172.201.142/tcp/60558/ipfs/16Uiu2HAmM1dkXwZK5HsnknGFxzPBLuCw4EboiC2sdwKrPJZ6kcio",
+        "/dns4/sfo2.relayer.mesh.0x.org/tcp/443/wss/ipfs/16Uiu2HAmM1dkXwZK5HsnknGFxzPBLuCw4EboiC2sdwKrPJZ6kcio",
+        "/ip4/159.65.4.82/tcp/60558/ipfs/16Uiu2HAm9brLYhoM1wCTRtGRR7ZqXhk8kfEt6a2rSFSZpeV8eB7L",
+        "/dns4/sgp1.relayer.mesh.0x.org/tcp/443/wss/ipfs/16Uiu2HAm9brLYhoM1wCTRtGRR7ZqXhk8kfEt6a2rSFSZpeV8eB7L",
+        "/ip4/34.201.54.78/tcp/4001/ipfs/12D3KooWHwJDdbx73qiBpSCJfg4RuYyzqnLUwfLBqzn77TSy7kRX",
+        "/ip4/18.204.221.103/tcp/4001/ipfs/12D3KooWQS6Gsr2kLZvF7DVtoRFtj24aar5jvz88LvJePrawM3EM",
+        "/dns4/arcpt.peers.mesh.0x.org/tcp/443/wss/ipfs/16Uiu2HAmNiUFpexTLsur1RdGtQDACi41MoQoA2bQE2VFDWeArCPT",
+        "/dns4/s8anm.peers.mesh.0x.org/tcp/443/wss/ipfs/16Uiu2HAmVCeTcAGpYWeKdM6k1a46XwAGi1Kx7B8HKi9udYAS8aNm",
+        "/dns4/jcudy.peers.mesh.0x.org/tcp/443/wss/ipfs/16Uiu2HAmHC2vnGs272SVmF81fJ31pEdWLdj2uEhRc4jbpiRjcuDy",
+        "/dns4/5qkwh.peers.mesh.0x.org/tcp/443/wss/ipfs/16Uiu2HAmQRA13MDc7c687VRemiM2HRZDBNLjbwPMab9J3Sh5QKwH",
+        "/dns4/derym.peers.mesh.0x.org/tcp/443/wss/ipfs/16Uiu2HAmApD67frnyrNKj5ZZtET1Y1JZPNFk2XcKNtW88URdeRyM"
+      ]
+    }
+  },
+  "addresses": {
+    "Augur": "0x3b7d25De2D201e3B9E60eb302A5636Ce0a2E6fFc",
+    "Universe": "0xa7C794cf7eEfb71a4A4d06A637DD7aA56CA4aC33",
+    "LegacyReputationToken": "0x87cFC427590A7420bC80Cc6eB94CeFADB243A1C7",
+    "Cash": "0x25e27c08B7B3f2159aC23e4711801e0F7aD270A3",
+    "ProxyFactory": "0x929CF3F7f8bC73c17Ca6238F8408379A91Ee1f6F",
+    "GnosisSafe": "0x321fd7D3097190492CFf384F48d6d9f3B862c67F",
+    "BuyParticipationTokens": "0x66A4A165Ad8E435648eeDfD2207d9dedBf147137",
+    "RedeemStake": "0x371E8f8E9143967c06aa6874382aA61bcD22a305",
+    "GnosisSafeRegistry": "0xca3C2C3246902222C5f770729AE1A63C01f2d57A",
+    "WarpSync": "0x328ABb52c36601F35030eb11922E9500695b1Bc1",
+    "ShareToken": "0xC25c2211a1A9975f3C357322564Bd501ad6f506c",
+    "HotLoading": "0x1Df9d739e71B35D7e228dD1203B16fB6D2F76Cf1",
+    "EthExchange": "0xED276F76608f18301e1e48b801fb9d4a3B52449C",
+    "Affiliates": "0x20a96168c715F9050BA0F5051A787ad0C3047B2D",
+    "AffiliateValidator": "0x24630370FE23094D20C04df6c4E5637aCB90F19B",
+    "Exchange": "0x4eacd0aF335451709e1e7B570B8Ea68EdEC8bc97",
+    "Time": "0x971E736B982ed02CC210dBC42Ecb5D44e57de58E",
+    "AugurTrading": "0x732BF30e28eceECb7d07A16Fd06489d5E1a167E2",
+    "CancelOrder": "0x26dB6dBB92dB6c4d7581b460a6d2c815616c511B",
+    "CreateOrder": "0x98F7c368962415F499ae9089A6e82Ef20D081BB5",
+    "FillOrder": "0x70871e7be239F470520204FF61DC1D6cf4ECBe5B",
+    "Orders": "0x93c643cD5Eb6B40884a4fC0Af1f51A167040c18B",
+    "ProfitLoss": "0xf044D611586E493Be3790B4B0b20a9Afc31A3546",
+    "SimulateTrade": "0xbF6e823B253c60C909341ddD65d4073E8EF21010",
+    "Trade": "0xf9F60feb98c9628e6a17E089b6b4e4333b846d3c",
+    "ZeroXTrade": "0x345246a33D085C3F9197365DB0b9F980d151A3AB",
+    "OICash": "0x8Ce6c1713a0fdf66be20F7283183181DF4d55dD2",
+    "AugurWalletRegistry": "0xf97fcE0a590E6FafB255DC3482BF26E498f9C9B0",
+    "UniswapV2Factory": "0xa66B6eD3bC5ce01Abe1E0dcdE5C8bb6b39882a2a",
+    "WETH9": "0x7290c2b7D5Fc91a112d462fe06aBBB8948668f56",
+    "UniswapV2Router02": "0x19129d2f7DfA184cAaBf5C0b57c5953aE5a73cf9",
+    "AuditFunds": "0x13752a80a56887BDC956966c73055698f62F1362",
+    "AugurWalletRegistryV2": "0xb35DCC7C65188D42ae8f93bc1f6D58C60A42f461",
+    "RelayHubV2": "0x363dF49bb101cb8AF80c6f9428634D10552FC745",
+    "USDC": "0x03722982dBb5b038348feF5a1Bc7f6e0f3d4C34E",
+    "USDT": "0x1997d08B1a9aeD5143b995e929707400625D5f6C",
+    "AccountLoader": "0x8953852710001CfF9884234D0c9d3c7f6e65881a",
+    "OINexus": "0x9800b4998d19597DE3Efd3C5c7151F474133915f",
+    "HotLoadingUniversal": "0xb16e90e03F86250688DE907083B5B141B6dF6789",
+    "AMMFactory": "0x287A0cd46905D257C5e7FdFC591bEf0Ab382a9Ab",
+    "ERC20Proxy1155Nexus": "0xC0e95BEef0f4E943E9eD0D0C71BE43c07A864755",
+    "ParaDeployer": "0x4e3b73da27E7597d13fEa807CE6ce16B36CD0dE4"
+  },
+  "server": {
+    "httpPort": 9003,
+    "startHTTP": true,
+    "httpsPort": 9004,
+    "startHTTPS": true,
+    "wsPort": 9001,
+    "startWS": true,
+    "wssPort": 9002,
+    "startWSS": true
+  },
+  "plugins": {
+    "chat": "orbit"
+  },
+  "syncing": {
+    "enabled": true
+  },
+  "sdk": {
+    "enabled": false,
+    "ws": "ws://localhost:9001"
+  },
+  "warpSync": {
+    "enabled": true,
+    "autoReport": false,
+    "createCheckpoints": true,
+    "ipfsEndpoint": {
+      "version": 1,
+      "url": "https://cloudflare-ipfs.com/ipfs/"
+    }
+  },
+  "ui": {
+    "showReloadModal": true,
+    "averageBlocktime": 2000,
+    "liteProvider": "torus",
+    "trackBestOffer": false,
+    "trackMarketInvalidBids": true,
+    "fallbackProvider": "torus",
+    "primaryProvider": "wallet"
+  },
+  "averageBlocktime": 2000,
+  "paraDeploys": {
+    "0x7290c2b7D5Fc91a112d462fe06aBBB8948668f56": {
+      "name": "WETH",
+      "uploadBlockNumber": 21532730,
+      "addresses": {
+        "Augur": "0x7a998F5b557Fe3F959745e6A30c3407075c0c9A3",
+        "AugurTrading": "0x1c6320aFb90475ED7e2b721426b78779e92638FA",
+        "Universe": "0xD13Ac2E9a40bCC17fb4D7788B7316FEFDF5b3caE",
+        "Cash": "0x7290c2b7D5Fc91a112d462fe06aBBB8948668f56",
+        "ShareToken": "0xA95200EB76e4dc404489b65EB2FD18749B1A0986",
+        "OICash": "0xD8859Ea5f0D13cD4025C144778C937E9DF11e7FD",
+        "CancelOrder": "0x4BaC6D704A06D45B8295e4563dBcB05F63FF9B9B",
+        "CreateOrder": "0xA43230318d6Fa0fCb0a519bbDB2a07C0F8004Eb8",
+        "FillOrder": "0x9670B831EeE30997f795c72435aEe146e108d757",
+        "Orders": "0x4d4F1aAcef7774c7d19B69569F03b7B0f1F5D795",
+        "Trade": "0xE590D230194d5C53A4eBAE39ffb26c7DB2A241aD",
+        "SimulateTrade": "0x96eB10640B86B16883A502880633517A718AC32B",
+        "ZeroXTrade": "0x92a03538956fd216731E4bc2F2d6DD5309d98DAf",
+        "ProfitLoss": "0xEc2700DdfB87e5CFf71B7835305a90C8b6fF365d"
+      },
+      "decimals": 18
+    },
+    "0x1997d08B1a9aeD5143b995e929707400625D5f6C": {
+      "name": "USDT",
+      "decimals": 6,
+      "uploadBlockNumber": 21532719,
+      "addresses": {
+        "Augur": "0x1FAf1f790cfDB2BcFCEf62221c559685760F4bE0",
+        "AugurTrading": "0xaa85423f0f8Ad66a6bEd90d2Eb5C3DCB190d42B9",
+        "Universe": "0x6AB3AFDEbf6932cEe4BF344d22c3969e90d352Bd",
+        "Cash": "0x1997d08B1a9aeD5143b995e929707400625D5f6C",
+        "ShareToken": "0xDC4B7dd450e981C2AF3B50bb020eb00728cacB3f",
+        "OICash": "0xac3437ea250cB06a8A45FC4B694DC5f583Cf7CbB",
+        "CancelOrder": "0x0838489ce8CB645B49739932f1769E1eA3bc78b2",
+        "CreateOrder": "0xEC28864244cE40972446AAd1cadB8Cc7914208ad",
+        "FillOrder": "0x10Bef9cc67446a7fF3E79C63F08FB61ac77E7B76",
+        "Orders": "0x7069487063e920E9bB53F6cb6FAb5316E44887A2",
+        "Trade": "0x00c2A8e1272fF3103be9121fbE66533941bB87D1",
+        "SimulateTrade": "0xD1959672D2ddcCCdD89cb60C0Bf80dEE486a27b3",
+        "ZeroXTrade": "0xB2364223df7C3c5975276942f310421cA7217f00",
+        "ProfitLoss": "0x6c93c8dAd68009d4F6f1Ff391A3Cb2B079030dF0"
+      }
+    }
+  }
+}

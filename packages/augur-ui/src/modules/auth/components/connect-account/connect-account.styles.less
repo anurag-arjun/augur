@@ -5,23 +5,30 @@
   color: @color-primary-text;
   flex-direction: column;
   justify-content: center;
-  margin-left: @size-1;
+  max-height: @size-56;
   position: relative;
   z-index: @above-all-content-above;
 
   @media @breakpoint-mobile {
+    position: static;
     display: flex;
-    height: 100%;
+    height: @top-bar-height-mobile;
+    max-height: @top-bar-height-mobile;
   }
 
   &.selected {
     > div:first-of-type {
       background-color: @color-module-background;
-      border: 1px solid @color-secondary-action-outline;
+      border: @size-1 solid @color-secondary-action-outline;
       border-bottom: 0;
 
       @media @breakpoint-mobile {
         border: none;
+        background: @color-module-background;
+        z-index: @above-all-content-above;
+        border: 1px solid @color-secondary-action-outline;
+        border-bottom: 0;
+        border-top: 0;
       }
     }
   }
@@ -34,15 +41,17 @@
     }
 
     background: @color-dark-grey;
-    border: 1px solid @color-dark-grey;
+    border: @size-1 solid @color-module-background;
     border-bottom: 0;
     display: flex;
     padding: @size-12;
+    max-height: @size-56;
 
     @media @breakpoint-mobile {
-      background: @color-module-background;
-      padding: @size-16 @size-12;
       border: none;
+      border-left: @size-1 solid @color-module-background;
+      padding: @size-24 @size-12 @size-24 @size-16;
+      max-height: @top-bar-height-mobile;
     }
 
     &:focus {
@@ -62,8 +71,10 @@
           display: inline-block;
           margin-top: -@size-8;
 
-          > svg path {
-            stroke: @color-dark-text;
+          > svg {
+            path {
+              stroke: @color-dark-text;
+            }
           }
         }
       }
@@ -90,10 +101,19 @@
 .ConnectDropdown {
   position: absolute;
   right: 0px;
-  top: 56px;
+  top: @size-56;
 
   @media @breakpoint-mobile {
-    display: none;
+    top: 0;
+    right: 1px;
+    left: 1px;
+    margin-top: calc(~'@{top-bar-height-mobile} - 1px');
+
+    &.Open {
+      border: 1px solid @color-secondary-action-outline;
+      border-radius: @size-2;
+      box-shadow: 0 @size-4 @size-4 0px rgba(0,0,0,0.25);
+    }
   }
 }
 
@@ -113,18 +133,37 @@
     flex-direction: column;
     margin-left: @size-8;
 
+    @media @breakpoint-mobile {
+      max-width: @size-56;
+    }
+
     > div:first-of-type {
-      .mono-9-bold;
+      .mono-10-medium;
 
       color: @color-secondary-text;
-      text-transform: uppercase;
     }
 
     > div:last-of-type {
-      .text-12;
+      .text-12-medium;
 
       color: @color-primary-text;
       margin-top: @size-2;
+
+      @media @breakpoint-tablet {
+        max-width: @size-60;
+        text-overflow: ellipsis;
+        overflow: hidden;
+      }
+
+      @media @breakpoint-mobile {
+        .text-10-bold;
+
+        margin-top: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 99%;
+      }
     }
   }
 }

@@ -1,20 +1,25 @@
-import React from 'react';
+import type { Getters } from '@augurproject/sdk';
+import { SecondaryButton } from 'modules/common/buttons';
 
 import { RadioCardGroup } from 'modules/common/form';
 import {
-  LargeSubheaders,
   ContentBlock,
-  XLargeSubheaders,
+  LargeSubheaders,
   SmallHeaderLink,
+  XLargeSubheaders,
 } from 'modules/create-market/components/common';
-import { SecondaryButton } from 'modules/common/buttons';
-import { SCRATCH, TEMPLATE } from 'modules/create-market/constants';
+import {
+  EMPTY_STATE,
+  MARKET_COPY_LIST,
+  SCRATCH,
+  TEMPLATE,
+} from 'modules/create-market/constants';
 import SavedDrafts from 'modules/create-market/containers/saved-drafts';
 
 import Styles from 'modules/create-market/landing.styles.less';
-import { getTemplateRadioCards } from './get-template';
-import { Getters } from '@augurproject/sdk';
 import { NewMarket } from 'modules/types';
+import React from 'react';
+import { getTemplateRadioCards } from './get-template';
 
 interface LandingProps {
   newMarket: NewMarket;
@@ -23,11 +28,11 @@ interface LandingProps {
   updatePage: Function;
   clearNewMarket: Function;
   categoryStats: Getters.Markets.CategoryStats;
+  marketCreationStarted: Function;
 }
 
 export default class Landing extends React.Component<LandingProps> {
   componentDidMount() {
-    this.props.clearNewMarket();
     this.node && this.node.scrollIntoView();
   }
 
@@ -38,6 +43,7 @@ export default class Landing extends React.Component<LandingProps> {
       newMarket,
       clearNewMarket,
       categoryStats,
+      marketCreationStarted,
     } = this.props;
 
     return (
@@ -58,8 +64,7 @@ export default class Landing extends React.Component<LandingProps> {
           <ContentBlock>
             <LargeSubheaders
               link
-              underline
-              ownLine
+              copyType={MARKET_COPY_LIST.USE_A_TEMPLATE}
               header="Use a market template"
               subheader="Templates simplify the creation of new markets and reduce errors in the market making process. "
             />
@@ -67,11 +72,12 @@ export default class Landing extends React.Component<LandingProps> {
               <RadioCardGroup
                 onChange={(value: string) => {
                   const updatedNewMarket = { ...newMarket };
-                  updatedNewMarket.categories[0] = value;
-                  updatedNewMarket.categories[1] = '';
-                  updatedNewMarket.categories[2] = '';
+                  updatedNewMarket.navCategories[0] = value;
+                  updatedNewMarket.navCategories[1] = '';
+                  updatedNewMarket.navCategories[2] = '';
                   updatedNewMarket.currentStep = 1;
                   updatedNewMarket.marketType = '';
+                  updatedNewMarket.validations = EMPTY_STATE.validations;
                   updateNewMarket(updatedNewMarket);
                   updatePage(TEMPLATE);
                 }}
@@ -84,7 +90,7 @@ export default class Landing extends React.Component<LandingProps> {
                   categoryStats
                 )}
               >
-                <SmallHeaderLink text="Don't see your category?" link ownLine />
+                <SmallHeaderLink copyType={MARKET_COPY_LIST.DONT_SEE_CAT} text="Don't see your category?" link />
               </RadioCardGroup>
             </section>
           </ContentBlock>
@@ -92,6 +98,7 @@ export default class Landing extends React.Component<LandingProps> {
           <ContentBlock>
             <LargeSubheaders
               link
+              copyType={MARKET_COPY_LIST.FROM_SCRATCH}
               header="Start from scratch"
               subheader="Create a completely custom market, only recommended for advanced users."
             />
@@ -99,6 +106,7 @@ export default class Landing extends React.Component<LandingProps> {
               text="Create a custom market"
               action={() => {
                 clearNewMarket();
+                marketCreationStarted('', false);
                 updatePage(SCRATCH);
               }}
             />

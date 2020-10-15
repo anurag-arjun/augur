@@ -3,13 +3,13 @@ import Media from 'react-media';
 
 import ModuleTabs from 'modules/market/components/common/module-tabs/module-tabs';
 import ModulePane from 'modules/market/components/common/module-tabs/module-pane';
-import MarketOutcomesChart from 'modules/market-charts/containers/market-outcomes-chart';
-import { TEMP_TABLET } from 'modules/common/constants';
+import PriceHistory from 'modules/market-charts/containers/price-history';
+import { SMALL_MOBILE } from 'modules/common/constants';
 
-import { Candlestick } from 'modules/market-charts/components/market-outcome-charts--candlestick/candlestick';
-import MarketDepth from 'modules/market-charts/containers/market-outcome-chart-depth';
+import { Candlestick } from 'modules/market-charts/components/candlestick/candlestick';
+import DepthChart from 'modules/market-charts/containers/depth';
 import { BigNumber } from 'bignumber.js';
-import { MarketData } from 'modules/types';
+import { MarketData, IndividualOutcomeOrderBook } from 'modules/types';
 
 interface MarketChartsPaneProps {
   currentTimestamp?: number | undefined;
@@ -23,11 +23,14 @@ interface MarketChartsPaneProps {
   market?: MarketData;
   toggle: Function;
   tradingTutorial?: boolean;
+  orderBook: IndividualOutcomeOrderBook;
+  extendOutcomesList: boolean;
+  isArchived?: boolean;
 }
 
 interface MarketChartsPaneState {
   hoveredPrice: null | BigNumber;
-  hoveredDepth: Array<any>;
+  hoveredDepth: any[];
 }
 
 export default class MarketChartsPane extends Component<
@@ -74,13 +77,15 @@ export default class MarketChartsPane extends Component<
       preview,
       market,
       toggle,
-      tradingTutorial
+      orderBook,
+      isArchived,
+      extendOutcomesList,
     } = this.props;
     const { hoveredPrice, hoveredDepth } = this.state;
-    const shared = { marketId, selectedOutcomeId };
+    const shared = { marketId, selectedOutcomeId, isArchived };
 
     return (
-      <Media query={TEMP_TABLET}>
+      <Media query={SMALL_MOBILE}>
         {matches =>
           matches ? (
             <ModuleTabs selected={preview ? 2 : 0} fillForMobile>
@@ -92,12 +97,11 @@ export default class MarketChartsPane extends Component<
                     minPrice={minPrice}
                     maxPrice={maxPrice}
                     daysPassed={daysPassed}
-                    isMobile
                   />
                 )}
               </ModulePane>
               <ModulePane label="Market Depth">
-                <MarketDepth
+                <DepthChart
                   {...shared}
                   updateSelectedOrderProperties={updateSelectedOrderProperties}
                   hoveredPrice={hoveredPrice}
@@ -106,20 +110,29 @@ export default class MarketChartsPane extends Component<
                   updateHoveredPrice={this.updateHoveredPrice}
                   market={preview && market}
                   initialLiquidity={preview}
+                  orderBook={orderBook}
                 />
               </ModulePane>
             </ModuleTabs>
           ) : (
             <ModuleTabs selected={preview ? 2 : 0} showToggle toggle={toggle}>
-              <ModulePane label="Price History">
+              <ModulePane label="Price History"
+                  onClickCallback={() => {
+                    extendOutcomesList && toggle && toggle();
+                  }
+                }>
                 {!preview && (
-                  <MarketOutcomesChart
+                  <PriceHistory
                     {...shared}
                     daysPassed={daysPassed}
                   />
                 )}
               </ModulePane>
-              <ModulePane label="Candlesticks">
+              <ModulePane label="Candlesticks"
+                onClickCallback={() => {
+                    extendOutcomesList && toggle && toggle();
+                  }
+                }>
                 {!preview && (
                   <Candlestick
                     {...shared}
@@ -130,8 +143,12 @@ export default class MarketChartsPane extends Component<
                   />
                 )}
               </ModulePane>
-              <ModulePane label="Market Depth">
-                <MarketDepth
+              <ModulePane label="Market Depth"
+                onClickCallback={() => {
+                    extendOutcomesList && toggle && toggle();
+                  }
+                }>
+                <DepthChart
                   {...shared}
                   updateSelectedOrderProperties={updateSelectedOrderProperties}
                   hoveredPrice={hoveredPrice}
@@ -140,6 +157,7 @@ export default class MarketChartsPane extends Component<
                   updateHoveredPrice={this.updateHoveredPrice}
                   market={preview && market}
                   initialLiquidity={preview}
+                  orderBook={orderBook}
                 />
               </ModulePane>
             </ModuleTabs>

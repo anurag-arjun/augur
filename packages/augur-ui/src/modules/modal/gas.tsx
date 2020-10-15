@@ -1,13 +1,37 @@
-import React from 'react';
+import React, { useState } from 'react';
 
-import {AlertMessage, ButtonsRow, Title,} from 'modules/modal/common';
+import { AlertMessage, ButtonsRow, Title } from 'modules/modal/common';
 
 import Styles from 'modules/modal/modal.styles.less';
 import ChevronFlip from 'modules/common/chevron-flip';
-import {formatGasCostToEther, formatEtherEstimate} from 'utils/format-number';
-import {GWEI_CONVERSION, NEW_ORDER_GAS_ESTIMATE} from 'modules/common/constants';
-import {createBigNumber} from 'utils/create-big-number';
-import classNames = require('classnames');
+import {
+  formatGasCostToEther,
+  formatEtherEstimate,
+  formatDai,
+  formatEther,
+} from 'utils/format-number';
+import {
+  GWEI_CONVERSION,
+  TRADE_ORDER_GAS_MODAL_ESTIMATE,
+} from 'modules/common/constants';
+import { createBigNumber, BigNumber } from 'utils/create-big-number';
+import classNames from 'classnames';
+import { DismissableNotice, DISMISSABLE_NOTICE_BUTTON_TYPES } from 'modules/reporting/common';
+import { FormattedNumber } from 'modules/types';
+
+export const getGasCost = (gasLimit: Number, gasPrice: BigNumber, ethToDaiRate: FormattedNumber): FormattedNumber => {
+  const gasCostInEth = createBigNumber(
+    formatGasCostToEther(
+      gasLimit,
+      { decimalsRounded: 4 },
+      createBigNumber(GWEI_CONVERSION).multipliedBy(gasPrice)
+    )
+  );
+  if (ethToDaiRate) {
+    return formatDai(ethToDaiRate.value * gasCostInEth);
+  }
+  return formatEther(gasCostInEth);
+}
 
 interface GasProps {
   saveAction: Function;
@@ -15,8 +39,8 @@ interface GasProps {
   safeLow: number;
   average: number;
   fast: number;
-  blockNumber: number;
-  userDefinedGasPrice?: number;
+  userDefinedGasPrice: number;
+  feeTooLow: boolean;
 }
 
 interface GasState {
@@ -25,150 +49,195 @@ interface GasState {
   showAdvanced: boolean;
 }
 
-export const getEthTradeCost = (amount: number) => {
+export const getEthTradeCost = (gasPrice: number) => {
   return formatEtherEstimate(
     formatGasCostToEther(
-      NEW_ORDER_GAS_ESTIMATE,
+      TRADE_ORDER_GAS_MODAL_ESTIMATE,
       { decimalsRounded: 4 },
-      createBigNumber(amount).times(GWEI_CONVERSION)
+      createBigNumber(GWEI_CONVERSION).multipliedBy(gasPrice)
     )
   );
 };
 
-export const getGasCostInDai = (amount: number) => {
-  const EXCHANGE_RATE = 1000; // FAKE price of ETH in DAI
-  const ETH_TRADE_COST = getEthTradeCost(amount);
-
-  return createBigNumber(ETH_TRADE_COST.value).times(EXCHANGE_RATE).toNumber();
-};
-
-export class Gas extends React.Component<GasProps, GasState> {
-  state: GasState = {
-    amount: this.props.userDefinedGasPrice || this.props.average,
-    showLowAlert:
-      (this.props.userDefinedGasPrice || this.props.average) <
-      this.props.safeLow,
-    showAdvanced: false,
+export const Gas = (props: GasProps) => {
+  const {
+    closeAction,
+    saveAction,
+    safeLow,
+    average,
+    fast,
+    feeTooLow,
+    userDefinedGasPrice,
+    ethToDaiRate,
+  } = props;
+  const doesGasPriceMatchPresets = (amount: number) => {
+    return amount === fast || amount === average || amount === safeLow;
   };
 
-  updateAmount(amount: number) {
-    let amt = this.state.amount;
-    if (amount) amt = amount;
-    if (isNaN(amount)) amt = 0;
-    this.setState({ amount: amt, showLowAlert: amt < this.props.safeLow });
+  const [showLowAlert, setShowLowAlert] = useState(
+    (userDefinedGasPrice || average) < safeLow
+  );
+  const [amount, setAmount] = useState(
+    userDefinedGasPrice || average
+  );
+  const [showAdvanced, setShowAdvanced] = useState(
+    !doesGasPriceMatchPresets(amount)
+  );
+  const disabled = !amount || amount <= 0;
+
+  const getEstTime = (amount: number) => {
+    if (amount >= fast) {
+      return '< 1 min';
+    } else if (amount >= average) {
+      return '< 3 min';
+    }
+    return '< 30 min';
   };
 
-  render() {
-    const { closeAction, saveAction, safeLow, average, fast } = this.props;
-    const { amount, showLowAlert, showAdvanced } = this.state;
-    const disabled = !amount || amount <= 0;
+  const updateAmount = (newAmount: number) => {
+    let amt = newAmount;
+    setAmount(amt);
+    setShowLowAlert(!amt || amt < props.safeLow);
+  };
 
-    const buttons = [
-      {
-        text: 'Set Transaction Fee',
-        action: () => saveAction(amount),
-        disabled,
-      },
-      {
-        text: 'Cancel',
-        action: () => closeAction(),
-      },
-    ];
+  const buttons = [
+    {
+      text: 'Set Transaction Fee',
+      action: () => saveAction(amount, average),
+      disabled,
+    },
+    {
+      text: 'Cancel',
+      action: () => closeAction(),
+    },
+  ];
 
-    const gasButtonsData = [
-      {
-        speed: 'Fast',
-        avgTime: ' < 2 min',
-        gwei: fast,
-        action: () => {
-          this.updateAmount(fast);
-        },
+  const gasButtonsData = [
+    {
+      speed: 'Fast',
+      avgTime: ' < 1 min',
+      gwei: fast,
+      action: () => {
+        updateAmount(fast);
       },
-      {
-        speed: 'Recommended',
-        avgTime: ' < 5 min',
-        gwei: average,
-        action: () => {
-          this.updateAmount(average);
-        },
+    },
+    {
+      speed: 'Recommended',
+      avgTime: ' < 3 min',
+      gwei: average,
+      action: () => {
+        updateAmount(average);
       },
-      {
-        speed: 'Slow',
-        avgTime: ' < 30 min',
-        gwei: safeLow,
-        action: () => {
-          this.updateAmount(safeLow);
-        },
+    },
+    {
+      speed: 'Slow',
+      avgTime: ' < 30 min',
+      gwei: safeLow,
+      action: () => {
+        updateAmount(safeLow);
       },
-    ];
+    },
+  ];
 
-    return (
-      <div onClick={event => event.stopPropagation()} className={Styles.Gas}>
-        <Title title='Transaction Fee' closeAction={closeAction} />
-        <main>
-          <p>
-            Selecting a faster transaction fee will result in your transaction being processed quicker.
-            For more important transactions such as securing a sell order before anyone else takes it,
-            we recommend a faster transaction fee.*
-          </p>
-          <div>
-            {gasButtonsData.map(data => (
-              <div key={data.speed}
-                   onClick={data.action}
-                   className={classNames({
-                     [Styles.GasCheckedButton]: amount === data.gwei
-                   })}
-              >
-                <div><span>{data.speed}</span><span>{data.avgTime}</span></div>
-                <div><span>${getGasCostInDai(data.gwei)}</span><span> / Trade</span></div>
-              </div>
-            ))}
-          </div>
-          <button onClick={() => this.setState({ showAdvanced: !showAdvanced })}>
-            Advanced
-            <ChevronFlip
-              pointDown={showAdvanced}
-              stroke='#fff'
-              filledInIcon
-              quick
-            />
-          </button>
-          {showAdvanced && (
-            <div>
+  const gasCostTrade = getGasCost(TRADE_ORDER_GAS_MODAL_ESTIMATE, amount, ethToDaiRate);
+  return (
+    <div onClick={event => event.stopPropagation()} className={Styles.Gas}>
+      <Title title='Transaction Fee' closeAction={closeAction} />
+      <main>
+        <p>
+          Selecting a faster transaction fee will result in your transaction
+          being processed quicker. For more important transactions such as
+          securing a sell order before anyone else, it is recommend to use a
+          faster transaction fee.
+        </p>
+        <div>
+          {gasButtonsData.map(data => (
+            <div
+              key={data.speed}
+              onClick={data.action}
+              className={classNames({
+                [Styles.GasCheckedButton]: amount === data.gwei,
+              })}
+            >
               <div>
-                <label>Gas Price (GWEI)</label>
-                <input
-                  id='price'
-                  placeholder='price'
-                  step={1}
-                  type='number'
-                  value={this.state.amount}
-                  onChange={(e) => {
-                    this.updateAmount(parseFloat(e.target.value));
-                  }}
-                />
+                <span>{data.speed}</span>
+                <span>{data.avgTime}</span>
               </div>
               <div>
-                <div>
-                  <span>&lt; ${getGasCostInDai(amount)}</span><span> / Trade</span>
-                </div>
-                <span>{getEthTradeCost(amount).formatted} ETH</span>
-              </div>
-              <div>
-                <span>~ 30 seconds</span>
+              <span>${(getGasCost(TRADE_ORDER_GAS_MODAL_ESTIMATE, data.gwei, ethToDaiRate)).formattedValue}</span>
+                <span> / Trade</span>
               </div>
             </div>
-          )}
+          ))}
+        </div>
+        <button onClick={() => setShowAdvanced(!showAdvanced)}>
+          Advanced
+          <ChevronFlip
+            pointDown={showAdvanced}
+            stroke='#fff'
+            filledInIcon
+            quick
+          />
+        </button>
+        {showAdvanced && (
+          <>
+          <div>
+            <div>
+              <label>Gas Price (GWEI)</label>
+              <input
+                id='price'
+                placeholder='Price'
+                step={1}
+                type='number'
+                value={amount}
+                onChange={e => {
+                  updateAmount(e.target.value);
+                }}
+              />
+            </div>
+            <div>
+              <div>
+                <span>&lt; ${gasCostTrade.formattedValue}</span>
+                <span> / Trade</span>
+              </div>
+              <span>{amount ? getEthTradeCost(amount).formatted : '-'} ETH</span>
+            </div>
+            <div>
+              <span>{getEstTime(amount)}</span>
+            </div>
+          </div>
           {showLowAlert && (
             <AlertMessage preText='Transactions are unlikely to be processed at your current gas price.' />
           )}
-          <p>
-            * Transaction fees are representative of a single Fill Order trade.
-            A transaction containing multiple orders may cost more.
-          </p>
-        </main>
-        <ButtonsRow buttons={buttons} />
-      </div>
-    );
-  }
-}
+          </>
+        )}
+        <p>
+          * Transaction fees are representative of a single Fill Order trade. A
+          transaction containing multiple orders will cost more.
+        </p>
+        <section>
+          {feeTooLow && (
+              <AlertMessage preText='A Transaction you made was rejected by the network because your gas price was too low. Try increasing your gas price or waiting till the network is less busy.' />
+          )}
+          {amount === average && (
+            <DismissableNotice
+              show
+              description=""
+              title={`Transaction fee will automatically update to maintain RECOMMENDED transaction fee`}
+              buttonType={DISMISSABLE_NOTICE_BUTTON_TYPES.NONE}
+            />
+          )}
+          {amount !== average && (
+            <DismissableNotice
+              show
+              description=""
+              title={`Transaction fee is set to ${amount} for all transactions until manually changed`}
+              buttonType={DISMISSABLE_NOTICE_BUTTON_TYPES.NONE}
+            />
+          )}
+        </section>
+      </main>
+      <ButtonsRow buttons={buttons} />
+    </div>
+  );
+};

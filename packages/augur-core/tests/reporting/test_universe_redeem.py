@@ -20,9 +20,9 @@ def test_redeem_reporting_participants(kitchenSinkFixture, market, categoricalMa
     proceedToNextRound(kitchenSinkFixture, market, doGenerateFees = True)
 
     # Get the winning reporting participants
-    initialReporter = kitchenSinkFixture.applySignature('InitialReporter', market.getReportingParticipant(0))
-    winningDisputeCrowdsourcer1 = kitchenSinkFixture.applySignature('DisputeCrowdsourcer', market.getReportingParticipant(2))
-    winningDisputeCrowdsourcer2 = kitchenSinkFixture.applySignature('DisputeCrowdsourcer', market.getReportingParticipant(4))
+    initialReporter = kitchenSinkFixture.applySignature('InitialReporter', market.participants(0))
+    winningDisputeCrowdsourcer1 = kitchenSinkFixture.applySignature('DisputeCrowdsourcer', market.participants(2))
+    winningDisputeCrowdsourcer2 = kitchenSinkFixture.applySignature('DisputeCrowdsourcer', market.participants(4))
 
     # Fast forward time until the new dispute window is over and we can redeem
     disputeWindow = kitchenSinkFixture.applySignature("DisputeWindow", market.getDisputeWindow())
@@ -42,6 +42,8 @@ def test_redeem_reporting_participants(kitchenSinkFixture, market, categoricalMa
     expectedRep += ptAmount
     expectedRep -= 1 # Rounding error
     fees = cash.balanceOf(disputeWindow.address)
+    if kitchenSinkFixture.paraAugur:
+        fees = 0
     with TokenDelta(reputationToken, expectedRep, kitchenSinkFixture.accounts[0], "Redeeming didn't refund REP"):
         with TokenDelta(cash, fees, kitchenSinkFixture.accounts[0], "Redeeming didn't pay out fees"):
             with PrintGasUsed(kitchenSinkFixture, "Universe Redeem:", 0):

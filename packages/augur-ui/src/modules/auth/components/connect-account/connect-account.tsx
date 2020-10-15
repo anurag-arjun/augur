@@ -4,7 +4,6 @@ import Blockies from 'react-blockies';
 
 import ConnectDropdown from 'modules/auth/containers/connect-dropdown';
 import ChevronFlip from 'modules/common/chevron-flip';
-import formatAddress from 'modules/auth/helpers/format-address';
 import { LoginAccount } from 'modules/types';
 
 import Styles from 'modules/auth/components/connect-account/connect-account.styles.less';
@@ -16,8 +15,6 @@ interface ConnectAccountProps {
   isConnectionTrayOpen: boolean;
   updateConnectionTray: Function;
   updateHelpMenuState: Function;
-  updateMobileMenuState: Function;
-  mobileMenuState: number;
   userInfo: LoginAccount['meta'];
 }
 
@@ -29,19 +26,11 @@ export default class ConnectAccount extends Component<ConnectAccountProps> {
     const {
       updateConnectionTray,
       updateHelpMenuState,
-      updateMobileMenuState,
       isConnectionTrayOpen,
-      mobileMenuState,
     } = this.props;
-    if (mobileMenuState > 0) {
-      updateConnectionTray(!isConnectionTrayOpen);
-      updateHelpMenuState(false);
-    }
-    else {
-      updateMobileMenuState(1);
-      updateConnectionTray(!isConnectionTrayOpen);
-      updateHelpMenuState(false);
-    }
+
+    updateConnectionTray(!isConnectionTrayOpen);
+    updateHelpMenuState(false);
 
     if (cb && typeof cb === 'function') cb();
   }
@@ -83,7 +72,7 @@ export default class ConnectAccount extends Component<ConnectAccountProps> {
                 <div>
                   {userInfo.email
                     ? userInfo.email
-                    : formatAddress(userInfo.address)}
+                    : userInfo.accountType}
                 </div>
               </div>
             </div>
@@ -106,11 +95,12 @@ export default class ConnectAccount extends Component<ConnectAccountProps> {
             ToggleHeightStyles.target,
             ToggleHeightStyles.quick,
             {
+              [Styles.Open]: isConnectionTrayOpen,
               [ToggleHeightStyles.open]: isConnectionTrayOpen,
             }
           )}
         >
-          <ConnectDropdown />
+          {isConnectionTrayOpen && <ConnectDropdown />}
         </div>
       </div>
     );

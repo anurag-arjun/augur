@@ -1,15 +1,18 @@
 import React from 'react';
 import * as constants from 'modules/common/constants';
 import {
-  LinearPropertyLabel,
-  PendingLabel,
-  PositionTypeLabel,
-  ValueLabel,
-  TextLabel,
   MovementLabel,
+  PositionTypeLabel,
+  TextLabel,
+  ValueLabel,
+  CountdownLabel
 } from 'modules/common/labels';
+import InvalidLabel from 'modules/common/containers/labels';
 import { CancelTextButton } from 'modules/common/buttons';
 import MarketOutcomeTradingIndicator from 'modules/market/containers/market-outcome-trading-indicator';
+import { DateFormattedObject } from 'modules/types';
+import { TXEventName } from '@augurproject/sdk-lite';
+import { XIcon } from 'modules/common/icons';
 
 const { COLUMN_TYPES } = constants;
 
@@ -17,21 +20,27 @@ export interface Properties {
   text?: string;
   keyId?: string;
   type?: string;
-  pastTense?: Boolean;
-  pending?: Boolean;
-  disabled?: Boolean;
+  pastTense?: boolean;
+  pending?: boolean;
+  disabled?: boolean;
   action?: Function;
   showPercent?: string;
   showBrackets?: string;
   showPlusMinus?: string;
-  showColors?: Boolean;
+  showColors?: boolean;
   value?: string;
   size?: string;
-  showEmptyDash?: Boolean;
-  addIndicator?: Boolean;
+  showEmptyDash?: boolean;
+  addIndicator?: boolean;
+  alert?: boolean;
   outcome?: string;
   location?: string;
-  showExtraNumber?: Boolean;
+  showExtraNumber?: boolean;
+  status?: string;
+  showCountdown?: boolean;
+  expiry?: DateFormattedObject;
+  currentTimestamp?: Number;
+  usePercent?: boolean;
 }
 
 function selectColumn(columnType: string, properties: Properties) {
@@ -45,10 +54,15 @@ function selectColumn(columnType: string, properties: Properties) {
       );
     case COLUMN_TYPES.POSITION_TYPE:
       return (
-        <PositionTypeLabel
-          type={properties.type}
-          pastTense={properties.pastTense}
-        />
+        <>
+          {properties.showCountdown &&
+            <CountdownLabel currentTimestamp={properties.currentTimestamp} expiry={properties.expiry} />
+          }
+          <PositionTypeLabel
+            type={properties.type}
+            pastTense={properties.pastTense}
+          />
+        </>
       );
     case COLUMN_TYPES.VALUE:
       return (
@@ -66,6 +80,10 @@ function selectColumn(columnType: string, properties: Properties) {
                   value={properties.value}
                   keyId={properties.keyId}
                   showEmptyDash={properties.showEmptyDash}
+                  useFull={properties.useFull}
+                  usePercent={properties.usePercent}
+                  showFullPrecision={properties.showFullPrecision}
+                  alert={properties.alert}
                 />
               </button>
             )}
@@ -74,34 +92,57 @@ function selectColumn(columnType: string, properties: Properties) {
                 value={properties.value}
                 keyId={properties.keyId}
                 showEmptyDash={properties.showEmptyDash}
+                useFull={properties.useFull}
+                showFullPrecision={properties.showFullPrecision}
+                usePercent={properties.usePercent}
+                showDenomination={properties.showDenomination}
+                alert={properties.alert}
               />
             )}
           </>
         )
       );
+    case COLUMN_TYPES.INVALID_LABEL:
+      return (
+        <InvalidLabel text={properties.text} keyId={properties.keyId} tooltipPositioning='right' />
+      );
     case COLUMN_TYPES.CANCEL_TEXT_BUTTON:
+      const confirmed = properties.status === TXEventName.Success;
+      const failed = properties.status === TXEventName.Failure;
+      const buttonText = confirmed ? 'Confirmed' : failed ? 'Failed' : 'Processing ...';
+      const isDisabled = !failed && !confirmed;
+      const icon = failed || confirmed ? XIcon : null;
       return properties.pending ? (
         <span>
-          {' '}
-          <PendingLabel />{' '}
+          <CancelTextButton
+            confirmed={confirmed}
+            failed={failed}
+            icon={icon}
+            text={buttonText}
+            action={properties.action}
+            disabled={isDisabled}
+          />
         </span>
       ) : (
-        <CancelTextButton
-          disabled={properties.disabled}
-          text={properties.text}
-          action={properties.action}
-        />
+        <>
+          {properties.showCountdown &&
+            <CountdownLabel currentTimestamp={properties.currentTimestamp} expiry={properties.expiry} />
+          }
+          <CancelTextButton
+            disabled={properties.disabled}
+            text={properties.text}
+            action={properties.action}
+          />
+        </>
       );
     case COLUMN_TYPES.PLAIN:
       return properties.value;
     case COLUMN_TYPES.MOVEMENT_LABEL:
       return (
         <MovementLabel
-          showPercent={properties.showPercent}
+          useFull={properties.useFull}
           showBrackets={properties.showBrackets}
           showPlusMinus={properties.showPlusMinus}
-          showColors={properties.showColors}
-          size={properties.size}
           value={properties.value}
         />
       );
@@ -112,7 +153,7 @@ function selectColumn(columnType: string, properties: Properties) {
 
 export interface RowColumnProps {
   columnType: string;
-  hide?: Boolean;
+  hide?: boolean;
   properties: Properties;
 }
 

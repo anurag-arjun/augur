@@ -35,18 +35,56 @@ div.Tooltip {
   }
 }
 
+div.RefreshSort {
+  max-width: @size-66;
+}
+
+div.TooltipInvalidRules {
+  max-width: 40%;
+  width: 100%;
+  border-radius: @size-1;
+  padding: 0;
+
+  > div {
+    border-radius: @size-1;
+    margin-bottom: 0;
+    background-color: @color-dark-grey;
+  }
+
+  @media @breakpoint-max-desktop {
+    max-width: 65%;
+  }
+
+  @media @breakpoint-mobile-tablet {
+    max-width: 75%;
+  }
+}
+
 .TooltipHint {
   > svg {
     max-height: @size-16;
     max-width: @size-16;
 
     > circle {
-      fill: @color-secondary-action;
-      stroke: @color-secondary-action-outline;
+      fill: none;
+      stroke: @color-secondary-text;
     }
 
     > path {
-      fill: @color-primary-text;
+      fill: @color-secondary-text;
+      stroke: none;
+    }
+  }
+
+  &:hover {
+    > svg {
+      > circle {
+        stroke: @color-primary-text;
+      }
+
+      > path {
+        fill: @color-primary-text;
+      }
     }
   }
 }

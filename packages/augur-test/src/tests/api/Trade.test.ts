@@ -1,18 +1,26 @@
-import { ContractAPI, ACCOUNTS, loadSeedFile, defaultSeedPath } from "@augurproject/tools";
+import { SDKConfiguration } from '@augurproject/utils';
+import {
+  ACCOUNTS,
+  defaultSeedPath,
+  loadSeed,
+  TestContractAPI,
+} from '@augurproject/tools';
 import { BigNumber } from 'bignumber.js';
-import { makeProvider } from "../../libs";
+import { disableZeroX, makeProvider } from '../../libs';
 
-let john: ContractAPI;
-let mary: ContractAPI;
+let john: TestContractAPI;
+let mary: TestContractAPI;
+let config: SDKConfiguration;
 
 beforeAll(async () => {
-  const seed = await loadSeedFile(defaultSeedPath);
+  const seed = await loadSeed(defaultSeedPath);
   const provider = await makeProvider(seed, ACCOUNTS);
+  config = disableZeroX(provider.getConfig());
 
-  john = await ContractAPI.userWrapper(ACCOUNTS[0], provider, seed.addresses);
-  mary = await ContractAPI.userWrapper(ACCOUNTS[1], provider, seed.addresses);
-  await john.approveCentralAuthority();
-  await mary.approveCentralAuthority();
+  john = await TestContractAPI.userWrapper(ACCOUNTS[0], provider, config);
+  mary = await TestContractAPI.userWrapper(ACCOUNTS[1], provider, config);
+  await john.approve();
+  await mary.approve();
 });
 
 test('Trade :: placeTrade', async () => {
@@ -34,7 +42,7 @@ test('Trade :: placeTrade', async () => {
   );
 
   let amountInOrder = await john.augur.contracts.orders.getAmount_(orderId);
-  await expect(amountInOrder.toNumber()).toEqual(10 ** 16);
+  await expect(amountInOrder.toNumber()).toEqual(10 ** 15);
 
   await mary.placeBasicYesNoTrade(
     1,
@@ -46,7 +54,7 @@ test('Trade :: placeTrade', async () => {
   );
 
   amountInOrder = await john.augur.contracts.orders.getAmount_(orderId);
-  await expect(amountInOrder.toNumber()).toEqual(10 ** 16 / 2);
+  await expect(amountInOrder.toNumber()).toEqual(10 ** 15 / 2);
 });
 
 test('Trade :: simulateTrade', async () => {
@@ -105,7 +113,7 @@ test('Trade :: simulateTrade', async () => {
     new BigNumber(0)
   );
 
-  const expectedFees = orderAmount.multipliedBy(fillPrice).dividedBy(50); // 2% combined market & reporter fees
+  const expectedFees = orderAmount.multipliedBy(fillPrice).multipliedBy(0.0101); // 2% combined market & reporter fees
   await expect(simulationData.sharesDepleted).toEqual(orderAmount);
   await expect(simulationData.sharesFilled).toEqual(orderAmount);
   await expect(simulationData.settlementFees).toEqual(expectedFees);

@@ -1,0 +1,57 @@
+{
+  "name": "@augurproject/sdk-lite",
+  "version": "2.1.9",
+  "description": "Augur SDK Lite",
+  "author": "The Augur Developers <team@augur.net>",
+  "license": "MIT",
+  "main": "build",
+  "directories": {
+    "src": "src"
+  },
+  "scripts": {
+    "prepare:abi:ParaShareToken": "node ../augur-tools/build/flash/cli.js abi -c ParaShareToken > src/abi/ParaShareToken.json",
+    "prepare:abi": "yarn prepare:abi:ParaShareToken",
+    "build": "tsc -b",
+    "nuke": "rm -f package-lock.json; rm -f yarn.lock; rm -rf node_modules; yarn clean",
+    "check": "gts check",
+    "fix": "gts fix",
+    "hotload-kovan-test": "node -r ts-node/register src/utils/hotloadKovanTest.ts",
+    "prepare": "tsc -b"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AugurProject/augur-lite.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AugurProject/augur-lite/issues"
+  },
+  "homepage": "https://github.com/AugurProject/augur-lite#readme",
+  "dependencies": {
+    "@augurproject/artifacts": "^2.1.9",
+    "@augurproject/utils": "^2.1.9",
+    "async": "3.1.0",
+    "ethers": "5.0.17",
+    "lz-string": "1.4.4"
+  },
+  "devDependencies": {
+    "@types/async": "3.0.1",
+    "@types/cors": "2.8.6",
+    "@types/node": "10.14.18",
+    "@types/node-fetch": "2.5.1",
+    "@types/web3": "1.0.19",
+    "ts-node": "9.0.0",
+    "typedoc": "0.17.4",
+    "typedoc-plugin-markdown": "2.2.17",
+    "typescript": "3.9.7",
+    "yarn": "1.22.0"
+  },
+  "buildDependencies": [
+    "typescript"
+  ],
+  "resolutions": {
+    "**/sha3": "2.0.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

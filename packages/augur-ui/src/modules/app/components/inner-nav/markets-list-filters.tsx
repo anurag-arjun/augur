@@ -1,170 +1,225 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import classNames from 'classnames';
 import {
   feeFilters,
-  spreadFilters,
   invalidFilters,
-  templateFilterValues,
   MAXFEE_PARAM_NAME,
-  SPREAD_PARAM_NAME,
   SHOW_INVALID_MARKETS_PARAM_NAME,
+  SPREAD_PARAM_NAME,
+  spreadFilters,
   TEMPLATE_FILTER,
+  templateFilterValues,
+  marketTypeFilterValues,
+  INVALID_OUTCOME_LABEL,
+  MARKET_TYPE_PARAM_NAME,
 } from 'modules/common/constants';
 import Styles from 'modules/app/components/inner-nav/markets-list-filters.styles.less';
-import { helpIcon, FilterIcon } from 'modules/common/icons';
+import { FilterIcon, helpIcon } from 'modules/common/icons';
 import { RadioBarGroup } from 'modules/common/form';
 import ReactTooltip from 'react-tooltip';
 import TooltipStyles from 'modules/common/tooltip.styles.less';
 import parseQuery from 'modules/routes/helpers/parse-query';
 import updateQuery from 'modules/routes/helpers/update-query';
-import { INVALID_OPTIONS } from 'modules/types';
+import { INVALID_OPTIONS, LoginAccountSettings, FilterSortOptions } from 'modules/types';
+import ChevronFlip from 'modules/common/chevron-flip';
+import { MARKET_MAX_FEES, MARKET_MAX_SPREAD, MARKET_SHOW_INVALID, MARKET_TYPE_FILTER, MARKET_SORT, MARKET_LIMIT, MARKET_OFFSET, MARKET_FILTER } from 'modules/filter-sort/actions/update-filter-sort-options';
 
 interface MarketsListFiltersProps {
   maxFee: string;
   maxLiquiditySpread: string;
   includeInvalidMarkets: INVALID_OPTIONS;
   allTemplateFilter: string;
+  marketTypeFilter: string;
   isSearching: boolean;
-  updateMaxFee: Function;
-  updateMaxSpread: Function;
-  updateShowInvalid: Function;
-  updateTemplateFilter: Function;
   history: History;
   location: Location;
+  setMaxFeeFilter: Function;
+  setMaxSpreadFilter: Function;
+  setShowInvalidFilter: Function;
+  setTemplateOrCustomFilter: Function;
+  settings: LoginAccountSettings;
+  isMobile: boolean;
+  updateSelectedCategories: Function;
+  setMarketTypeFilter: Function;
+  updateFilterSortOptionsSettings: Function;
+  sortBy: string,
+  marketLimit: number,
+  marketOffset: number,
+  marketFilter: string,
+  filterSortOptions: FilterSortOptions,
 }
 
-const MarketsListFilters = (props: MarketsListFiltersProps) => {
-  const [selectedFee, setSelectedFee] = useState(props.maxFee);
-  const [selectedSpread, setSelectedSpread] = useState(
-    props.maxLiquiditySpread
-  );
-  const [showInvalidDefault, setShowInvalidDefault] = useState(
-    String(props.includeInvalidMarkets)
-  );
-  const [templateFilter, setTemplateFilter] = useState(props.allTemplateFilter);
-
+const MarketsListFilters = ({
+  isSearching,
+  history,
+  location,
+  setMaxFeeFilter,
+  setMaxSpreadFilter,
+  setMarketTypeFilter,
+  setShowInvalidFilter,
+  setTemplateOrCustomFilter,
+  isMobile,
+  updateSelectedCategories,
+  updateFilterSortOptionsSettings,
+  filterSortOptions
+}: MarketsListFiltersProps) => {
   useEffect(() => {
-    const filterOptionsFromQuery = parseQuery(props.location.search);
-    if (
-      filterOptionsFromQuery.maxFee &&
-      filterOptionsFromQuery.maxFee !== selectedFee
-    ) {
-      setSelectedFee(filterOptionsFromQuery.maxFee);
-      props.updateMaxFee(filterOptionsFromQuery.maxFee);
-    }
-    if (
-      filterOptionsFromQuery.selectedFee &&
-      filterOptionsFromQuery.selectedFee !== selectedSpread
-    ) {
-      setSelectedSpread(filterOptionsFromQuery.selectedSpread);
-      props.updateMaxSpread(filterOptionsFromQuery.selectedSpread);
-    }
-    if (
-      filterOptionsFromQuery.templateFilter &&
-      filterOptionsFromQuery.templateFilter !== templateFilter
-    ) {
-      setTemplateFilter(filterOptionsFromQuery.templateFilter);
-      props.updateTemplateFilter(filterOptionsFromQuery.templateFilter);
-    }
-  }, [props.location.search]);
+    const filterOptionsFromQuery = parseQuery(location.search);
 
-  if (!selectedFee) return null;
+    const newMaxFee =
+      filterOptionsFromQuery.maxFee;
+    const newSpread =
+      filterOptionsFromQuery.spread;
+    const newTemplateFilter =
+      filterOptionsFromQuery.templateFilter;
+    const newMarketFilter =
+      filterOptionsFromQuery.marketFilter;
+    const newShowInvalid =
+      filterOptionsFromQuery.showInvalid;
+    const categories =
+      filterOptionsFromQuery.category;
+    const newMarketTypeFilter = filterOptionsFromQuery.type;
+    const newMarketSort = filterOptionsFromQuery.sort;
+    const newMarketLimit = filterOptionsFromQuery.limit;
+    const newMarketOffset = filterOptionsFromQuery.offset
+
+    let filterOptions = {}
+    if (newMaxFee && newMaxFee !== filterSortOptions.maxFee) {
+      filterOptions={...filterOptions, [MARKET_MAX_FEES]: newMaxFee};
+    }
+    if (newSpread && newSpread !== filterSortOptions.maxLiquiditySpread) {
+      filterOptions={...filterOptions, [MARKET_MAX_SPREAD]: newSpread};
+    }
+    if (newTemplateFilter && newTemplateFilter !== filterSortOptions.templateFilter) {
+      filterOptions={...filterOptions, [TEMPLATE_FILTER]: newTemplateFilter};
+    }
+    if (newMarketTypeFilter && newMarketTypeFilter !== filterSortOptions.marketTypeFilter) {
+      filterOptions={...filterOptions, [MARKET_TYPE_FILTER]: newMarketTypeFilter};
+    }
+    if (newShowInvalid && newShowInvalid !== filterSortOptions.includeInvalidMarkets) {
+      filterOptions={...filterOptions, [MARKET_SHOW_INVALID]: newShowInvalid};
+    }
+    if (newMarketLimit && newMarketLimit !== filterSortOptions.limit) {
+      filterOptions={...filterOptions, [MARKET_LIMIT]: newMarketLimit};
+    }
+    if (newMarketSort && newMarketSort !== filterSortOptions.sortBy) {
+      filterOptions={...filterOptions, [MARKET_SORT]: newMarketSort};
+    }
+    if (newMarketOffset && newMarketOffset !== filterSortOptions.offset) {
+      filterOptions={...filterOptions, [MARKET_OFFSET]: newMarketOffset};
+    }
+    if (newMarketFilter && newMarketFilter !== filterSortOptions.marketFilter) {
+      filterOptions={...filterOptions, [MARKET_FILTER]: newMarketFilter};
+    }
+    if(Object.keys(filterOptions).length) updateFilterSortOptionsSettings(filterOptions);
+
+    categories
+      ? updateSelectedCategories(categories.split(','))
+      : updateSelectedCategories([]);
+  }, [location.search]);
+
+  const [showFilters, setShowFilters] = useState(false);
+
+  if (!filterSortOptions.maxLiquiditySpread) return null;
+
+  const updateFilter = (value: string, whichFilterToUpdate: string) => {
+    updateQuery(
+      whichFilterToUpdate,
+      value,
+      location,
+      history
+    );
+    updateFilterSortOptionsSettings({[whichFilterToUpdate]: value});
+  };
 
   return (
     <div className={Styles.Filters}>
       <div
         className={classNames(Styles.FiltersGroup, {
-          [Styles.Searching]: props.isSearching,
+          [Styles.Searching]: isSearching,
         })}
       >
-        <div>
+        <div onClick={() => setShowFilters(!showFilters)}>
           {FilterIcon}
           Filters
+          <ChevronFlip
+            pointDown={showFilters}
+            stroke="#D7DDE0"
+            filledInIcon
+            quick
+          />
         </div>
+        {showFilters && (
+          <>
+            <div className={Styles.Filter}>
+              <span>Markets</span>
+              {templateFilterTooltip()}
+            </div>
 
-        <div className={Styles.Filter}>
-          <span>Markets</span>
-          {templateFilterTooltip()}
-        </div>
+            <RadioBarGroup
+              radioButtons={templateFilterValues}
+              defaultSelected={filterSortOptions.templateFilter}
+              onChange={(value: string) => isMobile ? setTemplateOrCustomFilter(value) : updateFilter(value, TEMPLATE_FILTER)}
+            />
 
-        <RadioBarGroup
-          radioButtons={templateFilterValues}
-          defaultSelected={templateFilter}
-          onChange={(value: string) => {
-            updateQuery(TEMPLATE_FILTER, value, props.location, props.history);
-            setTemplateFilter(value);
-            props.updateTemplateFilter(value);
-          }}
-        />
+            <div className={Styles.Filter}>
+              <span>Fees</span>
+              {generateTooltip(
+                'Filters markets based on estimated total fees paid to market creators and reporters',
+                'fees'
+              )}
+            </div>
 
-        <div className={Styles.Filter}>
-          <span>Fees</span>
-          {generateTooltip(
-            'Filters markets based on estimated total fees paid to market creators and reporters',
-            'fees'
-          )}
-        </div>
+            <RadioBarGroup
+              radioButtons={feeFilters}
+              defaultSelected={filterSortOptions.maxFee}
+              onChange={(value: string) => isMobile ? setMaxFeeFilter(value) : updateFilter(value, MAXFEE_PARAM_NAME)}
+            />
 
-        <RadioBarGroup
-          radioButtons={feeFilters}
-          defaultSelected={selectedFee}
-          onChange={(value: string) => {
-            updateQuery(
-              MAXFEE_PARAM_NAME,
-              value,
-              props.location,
-              props.history
-            );
-            setSelectedFee(value);
-            props.updateMaxFee(value);
-          }}
-        />
+            <div className={Styles.Filter}>
+              <span>Liquidity Spread</span>
+              {generateTooltip(
+                'Filters markets based on how wide a bid/offer spread is and the depth of volume',
+                'liquidity'
+              )}
+            </div>
 
-        <div className={Styles.Filter}>
-          <span>Liquidity Spread</span>
-          {generateTooltip(
-            'Filters markets based on how wide a bid/offer spread is and the depth of volume',
-            'liquidity'
-          )}
-        </div>
+            <RadioBarGroup
+              radioButtons={spreadFilters}
+              defaultSelected={filterSortOptions.maxLiquiditySpread}
+              onChange={(value: string) => isMobile ? setMaxSpreadFilter(value) : updateFilter(value, SPREAD_PARAM_NAME)}
+            />
 
-        <RadioBarGroup
-          radioButtons={spreadFilters}
-          defaultSelected={selectedSpread}
-          onChange={(value: string) => {
-            updateQuery(
-              SPREAD_PARAM_NAME,
-              value,
-              props.location,
-              props.history
-            );
-            setSelectedSpread(value);
-            props.updateMaxSpread(value);
-          }}
-        />
+            <div className={Styles.Filter}>
+              <span>Market Type</span>
+              {generateTooltip(
+                'Filters markets based on market type',
+                'type'
+              )}
+            </div>
 
-        <div className={Styles.Filter}>
-          <span>Invalid Markets</span>
-          {generateTooltip(
-            'Filters markets where the current best bid/offer would profit as a result of a market resolving as invalid',
-            'invalid'
-          )}
-        </div>
+            <RadioBarGroup
+              radioButtons={marketTypeFilterValues}
+              defaultSelected={filterSortOptions.marketTypeFilter}
+              onChange={(value: string) => isMobile ? setMarketTypeFilter(value) : updateFilter(value, MARKET_TYPE_PARAM_NAME)}
+            />
 
-        <RadioBarGroup
-          radioButtons={invalidFilters}
-          defaultSelected={showInvalidDefault}
-          onChange={(value: string) => {
-            updateQuery(
-              SHOW_INVALID_MARKETS_PARAM_NAME,
-              value,
-              props.location,
-              props.history
-            );
-            setShowInvalidDefault(value);
-            props.updateShowInvalid(value);
-          }}
-        />
+
+            <div className={Styles.Filter}>
+              <span>Invalid Markets</span>
+              {generateTooltip(
+                'Filters markets where the current best bid/offer would profit as a result of a market resolving as invalid',
+                INVALID_OUTCOME_LABEL
+              )}
+            </div>
+
+            <RadioBarGroup
+              radioButtons={invalidFilters}
+              defaultSelected={String(filterSortOptions.includeInvalidMarkets)}
+              onChange={(value: string) => isMobile ? setShowInvalidFilter(value) : updateFilter(value, SHOW_INVALID_MARKETS_PARAM_NAME)}
+            />
+          </>
+        )}
       </div>
     </div>
   );
@@ -172,7 +227,7 @@ const MarketsListFilters = (props: MarketsListFiltersProps) => {
 
 export default MarketsListFilters;
 
-const generateTooltip = (tipText: string, key: string) => {
+export const generateTooltip = (tipText: string, key: string) => {
   return (
     <span className={Styles.Filter_TooltipContainer}>
       <label
@@ -182,6 +237,7 @@ const generateTooltip = (tipText: string, key: string) => {
         )}
         data-tip
         data-for={key}
+        data-iscapture={true}
       >
         {helpIcon}
       </label>
@@ -191,6 +247,8 @@ const generateTooltip = (tipText: string, key: string) => {
         effect="solid"
         place="top"
         type="light"
+        event="mouseover mouseenter"
+        eventOff="mouseleave mouseout scroll mousewheel blur"
       >
         <p>{tipText}</p>
       </ReactTooltip>
@@ -208,6 +266,7 @@ const templateFilterTooltip = () => {
         )}
         data-tip
         data-for={'template'}
+        data-iscapture={true}
       >
         {helpIcon}
       </label>
@@ -217,6 +276,8 @@ const templateFilterTooltip = () => {
         effect="solid"
         place="top"
         type="light"
+        event="mouseover mouseenter"
+        eventOff="mouseleave mouseout scroll mousewheel blur"
       >
         <>
           <p>

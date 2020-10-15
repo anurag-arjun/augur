@@ -6,7 +6,7 @@ Smart contracts for [Augur](https://augur.net), a decentralized prediction marke
 
 If you just want to clone the repo and quickly have a local proof of authority network running with the contracts deployed then you can just clone the repo and run:
 ```
-docker run -it -p 8545:8545 -p 8546:8546 augurproject/dev-node-geth:latest
+docker run -it -p 8545:8545 -p 8546:8546 augurproject/dev-node-geth:v1.9.9
 yarn deploy:local
 ```
 * Geth HTTP RPC will be available on localhost port `8545`.
@@ -15,7 +15,7 @@ yarn deploy:local
 
 ## Installation
 
-You need system-wide installations of Python 3.6, Node.js 10+, and [Solidity 0.5.10](https://github.com/ethereum/solidity/releases/tag/v0.5.10).  (Or Docker; see below.)  Install the dependencies:
+You need system-wide installations of Python 3.6, Node.js 10+, and [Solidity 0.5.15](https://github.com/ethereum/solidity/releases/tag/v0.5.15).  (Or Docker; see below.)  Install the dependencies:
 
 ```bash
 yarn

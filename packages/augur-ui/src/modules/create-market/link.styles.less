@@ -10,5 +10,11 @@
 
 	&.ownLine {
 		display: block;
+		margin: auto;
+
+		@media @breakpoint-mobile {
+			display: inline;
+			margin: 0 0 0 @size-4;
+		}
 	}
 }

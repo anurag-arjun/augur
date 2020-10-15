@@ -1,9 +1,9 @@
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router-dom';
-import { AppState } from 'store';
+import { AppState } from 'appStore';
 import { UniverseCard } from 'modules/universe-cards/components/universe-card';
 import { switchUniverse } from 'modules/universe-cards/actions/switch-universe';
-import { formatDai, formatAttoRep } from 'utils/format-number';
+import { formatDaiPrice, formatAttoRep, formatDai, formatEther } from 'utils/format-number';
 import { convertUnixToFormattedDate } from 'utils/format-date';
 
 const mapStateToProps = (state: AppState, ownProps) => {
@@ -13,21 +13,21 @@ const mapStateToProps = (state: AppState, ownProps) => {
     currentUniverseId: state.universe.id,
     parentUniverseId: state.universe.parentUniverseId,
     creationTimestamp: convertUnixToFormattedDate(universe.creationTimestamp)
-      .formattedLocalShortTime,
+      .formattedLocalShortWithUtcOffset,
     outcomeName: universe.outcomeName,
     account: state.loginAccount.address,
     breakdown: [
       {
-        label: 'Your REP',
+        label: 'Your REPv2',
         value: formatAttoRep(universe.usersRep).formatted,
       },
       {
-        label: 'Total REP Supply',
+        label: 'Total REPv2 Supply',
         value: formatAttoRep(universe.totalRepSupply).formatted,
       },
       {
         label: 'Total Open Interest',
-        value: formatDai(universe.totalOpenInterest).full,
+        value: formatEther(universe.totalOpenInterest).full,
       },
       {
         label: 'Number of Markets',

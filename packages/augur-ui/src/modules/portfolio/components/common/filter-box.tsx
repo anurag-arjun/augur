@@ -7,6 +7,7 @@ import { NameValuePair, Market, Tab } from 'modules/portfolio/types';
 import MarketRow from 'modules/portfolio/containers/market-row';
 import EmptyDisplay from 'modules/portfolio/components/common/empty-display';
 import { createTabsInfo } from 'modules/portfolio/helpers/create-tabs-info';
+import Styles from 'modules/portfolio/components/common/quad-box.styles.less';
 
 export interface MarketsByReportingState {
   [type: string]: Array<Market>;
@@ -31,6 +32,8 @@ export interface FilterBoxProps {
   toggle: Function;
   hide: boolean;
   extend: boolean;
+  customClass?: string;
+  showLiquidityDepleted?: boolean;
 }
 
 interface FilterBoxState {
@@ -59,6 +62,8 @@ const FilterBox: React.FC<FilterBoxProps> = props => {
     hide,
     extend,
     data,
+    customClass,
+    showLiquidityDepleted
   } = props;
 
   // states
@@ -95,21 +100,21 @@ const FilterBox: React.FC<FilterBoxProps> = props => {
         comp = (marketA, marketB) => {
           // Not found endTime prop in Market interface
           if (
-            marketA.endTime.timestamp < currentAugurTimestamp &&
-            marketB.endTime.timestamp < currentAugurTimestamp
+            marketA.endTime < currentAugurTimestamp &&
+            marketB.endTime < currentAugurTimestamp
           ) {
-            return marketB.endTime.timestamp - marketA.endTime.timestamp;
+            return marketB.endTime - marketA.endTime;
           }
 
-          if (marketA.endTime.timestamp < currentAugurTimestamp) {
+          if (marketA.endTime < currentAugurTimestamp) {
             return 1;
           }
 
-          if (marketB.endTime.timestamp < currentAugurTimestamp) {
+          if (marketB.endTime < currentAugurTimestamp) {
             return -1;
           }
 
-          return marketA.endTime.timestamp - marketB.endTime.timestamp;
+          return marketA.endTime - marketB.endTime;
         };
       }
 
@@ -147,17 +152,10 @@ const FilterBox: React.FC<FilterBoxProps> = props => {
     dataRef.current = data;
   }, [data]);
 
-  // memos
-  const selectedLabel = React.useMemo(() => {
-    const tab = tabs.find(tab => tab.key === selectedTab);
-    const label = (tab && tab.label) || '';
-
-    return label !== ALL_MARKETS ? selectedLabel + ' ' : '';
-  }, [tabs, selectedTab]);
-
   return (
     <QuadBox
       title={title}
+      customClass={customClass}
       switchHeaders={true}
       showFilterSearch={true}
       onSearchChange={(search) => setSearch(search)}
@@ -186,26 +184,28 @@ const FilterBox: React.FC<FilterBoxProps> = props => {
               search={search}
             />
           )}
-          {/* Not found id prop in Market interface */}
-          {filteredData.length > 0 &&
-            filteredData.map((market: any, index: number) =>
-              dataObj[market.id] ? (
-                <MarketRow
-                  key={`position_${market.id}_${index}`}
-                  market={dataObj[market.id]}
-                  showState={selectedTab === ALL_MARKETS}
-                  noToggle={noToggle}
-                  showPending={showPending}
-                  toggleContent={
-                    renderToggleContent &&
-                    renderToggleContent(dataObj[market.id])
-                  }
-                  rightContent={
-                    renderRightContent && renderRightContent(dataObj[market.id])
-                  }
-                />
-              ) : null
-            )}
+          <div className={Styles.MarketBox}>
+            {filteredData.length > 0 &&
+              filteredData.map((market: any, index: number) =>
+                dataObj[market.id] ? (
+                  <MarketRow
+                    key={`position_${market.id}_${index}`}
+                    market={dataObj[market.id]}
+                    showState
+                    showLiquidityDepleted={showLiquidityDepleted}
+                    noToggle={noToggle}
+                    showPending={showPending}
+                    toggleContent={
+                      renderToggleContent &&
+                      renderToggleContent(dataObj[market.id])
+                    }
+                    rightContent={
+                      renderRightContent && renderRightContent(dataObj[market.id])
+                    }
+                  />
+                ) : null
+              )}
+            </div>
         </>
       }
       search={search}

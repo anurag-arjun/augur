@@ -1,126 +1,351 @@
-import { makeDbMock, makeProvider } from "../../../libs";
-import { ContractAPI, ACCOUNTS, loadSeedFile, defaultSeedPath } from "@augurproject/tools";
-import { DB } from '@augurproject/sdk/build/state/db/DB';
+import { WSClient } from '@0x/mesh-rpc-client';
+import { SDKConfiguration } from '@augurproject/utils';
+import { sleep } from '@augurproject/core/build/libraries/HelperFunctions';
+import { BrowserMesh, Connectors } from '@augurproject/sdk';
+import {
+  ACCOUNTS,
+  defaultSeedPath,
+  loadSeed,
+  TestContractAPI,
+} from '@augurproject/tools';
+import { TestEthersProvider } from '@augurproject/tools/build/libs/TestEthersProvider';
+import { stringTo32ByteHex } from '@augurproject/tools/build/libs/Utils';
 import { BigNumber } from 'bignumber.js';
-import { stringTo32ByteHex } from '../../../libs/Utils';
-
-const mock = makeDbMock();
+import { makeProvider } from '../../../libs';
+import { MockBrowserMesh } from '../../../libs/MockBrowserMesh';
+import { MockMeshServer, stopServer } from '../../../libs/MockMeshServer';
+import { ethers } from 'ethers';
 
 describe('State API :: Market Sorts', () => {
-  let db: Promise<DB>;
-  let john: ContractAPI;
+  let john: TestContractAPI;
+
+  let provider: TestEthersProvider;
+  let config: SDKConfiguration;
+
+  let meshBrowser: BrowserMesh;
+  let meshClient: WSClient;
 
   beforeAll(async () => {
-    const seed = await loadSeedFile(defaultSeedPath);
-    const provider = await makeProvider(seed, ACCOUNTS);
+    const { port } = await MockMeshServer.create();
+    meshClient = new WSClient(`ws://localhost:${port}`);
+    meshBrowser = new MockBrowserMesh(meshClient);
 
-    john = await ContractAPI.userWrapper(ACCOUNTS[0], provider, seed.addresses);
-    db = mock.makeDB(john.augur, ACCOUNTS);
+    const seed = await loadSeed(defaultSeedPath);
+    provider = await makeProvider(seed, ACCOUNTS);
+    config = provider.getConfig();
   });
 
-  test(':invalidFilter', async () => {
-    await john.approveCentralAuthority();
-
-    // Create a market
-    const market = await john.createReasonableMarket([stringTo32ByteHex('A'), stringTo32ByteHex('B')]);
-
-    // With no orders on the book the invalidFilter will be false
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
-    let marketData = await (await db).findMarkets({selector: { market: market.address }});
-    await expect(marketData[0].invalidFilter).toEqual(false);
-
-    // Place a bid order on Invalid
-    let bid = new BigNumber(0);
-    let outcome = new BigNumber(0);
-    let numShares = new BigNumber(1);
-    let price = new BigNumber(1);
-
-    await john.simplePlaceOrder(market.address, bid, numShares, price, outcome);
-
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
-    marketData = await (await db).findMarkets({selector: { market: market.address }});
-
-    // The Invalid filter is still not hit because the bid would be unprofitable to take if the market were valid, so no one would take it even if the market was Valid
-    await expect(marketData[0].invalidFilter).toEqual(false);
-
-    // Bid something better
-    numShares = new BigNumber(10**18);
-    price = new BigNumber(50);
-    await john.simplePlaceOrder(market.address, bid, numShares, price, outcome);
-
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
-    marketData = await (await db).findMarkets({selector: { market: market.address }});
-
-    // The Invalid filter is now hit because this Bid would be profitable for a filler assuming the market were actually Valid
-    await expect(marketData[0].invalidFilter).toEqual(true);
-
+  afterAll(() => {
+    meshClient.destroy();
+    stopServer();
   });
-  test(': horizontal liquidity', async () => {
-    await john.approveCentralAuthority();
+  describe('tests', () => {
+    beforeAll(async () => {
+      const johnConnector = new Connectors.DirectConnector();
+      john = await TestContractAPI.userWrapper(
+        ACCOUNTS[0],
+        provider,
+        config,
+        johnConnector
+      );
+      john.augur.zeroX.mesh = meshBrowser;
+      john.augur.zeroX.rpc = meshClient;
 
-    // Create a market
-    const market = await john.createReasonableMarket([stringTo32ByteHex('A'), stringTo32ByteHex('B')]);
-    const outcomeA = new BigNumber(1);
+      expect(john).toBeDefined();
 
-    // With no orders on the book the liquidity scores won't exist
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
-    let marketData = await (await db).findMarkets({selector: { market: market.address }});
-    await expect(marketData[0].liquidity).toEqual({
-      "0": "000000000000000000000000000000",
-      "10": "000000000000000000000000000000",
-      "100": "000000000000000000000000000000",
-      "15": "000000000000000000000000000000",
-      "20": "000000000000000000000000000000"
+      johnConnector.initialize(john.augur, john.db);
+
+      await john.approve();
     });
 
-    // Place a Bid on A and an Ask on A
-    const bid = new BigNumber(0);
-    const ask = new BigNumber(1);
-    let numShares = new BigNumber(10**18);
-    let price = new BigNumber(51);
+    test(':horizontal/vertical liquidity', async () => {
+      const outcomeA = 1;
+      const outcomeB = 2;
+      const outcomeC = 3;
+      const outcomeInvalid = 0;
+      const bid = 0;
+      const ask = 1;
+      const expirationTimeInSeconds = new BigNumber(
+        Math.round(+new Date() / 1000).valueOf()
+      ).plus(10000);
+      const nowPlus50Seconds = new BigNumber(
+        Math.round(+new Date() / 1000).valueOf()
+      ).plus(50);
 
-    await john.simplePlaceOrder(market.address, bid, numShares, price, outcomeA);
+      // Test horizontal liquidity
 
-    price = new BigNumber(49);
+      // Create a market
+      const market = await john.createReasonableMarket([
+        stringTo32ByteHex('A'),
+        stringTo32ByteHex('B'),
+      ]);
 
-    await john.simplePlaceOrder(market.address, ask, numShares, price, outcomeA);
+      // With no orders on the book the liquidity scores won't exist
+      await john.sync();
+      let marketData = await john.db.Markets.get(market.address);
+      await expect(marketData.liquidity).toEqual({
+        '0': '000000000000000000000000000000',
+        '10': '000000000000000000000000000000',
+        '100': '000000000000000000000000000000',
+        '15': '000000000000000000000000000000',
+        '20': '000000000000000000000000000000',
+      });
 
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
-    marketData = await (await db).findMarkets({selector: { market: market.address }});
+      // Place a Bid on A and an Ask on A
+      await john.placeZeroXOrder({
+        direction: ask,
+        market: market.address,
+        numTicks: await market.getNumTicks_(),
+        numOutcomes: 3,
+        outcome: outcomeA,
+        tradeGroupId: '42',
+        fingerprint: ethers.utils.formatBytes32String('11'),
+        doNotCreateOrders: false,
+        displayMinPrice: new BigNumber(0),
+        displayMaxPrice: new BigNumber(1),
+        displayAmount: new BigNumber(500),
+        displayPrice: new BigNumber(0.81),
+        displayShares: new BigNumber(100000),
+        expirationTime: expirationTimeInSeconds,
+      });
 
-    await expect(marketData[0].liquidity[10]).toEqual("000000000102000000000000000000");
+      await john.placeZeroXOrder({
+        direction: bid,
+        market: market.address,
+        numTicks: await market.getNumTicks_(),
+        numOutcomes: 3,
+        outcome: outcomeA,
+        tradeGroupId: '42',
+        fingerprint: ethers.utils.formatBytes32String('11'),
+        doNotCreateOrders: false,
+        displayMinPrice: new BigNumber(0),
+        displayMaxPrice: new BigNumber(1),
+        displayAmount: new BigNumber(500),
+        displayPrice: new BigNumber(0.78),
+        displayShares: new BigNumber(100000),
+        expirationTime: expirationTimeInSeconds,
+      });
+      await john.sync();
+      await john.db.marketDatabase.syncOrderBooks([market.address]);
+      marketData = await john.db.Markets.get(market.address);
 
-  });
+      await expect(marketData.liquidity[10]).toEqual(
+        '000000000485000000000000000000'
+      );
 
-  test(':vertical liquidity', async () => {
-    await john.approveCentralAuthority();
+      // Test vertical liquidity
 
-    // Create a market
-    const market = await john.createReasonableMarket([stringTo32ByteHex('A'), stringTo32ByteHex('B'), stringTo32ByteHex('C')]);
-    const outcomeA = new BigNumber(1);
-    const outcomeB = new BigNumber(2);
-    const outcomeC = new BigNumber(3);
+      // Create a market
+      const market2 = await john.createReasonableMarket([
+        stringTo32ByteHex('A'),
+        stringTo32ByteHex('B'),
+        stringTo32ByteHex('C'),
+      ]);
 
-    // Place a an Ask on A. This won't rank for liquidity
-    const ask = new BigNumber(1);
-    let numShares = new BigNumber(10 * 10**18);
-    let askPrice = new BigNumber(51);
+      await john.sync();
 
-    await john.simplePlaceOrder(market.address, ask, numShares, askPrice, outcomeA);
+      // Place a an Ask on A. This won't rank for liquidity
+      await john.placeZeroXOrder({
+        direction: ask,
+        market: market2.address,
+        numTicks: await market.getNumTicks_(),
+        numOutcomes: 3,
+        outcome: outcomeA,
+        tradeGroupId: '42',
+        fingerprint: ethers.utils.formatBytes32String('11'),
+        doNotCreateOrders: false,
+        displayMinPrice: new BigNumber(0),
+        displayMaxPrice: new BigNumber(1),
+        displayAmount: new BigNumber(500),
+        displayPrice: new BigNumber(0.51),
+        displayShares: new BigNumber(100000),
+        expirationTime: expirationTimeInSeconds,
+      });
 
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
-    let marketData = await (await db).findMarkets({selector: { market: market.address }});
+      // await john.simplePlaceOrder(market.address, ask, numShares, askPrice, outcomeA);
+      await john.sync();
+      await john.db.marketDatabase.syncOrderBooks([market2.address]);
+      marketData = await john.db.Markets.get(market2.address);
+      await expect(marketData.liquidity[10]).toEqual(
+        '000000000000000000000000000000'
+      );
 
-    await expect(marketData[0].liquidity[10]).toEqual("000000000000000000000000000000");
+      // Set up vertical liquidity and confirm it ranks
+      await john.placeZeroXOrder({
+        direction: ask,
+        market: market2.address,
+        numTicks: await market2.getNumTicks_(),
+        numOutcomes: 3,
+        outcome: outcomeB,
+        tradeGroupId: '42',
+        fingerprint: ethers.utils.formatBytes32String('11'),
+        doNotCreateOrders: false,
+        displayMinPrice: new BigNumber(0),
+        displayMaxPrice: new BigNumber(1),
+        displayAmount: new BigNumber(500),
+        displayPrice: new BigNumber(0.51),
+        displayShares: new BigNumber(100000),
+        expirationTime: expirationTimeInSeconds,
+      });
 
-    // Set up vertical liquidity and confirm it ranks
-    await john.simplePlaceOrder(market.address, ask, numShares, askPrice, outcomeB);
-    await john.simplePlaceOrder(market.address, ask, numShares, askPrice, outcomeC);
+      await john.placeZeroXOrder({
+        direction: ask,
+        market: market2.address,
+        numTicks: await market2.getNumTicks_(),
+        numOutcomes: 3,
+        outcome: outcomeC,
+        tradeGroupId: '42',
+        fingerprint: ethers.utils.formatBytes32String('11'),
+        doNotCreateOrders: false,
+        displayMinPrice: new BigNumber(0),
+        displayMaxPrice: new BigNumber(1),
+        displayAmount: new BigNumber(500),
+        displayPrice: new BigNumber(0.51),
+        displayShares: new BigNumber(100000),
+        expirationTime: expirationTimeInSeconds,
+      });
 
-    await (await db).sync(john.augur, mock.constants.chunkSize, 0);
-    marketData = await (await db).findMarkets({selector: { market: market.address }});
+      await sleep(300);
 
-    await expect(marketData[0].liquidity[10]).toEqual("000000001470000000000000000000");
+      await john.sync();
+      await john.db.marketDatabase.syncOrderBooks([market2.address]);
+      marketData = await john.db.Markets.get(market2.address);
+      await expect(marketData.liquidity[10]).toEqual(
+        '000000000735000000000000000000'
+      );
 
+      // Test Invalid Filter
+      // Create a market
+      const market3 = await john.createReasonableYesNoMarket();
+
+      // With no orders on the book the invalidFilter will be false
+      await john.sync();
+      marketData = await john.db.Markets.get(market3.address);
+      await expect(marketData.invalidFilter).toEqual(0);
+
+      // Place a bid order on Invalid
+      await john.placeBasicYesNoZeroXTrade(
+        bid,
+        market3.address,
+        outcomeInvalid,
+        new BigNumber(20),
+        new BigNumber(0.09),
+        new BigNumber(0),
+        expirationTimeInSeconds
+      );
+
+      // The Invalid filter is still not hit because the bid would be unprofitable to take if the market were valid, so no one would take it even if the market was Valid
+      await john.sync();
+      await john.db.marketDatabase.syncOrderBooks([market3.address]);
+      marketData = await john.db.Markets.get(market3.address);
+      await expect(marketData.invalidFilter).toEqual(0);
+
+      // Bid something better
+      await john.placeBasicYesNoZeroXTrade(
+        bid,
+        market3.address,
+        outcomeInvalid,
+        new BigNumber(2000),
+        new BigNumber(0.79),
+        new BigNumber(0),
+        expirationTimeInSeconds
+      );
+
+      // The Invalid filter is now hit because this Bid would be profitable for a filler assuming the market were actually Valid
+      await john.sync();
+      await john.db.marketDatabase.syncOrderBooks([market3.address]);
+      marketData = await john.db.Markets.get(market3.address);
+      await expect(marketData.invalidFilter).toEqual(1);
+
+      // Don't include orders in liquidity calculations that expiry within 70 seconds
+      const market4 = await john.createReasonableMarket([
+        stringTo32ByteHex('A'),
+        stringTo32ByteHex('B'),
+      ]);
+
+      // Add ask
+      await john.placeBasicYesNoZeroXTrade(
+        ask,
+        market4.address,
+        outcomeA,
+        new BigNumber(500),
+        new BigNumber(0.83),
+        new BigNumber(0),
+        expirationTimeInSeconds
+      );
+
+      // Add bid and Iinclude an expiry that will fall outside the 70seconds limit for liquidity calculations
+      await john.placeBasicYesNoZeroXTrade(
+        bid,
+        market4.address,
+        outcomeA,
+        new BigNumber(500),
+        new BigNumber(0.82),
+        new BigNumber(0),
+        nowPlus50Seconds
+      );
+
+      // Should ignore above bid and calculate zero liquidity
+      await john.sync();
+      await john.db.marketDatabase.syncOrderBooks([market4.address]);
+      marketData = await john.db.Markets.get(market4.address);
+      await expect(marketData.liquidity).toEqual({
+        '10': '000000000000000000000000000000',
+        '100': '000000000000000000000000000000',
+        '15': '000000000000000000000000000000',
+        '20': '000000000000000000000000000000',
+      });
+
+      // Test Recently Depleted Liquidity + Invalid
+      await john.placeBasicYesNoZeroXTrade(
+        ask,
+        market4.address,
+        outcomeB,
+        new BigNumber(500),
+        new BigNumber(0.83),
+        new BigNumber(0),
+        expirationTimeInSeconds
+      );
+
+      await john.placeBasicYesNoZeroXTrade(
+        bid,
+        market4.address,
+        outcomeB,
+        new BigNumber(500),
+        new BigNumber(0.82),
+        new BigNumber(0),
+        expirationTimeInSeconds
+      );
+
+      // Should pass spread check and not be invalid
+      await john.sync();
+      await john.db.marketDatabase.syncOrderBooks([market4.address]);
+      marketData = await john.db.Markets.get(market4.address);
+      await expect(marketData.liquidity).toEqual({
+        '10': '000000000580000000000000000000',
+        '100': '000000000580000000000000000000',
+        '15': '000000000580000000000000000000',
+        '20': '000000000580000000000000000000',
+      });
+      await expect(marketData.invalidFilter).toEqual(0);
+
+      // Add an invalid bid to throw the market into an Invalid state
+      await john.placeBasicYesNoZeroXTrade(
+        bid,
+        market4.address,
+        outcomeInvalid,
+        new BigNumber(2000),
+        new BigNumber(0.78),
+        new BigNumber(0),
+        expirationTimeInSeconds
+      );
+
+      // Invalid that had spread should be set as hasRecentlyDepletedLiquidity
+      await john.sync();
+      await john.db.marketDatabase.syncOrderBooks([market4.address]);
+      marketData = await john.db.Markets.get(market4.address);
+      await expect(marketData.invalidFilter).toEqual(1);
+      await expect(marketData.hasRecentlyDepletedLiquidity).toEqual(true);
+    });
   });
 });

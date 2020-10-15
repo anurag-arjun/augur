@@ -1,0 +1,74 @@
+@import (reference) '~assets/styles/shared';
+
+.Swap, .Pool {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  > div:first-of-type {
+    > div:nth-of-type(2) div {
+      cursor: pointer;
+    }
+
+    > div:nth-of-type(2) > div:nth-of-type(2) > div:hover {
+      border: 1px solid @color-primary-text;
+    }
+  }
+
+  > div:nth-of-type(2) {
+    align-items: center;
+    background: @color-table-header;
+    display: flex;
+    height: @size-40;
+    justify-content: center;
+    margin: 0 @size-8;
+
+    > svg > path {
+      stroke: @color-dark-text;
+    }
+  }
+
+  > div:last-of-type {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin: auto;
+
+    > button {
+      .text-12-bold;
+
+      margin-top: @size-16;
+      border-radius: 3px;
+      padding: 9px 12px;
+    }
+
+    > div:first-of-type {
+      .text-10;
+
+      color: @color-error;
+      margin: @size-16 0 0 0;
+      text-align: center;
+    }
+
+    > div:last-of-type {
+      .text-12;
+
+      color: @color-secondary-text;
+      margin: @size-16 0;
+      text-align: center;
+    }
+  }
+}
+
+.Pool {
+  > div:nth-of-type(2) {
+    .text-24;
+
+    color: @color-dark-text;
+  }
+}
+
+.ApprovalNotice {
+  margin: @size-16 0 0;
+}

@@ -2,15 +2,14 @@ import { connect } from 'react-redux';
 import { withRouter } from 'react-router-dom';
 import { ModalGlobalChat } from 'modules/modal/components/modal-global-chat';
 import { closeModal } from 'modules/modal/actions/close-modal';
-import { AppState } from 'store';
-import { ThunkDispatch } from 'redux-thunk';
-import { Action } from 'redux';
 
-const mapStateToProps = (state: AppState) => ({
-  modal: state.modal,
+const mapStateToProps = ({authStatus, env, modal}) => ({
+  whichChatPlugin: env.plugins?.chat,
+  modal,
+  isLogged: authStatus.isLogged,
 });
 
-const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Action>) => ({
+const mapDispatchToProps = dispatch => ({
   closeModal: () => dispatch(closeModal()),
 });
 

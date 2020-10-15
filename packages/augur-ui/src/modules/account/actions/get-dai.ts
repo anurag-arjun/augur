@@ -1,4 +1,3 @@
-import { updateAssets } from "modules/auth/actions/update-assets";
 import logError from "utils/log-error";
 import { getDai } from "modules/contracts/actions/contractCalls";
 import { Action } from "redux";
@@ -10,10 +9,8 @@ export default function(callback: NodeStyleCallback = logError) {
     // TODO: this will change when pending tx exists
     await getDai().catch((err: Error) => {
       console.log("error could not get dai", err);
-      logError(new Error("get-Dai"));
+      logError(new Error("get-DAI"));
     });
-    // TODO: this will change when pending tx exists
-    dispatch(updateAssets());
     callback(null);
   };
 }

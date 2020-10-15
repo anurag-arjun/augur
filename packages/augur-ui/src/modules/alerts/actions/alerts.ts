@@ -1,38 +1,36 @@
-import store, { AppState } from 'store';
+import store, { AppState } from 'appStore';
 import setAlertText from 'modules/alerts/actions/set-alert-text';
-import { createBigNumber, BigNumber } from 'utils/create-big-number';
-import makePath from 'modules/routes/helpers/make-path';
-import { TRANSACTIONS } from 'modules/routes/constants/views';
-import { selectCurrentTimestampInSeconds } from 'store/select-state';
-import { getNetworkId } from 'modules/contracts/actions/contractCalls';
-import { ThunkDispatch } from 'redux-thunk';
-import { Action } from 'redux';
 import {
-  PREFILLEDSTAKE,
-  DOINITIALREPORT,
+  CLAIMTRADINGPROCEEDS,
   CONTRIBUTE,
-  CREATEMARKET,
-  CREATEYESNOMARKET,
-  CREATECATEGORICALMARKET,
-  CREATESCALARMARKET,
-  PUBLICFILLORDER,
+  DOINITIALREPORT,
   INFO,
-  PUBLICFILLBESTORDER,
-  PUBLICFILLBESTORDERWITHLIMIT,
+  PUBLICFILLORDER,
   PUBLICTRADE,
-  PUBLICTRADEWITHLIMIT,
+  REDEEMSTAKE,
+  ZERO,
+  SUCCESS,
+  ETH_RESERVE_INCREASE,
+  NULL_ADDRESS,
+  CANCELORDERS,
 } from 'modules/common/constants';
+import { getNetworkId } from 'modules/contracts/actions/contractCalls';
+import { Action } from 'redux';
+import { ThunkDispatch } from 'redux-thunk';
+import { BigNumber, createBigNumber } from 'utils/create-big-number';
+import { ethToDai } from 'modules/app/actions/get-ethToDai-rate';
+import { Alert } from 'modules/types';
 
 export const ADD_ALERT = 'ADD_ALERT';
 export const REMOVE_ALERT = 'REMOVE_ALERT';
 export const UPDATE_EXISTING_ALERT = 'UPDATE_EXISTING_ALERT';
 export const CLEAR_ALERTS = 'CLEAR_ALERTS';
 
-export function addAlert(alert: any) {
+export function addAlert(alert: Partial<Alert>) {
   return (dispatch: ThunkDispatch<void, any, Action>) => {
     if (alert != null) {
       const { universe } = store.getState() as AppState;
-      const callback = (alert: any) => {
+      const callback = (alert: Alert) => {
         const fullAlert = {
           type: ADD_ALERT,
           data: {
@@ -50,7 +48,8 @@ export function addAlert(alert: any) {
       try {
         dispatch(setAlertText(alert, callback));
       } catch (error) {
-        callback(error, null);
+        console.error(error);
+        callback(null);
       }
     }
   };
@@ -93,8 +92,13 @@ function createUniqueOrderId(alert) {
   const direction = alert.params._direction
     ? alert.params._direction.toString()
     : alert.params.orderType;
+  const timestamp = alert.timestamp;
 
-  return `${alert.id}_${price}_${outcome}_${direction}`;
+  return `${alert.id}_${price}_${outcome}_${direction}_${timestamp}`;
+}
+
+function createAlternateUniqueOrderId(alert) {
+  return `${alert.id}_${alert.params.logIndex}`;
 }
 
 export function updateAlert(
@@ -104,29 +108,58 @@ export function updateAlert(
 ) {
   return (dispatch: ThunkDispatch<void, any, Action>): void => {
     if (alert) {
-      const { alerts, loginAccount } = store.getState() as AppState;
+      const { alerts } = store.getState() as AppState;
       const alertName = alert.name.toUpperCase();
       alert.id = id;
-      alert.uniqueId =
-        alertName === PUBLICTRADE ? createUniqueOrderId(alert) : id;
+      alert.uniqueId = alert.uniqueId || id;
 
-      if (alertName === DOINITIALREPORT && !dontMakeNewAlerts) {
-        dispatch(
-          updateAlert(id, {
-            ...alert,
-            params: {
-              ...alert.params,
-              preFilled: true,
-            },
-            name: CONTRIBUTE,
-          })
-        );
+      switch (alertName) {
+        case PUBLICTRADE:
+        case PUBLICFILLORDER: {
+          alert.uniqueId = createUniqueOrderId(alert);
+          break;
+        }
+        case CANCELORDERS: {
+          alert.id = alert.params?.hash || id;
+          break;
+        }
+        case CLAIMTRADINGPROCEEDS: {
+          alert.uniqueId = createAlternateUniqueOrderId(alert);
+          if (createBigNumber(alert.params.numPayoutTokens).eq(ZERO)) {
+            return;
+          }
+          break;
+        }
+        case DOINITIALREPORT: {
+          if (!dontMakeNewAlerts) {
+            dispatch(
+              updateAlert(id, {
+                ...alert,
+                params: {
+                  ...alert.params,
+                  preFilled: true,
+                },
+                name: CONTRIBUTE,
+              })
+            );
+          }
+          break;
+        }
       }
-      const foundAlert = alerts.find(
-        findAlert =>
-          findAlert.uniqueId === alert.uniqueId &&
-          findAlert.name.toUpperCase() === alert.name.toUpperCase()
-      );
+
+      let foundAlert =
+        alertName === REDEEMSTAKE
+          ? alerts.find(
+              (findAlert) =>
+                findAlert.id === alert.id &&
+                findAlert.name.toUpperCase() === REDEEMSTAKE
+            )
+          : alerts.find(
+              (findAlert) =>
+                findAlert.uniqueId === alert.uniqueId &&
+                findAlert.name.toUpperCase() === alert.name.toUpperCase()
+            );
+
       if (foundAlert) {
         dispatch(removeAlert(alert.uniqueId, alert.name));
         dispatch(
@@ -137,6 +170,12 @@ export function updateAlert(
             params: {
               ...foundAlert.params,
               ...alert.params,
+              repReceived:
+                alert.params.repReceived &&
+                foundAlert.params.repReceived &&
+                createBigNumber(alert.params.repReceived).plus(
+                  createBigNumber(foundAlert.params.repReceived)
+                ),
             },
           })
         );

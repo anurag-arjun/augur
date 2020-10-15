@@ -5,6 +5,7 @@ coverage/
 build/
 definitions/
 augur.db
+augur.zip
 tags
 
 junit.xml
@@ -22,3 +23,10 @@ tsconfig.tsbuildinfo
 tsconfig-local.json
 
 package-lock.json
+temp*.file
+data/
+*.sqlite
+
+venv/
+
+*.key

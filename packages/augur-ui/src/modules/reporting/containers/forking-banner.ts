@@ -8,7 +8,7 @@ import {
   ZERO,
   MODAL_CLAIM_FEES,
 } from 'modules/common/constants';
-import { AppState } from 'store';
+import { AppState } from 'appStore';
 import { createBigNumber } from 'utils/create-big-number';
 import { convertUnixToFormattedDate } from 'utils/format-date';
 import { selectMarket } from 'modules/markets/selectors/market';
@@ -18,7 +18,7 @@ import { selectReportingWinningsByMarket } from 'modules/positions/selectors/sel
 const mapStateToProps = (state: AppState) => {
   const { universe, loginAccount, blockchain } = state;
   const { forkingInfo } = universe;
-  const isForking = !!forkingInfo;
+  const isForking = !!forkingInfo && !forkingInfo.isForkingMarketFinalized;
   if (!isForking) return { show: false };
 
   const { reporting, balances } = loginAccount;

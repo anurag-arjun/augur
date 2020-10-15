@@ -1,33 +1,25 @@
-import { connect } from "react-redux";
-import { withRouter } from "react-router-dom";
+import { connect } from 'react-redux';
+import { withRouter } from 'react-router-dom';
 
-import ModalNetworkConnect from "modules/modal/components/modal-network-connect";
+import ModalNetworkConnect from 'modules/modal/components/modal-network-connect';
 
-import { closeModal } from "modules/modal/actions/close-modal";
-import { updateEnv } from "modules/app/actions/update-env";
-import { connectAugur } from "modules/app/actions/init-augur";
-import { isWeb3Transport } from "modules/contracts/actions/contractCalls";
-import { EnvObject } from "modules/types";
+import { closeModal } from 'modules/modal/actions/close-modal';
+import { updateEnv } from 'modules/app/actions/update-env';
+import { connectAugur } from 'modules/app/actions/init-augur';
+import { isWeb3Transport } from 'modules/contracts/actions/contractCalls';
+import type { SDKConfiguration } from '@augurproject/utils';
+import { AppState } from 'appStore/index';
 
-interface StateProps {
-  modal: {
-    type: string;
-  };
-  env: EnvObject;
-  connection: string;
-  isConnectedThroughWeb3: boolean;
-}
-
-const mapStateToProps = (state: StateProps) => ({
+const mapStateToProps = (state: AppState) => ({
   modal: state.modal,
-  env: state.env,
   connection: state.connection,
   isConnectedThroughWeb3: isWeb3Transport(),
+  env: state.env,
 });
 
 const mapDispatchToProps = (dispatch) => ({
   submitForm: (e: Event) => e.preventDefault(),
-  updateEnv: (env: EnvObject) => dispatch(updateEnv(env)),
+  updateEnv: (config: SDKConfiguration) => dispatch(updateEnv(config)),
   closeModal: () => dispatch(closeModal()),
   connectAugur: (history, env, isInitialConnection, cb) =>
     dispatch(connectAugur(history, env, isInitialConnection, cb)),

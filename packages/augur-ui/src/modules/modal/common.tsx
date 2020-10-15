@@ -6,29 +6,32 @@ import Clipboard from 'clipboard';
 import { Checkbox, TextInput, InputDropdown } from 'modules/common/form';
 import {
   XIcon,
-  LargeDollarIcon,
-  LargeDaiIcon,
   DaiLogoIcon,
   EthIcon,
+  helpIcon,
+  OnboardingCheckIcon,
 } from 'modules/common/icons';
 import {
   DefaultButtonProps,
   PrimaryButton,
   SecondaryButton,
-  SubmitTextButton,
   ExternalLinkButton,
+  ProcessingButton,
 } from 'modules/common/buttons';
 import {
   LinearPropertyLabel,
   LinearPropertyLabelProps,
-  PendingLabel,
-  ConfirmedLabel,
 } from 'modules/common/labels';
 import Styles from 'modules/modal/modal.styles.less';
-import { PENDING, SUCCESS, DAI } from 'modules/common/constants';
-import { LinkContent } from 'modules/types';
-import { generateDaiTooltip } from 'modules/modal/add-funds';
+import { PENDING, SUCCESS, DAI, REP, FAILURE, ACCOUNT_TYPES, ETH, HELP_CENTER_ADD_FUNDS, HELP_CENTER_LEARN_ABOUT_ADDRESS, ON_BORDING_STATUS_STEP } from 'modules/common/constants';
+import { LinkContent, LoginAccount, FormattedNumber } from 'modules/types';
 import { DismissableNotice, DISMISSABLE_NOTICE_BUTTON_TYPES } from 'modules/reporting/common';
+import { toChecksumAddress } from 'ethereumjs-util';
+import TooltipStyles from 'modules/common/tooltip.styles.less';
+import ReactTooltip from 'react-tooltip';
+import { BigNumber } from 'utils/create-big-number';
+import titleCase from 'utils/title-case';
+import { checkIfMainnet } from 'modules/app/actions/check-if-mainnet';
 
 export interface TitleProps {
   title: string;
@@ -41,8 +44,15 @@ export interface DescriptionProps {
   description: string[];
 }
 
+export interface DescriptionWithLinkProps {
+  description: string[];
+  link: string;
+  label: string;
+}
+
 export interface ButtonsRowProps {
   buttons: Array<DefaultButtonProps>;
+  checkBox?: CheckboxCTAProps;
 }
 
 export interface AlertMessageProps {
@@ -75,10 +85,11 @@ export interface CallToActionProps {
 }
 
 export interface BreakdownProps {
-  rows: LinearPropertyLabelProps[];
+  rows?: LinearPropertyLabelProps[];
   title?: string;
   short?: boolean;
   reverse?: boolean;
+  footer?: LinearPropertyLabelProps;
 }
 
 export interface MarketTitleProps {
@@ -97,12 +108,15 @@ export interface SelectableTableProps {
 export interface ActionRow {
   title: string;
   text: string;
-  label: string;
+  label: string | JSX.Element;
   value: string;
   notice?: string;
   action: Function;
-  status: typeof PENDING | typeof SUCCESS;
+  status: typeof PENDING | typeof SUCCESS | typeof FAILURE;
   properties: Array<{ value: string; label: string; addExtraSpace: boolean }>;
+  queueName?: string;
+  queueId?: string;
+  estimateGas?: Function;
 }
 
 export interface ActionRowsProps {
@@ -269,16 +283,36 @@ export const Title = (props: TitleProps) => (
   </header>
 );
 
-export const Description = (props: DescriptionProps) =>
-  props.description.map((descriptionText: string) => (
+export const Description = ({description}: DescriptionProps) => {
+  return description.join(' ').toString().split('\n').map((descriptionText: string) => (
+    <p key={descriptionText.slice(20).replace(/\s+/g, '-')}>
+      {descriptionText}
+    </p>
+  ));
+};
+
+export const DescriptionWithLink = (props: DescriptionWithLinkProps) => {
+  const description = props.description.toString().split('\n').map((descriptionText: string) => (
     <p key={descriptionText.slice(20).replace(/\s+/g, '-')}>
       {descriptionText}
     </p>
   ));
 
+  return (
+    <div className={Styles.DescriptionWithLink}>
+      {description}
+      <a href={props.link} target="_blank">{props.label}</a>
+    </div>
+  );
+};
+
 export const ButtonsRow = (props: ButtonsRowProps) => (
   <div className={Styles.ButtonsRow}>
     {props.buttons.map((Button: DefaultButtonProps, index: number) => {
+      if (Button.text === '') {
+        return null;
+      }
+
       if (index === 0) return <PrimaryButton key={Button.text} {...Button} />;
       return <SecondaryButton key={Button.text} {...Button} />;
     })}
@@ -300,6 +334,18 @@ export const DescriptionMessage = (props: DescriptionMessageProps) => (
         {message.postText}
       </span>
     ))}
+  </div>
+);
+
+interface MaxDescriptionProps {
+  label: string;
+  max: Function;
+  balance: string;
+}
+export const MaxDescription = ({label, max, balance }: MaxDescriptionProps) => (
+  <div className={Styles.SetMaxDescription}>
+    <span>{label}</span>
+    <span onClick={() => max()}>{balance}</span>
   </div>
 );
 
@@ -332,17 +378,17 @@ export const MediumSubheader = (props: BaseSubheaderProps) => (
   <div className={Styles.MediumSubheader}>{props.text}</div>
 );
 
-interface LinkContentSectionProps {
+export interface LinkContentSectionProps {
   linkContent: LinkContent[];
 }
 
-export const LinkContentSection = (props: LinkContentSectionProps) => (
+export const LinkContentSection = ({ linkContent }: LinkContentSectionProps) => (
   <div className={Styles.LinkContentSection}>
-    {props.linkContent.map((content, idx) => (
+    {linkContent.map((content, idx) => (
       <div key={idx}>
         {content.link && (
-          <a href={content.link} target="_blank">
-            {content.content}
+          <a href={content.link} target="_blank" rel="noopener noreferrer">
+            <ExternalLinkButton label={content.content} />
           </a>
         )}
         {!content.link && <span>{content.content}</span>}
@@ -354,29 +400,132 @@ export const LinkContentSection = (props: LinkContentSectionProps) => (
 interface StepperProps {
   currentStep: number,
   maxSteps: number,
+  changeCurrentStep?: Function;
 }
 
-export const Stepper = ({ currentStep, maxSteps }: StepperProps) => (
+export const Stepper = ({ currentStep, maxSteps, changeCurrentStep = null }: StepperProps) => (
   <div className={Styles.Stepper}>
   {[...Array(maxSteps).keys()]
     .map(key => key + 1)
     .map((step, idx) => (
-    <span key={idx} className={currentStep === step ? Styles.Current : null}></span>
+    <span
+      key={idx}
+      onClick={() => changeCurrentStep && changeCurrentStep(step)}
+      className={currentStep === step ? Styles.Current : null}
+    ></span>
   ))}
 </div>
-)
+);
 
-export const DaiGraphic = () => (
-  <div className={Styles.DaiGraphic}>
-    <div>
-      {LargeDaiIcon}
-      <span>1 dai</span>
+interface TransferMyDaiProps {
+  walletType: string;
+  tokenAmount: FormattedNumber;
+  showConvertModal: Function;
+  isCondensed: boolean;
+  tokenName: string;
+  autoClose?: boolean;
+}
+
+export const WrapUnwrapEth = ({ walletType, tokenAmount, showConvertModal, tokenName, isCondensed = false, autoClose = false }: TransferMyDaiProps) => {
+  if (isCondensed) {
+    return (
+      <div className={Styles.TransferMyDaiCondensed}>
+        <div>
+          <span>{tokenAmount.formattedValue} {tokenName}</span>
+          <span>in {walletType} wallet</span>
+        </div>
+        <SecondaryButton
+          action={() => showConvertModal()}
+          text={tokenName === ETH ? 'Wrap ETH' : 'Unwrap ETH'}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className={Styles.WrapUnwrapEth}>
+      <div>
+        <span>{tokenAmount.formattedValue} {titleCase(tokenName)} in your {walletType} wallet</span>
+        <span>Wrap or Unwrap ETH</span>
+      </div>
+      <PrimaryButton
+        action={() => showConvertModal(autoClose)}
+        text={tokenName === ETH ? `Wrap my ETH` : `Unwrap my ETH`}
+      />
     </div>
-    <span>=</span>
-    <div>
-      {LargeDollarIcon}
-      <span>1 USD</span>
+  );
+}
+
+interface ConvertToDaiProps {
+  walletType: string;
+  balance: FormattedNumber;
+  showAddFundsModal: Function;
+  isCondensed: boolean;
+  tokenName: string;
+}
+
+export const ConvertToDai = ({ walletType, balance, showAddFundsModal, isCondensed = false, tokenName}: ConvertToDaiProps) => {
+  if (isCondensed) {
+    return (
+      <div className={Styles.TransferMyDaiCondensed}>
+        <div>
+          <span>{balance.formattedValue} {tokenName}</span>
+          <span>in {walletType} wallet</span>
+        </div>
+        <SecondaryButton
+          action={() => showAddFundsModal()}
+          text={'Convert to DAI'}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className={Styles.TransferMyDai}>
+      <div>
+        <span>{balance.formattedValue} {tokenName} in your {walletType} wallet</span>
+        <span>Convert any amount of this to DAI.</span>
+      </div>
+      <PrimaryButton
+        action={() => showAddFundsModal()}
+        text={'Convert to DAI'}
+      />
     </div>
+  );
+}
+
+interface AccountStatusTrackerProps {
+  accountStatusTracker: number;
+}
+
+export const AccountStatusTracker = ({ accountStatusTracker } :AccountStatusTrackerProps) => (
+  <div className={Styles.AccountStatusTracker}>
+    <div>
+      <div className={classNames(Styles.AccountStep, {
+        [Styles.AccountStepCompleted]: accountStatusTracker >= ON_BORDING_STATUS_STEP.ONE
+      })}>
+        {accountStatusTracker >= ON_BORDING_STATUS_STEP.ONE && OnboardingCheckIcon}
+      </div>
+      <div className={Styles.line}/>
+      <div className={classNames(Styles.AccountStep, {
+        [Styles.AccountStepCompleted]: accountStatusTracker >= ON_BORDING_STATUS_STEP.TWO
+      })}>
+        {accountStatusTracker >= ON_BORDING_STATUS_STEP.TWO && OnboardingCheckIcon}
+      </div>
+      <div className={Styles.line}/>
+      <div className={classNames(Styles.AccountStep, {
+        [Styles.AccountStepCompleted]: accountStatusTracker === ON_BORDING_STATUS_STEP.THREE
+      })}>
+        {accountStatusTracker === ON_BORDING_STATUS_STEP.THREE && OnboardingCheckIcon}
+      </div>
+    </div>
+
+    <div>
+      <div>Create log-in</div>
+      <div>Add funds</div>
+      <div>Activate account</div>
+    </div>
+
   </div>
 );
 
@@ -436,41 +585,69 @@ export const Breakdown = (props: BreakdownProps) => (
     })}
   >
     {props.title && <h4>{props.title}</h4>}
-    {props.rows.map((row: LinearPropertyLabelProps) => (
+    {props.rows && props.rows.map((row: LinearPropertyLabelProps) => (
       <LinearPropertyLabel {...row} key={row.label} />
     ))}
+    {props.footer && (
+      <LinearPropertyLabel {...props.footer} key={props.footer.label} />
+    )}
   </div>
 );
 
-export const ActionRows = (props: ActionRowsProps) =>
-  props.rows.map((row: ActionRow) => (
-    <section key={row.title} className={Styles.ActionRow}>
-      <section>
-        <MarketTitle title={row.title} />
+export const ActionRows = ({ rows }: ActionRowsProps) => {
+  const [estimatedRows, setEstimatedRows] = useState(rows);
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      Promise.all(rows.map(async row => await row.estimateGas())).then(
+        estimates => {
+          const newRows = [...rows];
+          estimates.map((estimate, index) => {
+            newRows[index].properties = [
+              ...rows[index].properties,
+              estimate,
+            ];
+          });
+          setEstimatedRows(newRows);
+        }
+      );
+    }, 200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    estimatedRows.map((row: ActionRow) => (
+      <section key={row.title} className={Styles.ActionRow}>
+        <section>
+          <MarketTitle title={row.title} />
+          <div>
+            {row.properties.map(property => (
+              <React.Fragment key={row.title + ' ' + property.label}>
+                <LinearPropertyLabel
+                  label={property.label}
+                  value={property.value}
+                />
+                {property.addExtraSpace && <span />}
+              </React.Fragment>
+            ))}
+          </div>
+        </section>
         <div>
-          {row.properties.map(property => (
-            <React.Fragment key={row.title + ' ' + property.label}>
-              <LinearPropertyLabel
-                label={property.label}
-                value={property.value}
-              />
-              {property.addExtraSpace && <span />}
-            </React.Fragment>
-          ))}
+          {row.action &&
+            <ProcessingButton
+              text={row.text}
+              queueName={row.queueName}
+              queueId={row.queueId}
+              action={row.action}
+              submitTextButtton={true}
+            />
+          }
         </div>
+        {row.notice && <DismissableNotice title={row.notice} description={''} show={true} buttonType={DISMISSABLE_NOTICE_BUTTON_TYPES.NONE} />}
       </section>
-      <div>
-        {row.status === PENDING && <PendingLabel />}
-        {row.status === SUCCESS && <ConfirmedLabel />}
-        <SubmitTextButton
-          disabled={row.status === SUCCESS || row.status === PENDING}
-          text={row.text}
-          action={row.action}
-        />
-      </div>
-      {row.notice && <DismissableNotice title={row.notice} description={''} show={true} buttonType={DISMISSABLE_NOTICE_BUTTON_TYPES.NONE} />}
-    </section>
-  ));
+    ))
+  )
+}
+
 
 export const ReadableAddress = (props: ReadableAddressProps) => (
   <div className={Styles.ReadableAddress}>
@@ -504,10 +681,10 @@ export const DepositInfo = (props: DepositInfoProps) => (
       <li>Copy your connected wallet address shown here</li>
       <li>Transfer the ETH purchased to the copied address</li>
     </ul>
-    <h3>How to (REP):</h3>
+    <h3>How to (REPv2):</h3>
     <ul>
       <li>
-        Buy REP using{' '}
+        Buy REPv2 using{' '}
         {props.show0xInstant && (
           <ExternalLinkButton
             label="0x Instant"
@@ -520,7 +697,7 @@ export const DepositInfo = (props: DepositInfoProps) => (
         )}
       </li>
       <li>
-        Your purchased REP will automatically appear in your connected wallet
+        Your purchased REPv2 will automatically appear in your connected wallet
       </li>
     </ul>
   </section>
@@ -528,7 +705,13 @@ export const DepositInfo = (props: DepositInfoProps) => (
 
 export const AccountAddressDisplay = ({ address, copyable }) => {
   const [isCopied, setIsCopied] = useState(false);
+  const [isTestnet, setIsTestnet] = useState(false);
   let timeoutId = null;
+
+  const getIsTestnet = () => {
+    const isMainnet = checkIfMainnet();
+    setIsTestnet(!isMainnet);
+  }
 
   const copyClicked = () => {
     setIsCopied(true);
@@ -539,6 +722,7 @@ export const AccountAddressDisplay = ({ address, copyable }) => {
 
   useEffect(() => {
     new Clipboard('#copy_address');
+    getIsTestnet();
 
     return function() {
       clearTimeout(timeoutId);
@@ -546,21 +730,24 @@ export const AccountAddressDisplay = ({ address, copyable }) => {
   }, []);
 
   return (
-    <span className={Styles.AccountAddressDisplay}>
-      <div>{address ? address : '-'}</div>
-      {copyable && (
-        <>
-          <button
-            id='copy_address'
-            data-clipboard-text={address}
-            onClick={() => copyClicked()}
-            className={isCopied ? Styles.ShowConfirmaiton : null}
-          >
-            Copy
-          </button>
-        </>
-      )}
-    </span>
+    <>
+      <span className={Styles.AccountAddressDisplay}>
+        <div>{address ? address : '-'}</div>
+        {copyable && (
+          <>
+            <button
+              id='copy_address'
+              data-clipboard-text={address}
+              onClick={() => copyClicked()}
+              className={isCopied ? Styles.ShowConfirmaiton : null}
+            >
+              Copy
+            </button>
+          </>
+        )}
+      </span>
+      {isTestnet && <DismissableNotice error title="Warning: This is a Testnet" description="Do not send mainnet tokens to this address, they will be lost forever" show={true} buttonType={DISMISSABLE_NOTICE_BUTTON_TYPES.NONE} />}
+    </>
   );
 }
 
@@ -570,9 +757,11 @@ interface FundsHelpProps {
 
 export const FundsHelp = ({ fundType = DAI }: FundsHelpProps) => (
   <div className={Styles.FundsHelp}>
-    <span>Need help?</span>
-    <span>Learn how to buy {fundType === DAI ? `${DAI} ($)` : fundType} {fundType === DAI ? generateDaiTooltip() : ''} and transfer it into your account.</span>
-    <ExternalLinkButton label='Learn More' />
+    <p>Need help?</p>
+    <div>
+      <span>Learn how to buy {fundType === DAI ? `DAI ($)` : fundType === REP ? 'REPv2' : fundType} {fundType === DAI ? generateDaiTooltip() : ''} and  send it to your wallet address.</span>
+      <ExternalLinkButton URL={HELP_CENTER_ADD_FUNDS} label='Learn More' />
+    </div>
   </div>
 );
 
@@ -608,7 +797,7 @@ export class MarketReview extends Component<
 
         {details && (
           <div>
-            <p>Additional details</p>
+            <p>Resolution rules</p>
             {showReadMore && !readMore && readMoreSection}
             {(!showReadMore || readMore) && <div>{details}</div>}
           </div>
@@ -618,7 +807,7 @@ export class MarketReview extends Component<
           <div>
             <p>Event Expiration</p>
             <div>{endTime.formattedUtc}</div>
-            <div>{endTime.formattedTimezone}</div>
+            <div>{endTime.formattedLocalShortDateTimeWithTimezone}</div>
           </div>
         )}
       </section>
@@ -679,3 +868,205 @@ export class CheckboxCTA extends Component<CheckboxCTAProps, CheckboxCTAState> {
     );
   }
 }
+
+
+interface CreditCardProps {
+  accountMeta: LoginAccount['meta'];
+  walletAddress: string;
+  addFundsTorus: Function,
+  addFundsFortmatic: Function,
+  fundTypeLabel: string;
+  fundTypeToUse: string;
+  validateAndSet: Function;
+  BUY_MIN: number;
+  BUY_MAX: number;
+  amountToBuy: BigNumber;
+  isAmountValid: boolean;
+}
+
+
+export const CreditCard = ({
+  accountMeta,
+  walletAddress,
+  addFundsTorus,
+  addFundsFortmatic,
+  fundTypeLabel,
+  fundTypeToUse,
+  validateAndSet,
+  BUY_MIN,
+  BUY_MAX,
+  amountToBuy,
+  isAmountValid,
+}: CreditCardProps) => (
+  <>
+    <h1>Credit/debit card</h1>
+    <h2>
+      Add {fundTypeLabel} {fundTypeToUse === DAI ? generateDaiTooltip() : null}{' '}
+      instantly
+    </h2>
+
+    <h3>Amount</h3>
+    <TextInput
+      placeholder='0'
+      onChange={value => validateAndSet(Number(value))}
+      value={String(amountToBuy)}
+      innerLabel={fundTypeToUse === DAI ? 'USD' : fundTypeToUse}
+    />
+    {amountToBuy.gt(0) && !isAmountValid && (
+      <div className={Styles.AddFundsError}>
+        Sorry, amount must be between ${BUY_MIN} and ${BUY_MAX}.
+      </div>
+    )}
+
+    {accountMeta.accountType === ACCOUNT_TYPES.TORUS && (
+      <PrimaryButton
+        disabled={!isAmountValid}
+        action={() => addFundsTorus(amountToBuy, toChecksumAddress(walletAddress))}
+        text={`Buy with ${accountMeta.accountType}`}
+      />
+    )}
+    {accountMeta.accountType === ACCOUNT_TYPES.FORTMATIC && (
+      <PrimaryButton
+        disabled={!isAmountValid}
+        action={() =>
+          addFundsFortmatic(
+            amountToBuy,
+            fundTypeToUse,
+            toChecksumAddress(walletAddress)
+          )
+        }
+        text={`Buy with ${accountMeta.accountType}`}
+      />
+    )}
+    <h4>
+      {[
+        ACCOUNT_TYPES.TORUS,
+        ACCOUNT_TYPES.FORTMATIC,
+      ].includes(accountMeta.accountType) && (
+        <div>
+          Buy {fundTypeLabel} with our secure payments partner,{' '}
+          {accountMeta.accountType}. Funds will appear in your User account
+          when payment finalizes.
+        </div>
+      )}
+    </h4>
+  </>
+);
+
+interface CoinbaseProps {
+  walletAddress: string;
+  fundTypeLabel: string;
+  fundTypeToUse: string;
+}
+
+
+export const Coinbase = ({
+  fundTypeToUse,
+  fundTypeLabel,
+  walletAddress,
+}: CoinbaseProps) => (
+  <>
+    <h1>Coinbase</h1>
+    <h2>
+      Add{' '}
+      {fundTypeToUse === DAI ? (
+        <>
+          {fundTypeLabel} {generateDaiTooltip()}
+        </>
+      ) : (
+        fundTypeLabel
+      )}{' '}
+      using a Coinbase account
+    </h2>
+    <ol>
+      <li>
+        Login to your account at{' '}
+        <a href='https://www.coinbase.com' target='_blank' rel="noopener noreferrer">
+          www.coinbase.com
+        </a>
+      </li>
+      <li>Buy the cryptocurrency {fundTypeLabel}</li>
+      <li>
+        Send the {fundTypeLabel} to your wallet address
+      </li>
+    </ol>
+    <h3>wallet address</h3>
+    <AccountAddressDisplay
+      copyable
+      address={toChecksumAddress(walletAddress)}
+    />
+
+  </>
+);
+
+interface TransferProps {
+  walletAddress: string;
+  fundTypeLabel: string;
+  fundTypeToUse: string;
+}
+
+export const Transfer = ({
+  fundTypeToUse,
+  fundTypeLabel,
+  walletAddress,
+}: TransferProps) => (
+  <>
+    <h1>Transfer</h1>
+    <h2>
+      Send funds to your{' '}
+      wallet address
+    </h2>
+    <ol>
+      <li>
+        Buy{' '}
+        {fundTypeToUse === DAI ? (
+          <>
+            {fundTypeLabel} {generateDaiTooltip()}
+          </>
+        ) : (
+          fundTypeLabel
+        )}{' '}
+        using an app or exchange - see our list of{' '}
+        <a target='_blank' href={HELP_CENTER_ADD_FUNDS}>
+          popular ways to buy {fundTypeLabel}
+        </a>
+      </li>
+      <li>
+        Transfer the {fundTypeLabel} to your wallet address
+      </li>
+    </ol>
+    <h3>wallet address</h3>
+    <AccountAddressDisplay
+      copyable
+      address={toChecksumAddress(walletAddress)}
+    />
+  </>
+);
+
+export const generateDaiTooltip = (
+  tipText = 'Augur requires deposits in DAI ($), a currency pegged 1 to 1 to the US Dollar.'
+) => {
+  return (
+    <span className={Styles.AddFundsToolTip}>
+      <label
+        className={classNames(TooltipStyles.TooltipHint)}
+        data-tip
+        data-for='tooltip--confirm'
+        data-iscapture={true}
+      >
+        {helpIcon}
+      </label>
+      <ReactTooltip
+        id='tooltip--confirm'
+        className={TooltipStyles.Tooltip}
+        effect='solid'
+        place='top'
+        type='light'
+        event="mouseover mouseenter"
+        eventOff="mouseleave mouseout scroll mousewheel blur"
+      >
+        <p>{tipText}</p>
+      </ReactTooltip>
+    </span>
+  );
+};

@@ -1,14 +1,16 @@
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router-dom';
 import { Message } from 'modules/modal/message';
-import { assetDataUtils } from '@0x/order-utils';
-import { BigNumber } from 'ethers/utils';
-import { NETWORK_IDS } from 'modules/common/constants';
-import { closeModal } from 'modules/modal/actions/close-modal';
+import { BigNumber } from 'ethers';
+import { NETWORK_IDS, NULL_ADDRESS } from 'modules/common/constants';
 import { getNetworkId } from 'modules/contracts/actions/contractCalls';
-import { AppState } from 'store';
-import { ThunkDispatch } from 'redux-thunk';
+import { AppState } from 'appStore';
+import { closeModal } from 'modules/modal/actions/close-modal';
+import { Message } from 'modules/modal/message';
+import { connect } from 'react-redux';
+import { withRouter } from 'react-router-dom';
 import { Action } from 'redux';
+import { ThunkDispatch } from 'redux-thunk';
 import { augurSdk } from 'services/augursdk';
 
 const mapStateToProps = (state: AppState) => ({
@@ -23,14 +25,15 @@ const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Action>) => ({
     const { contracts } = augurSdk.get();
     const repTokenAddress = contracts.getReputationToken();
 
-    const assetData = assetDataUtils.encodeERC20AssetData(repTokenAddress.address);
+    const { assetDataUtils } = await import('@0x/order-utils');
+    const assetData = {};
     const networkSettings = [
       {
         orderSource: [
           {
-            senderAddress: '0x0000000000000000000000000000000000000000',
+            senderAddress: NULL_ADDRESS,
             makerAddress: '0x14e2f1f157e7dd4057d02817436d628a37120fd1',
-            takerAddress: '0x0000000000000000000000000000000000000000',
+            takerAddress: NULL_ADDRESS,
             makerFee: new BigNumber('0'),
             takerFee: new BigNumber('0'),
             makerAssetAmount: new BigNumber('94000000000000000000'),
@@ -40,7 +43,7 @@ const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Action>) => ({
             takerAssetData:
               '0xf47261b0000000000000000000000000d0a1e359811322d97991e03f863a0c30c2cf029c',
             expirationTimeSeconds: new BigNumber('1549008000'),
-            feeRecipientAddress: '0x0000000000000000000000000000000000000000',
+            feeRecipientAddress: NULL_ADDRESS,
             salt: new BigNumber(
               '15865382935540085750341462125291637590635483813634352296303261539769641236771'
             ),
@@ -70,7 +73,7 @@ const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Action>) => ({
 
     const currentNetworkId = getNetworkId();
     const currentNetworkParams = networkSettings.find(
-      net => net.networkId === currentNetworkId
+      net => String(net.networkId) === String(currentNetworkId)
     );
 
     // eslint-disable-next-line
@@ -80,9 +83,9 @@ const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Action>) => ({
 });
 
 function airSwapOnClick(e) {
-  const env = getNetworkId() === 1 ? 'production' : 'sandbox';
+  const env = getNetworkId() === NETWORK_IDS.Mainnet ? 'production' : 'sandbox';
   e.preventDefault();
-  // The widget will offer swaps for REP <-> ETH on mainnet
+  // The widget will offer swaps for REPv2 <-> ETH on mainnet
   // It can still be tested on rinkeby, but only AST <-> ETH is offered
   (window as any).AirSwap.Trader.render(
     {
@@ -111,7 +114,7 @@ const mergeProps = (sP: any, dP: any, oP: any) => {
   return {
     title: 'Receive Funds',
     description: [
-      'Send Ethereum (ETH) or Reputation (REP) to the wallet you have connected to trade on Augur.',
+      'Send Ethereum (ETH) or Reputation (REPv2) to the wallet you have connected to trade on Augur.',
     ],
     closeAction: () => dP.closeModal(),
     depositInfo:

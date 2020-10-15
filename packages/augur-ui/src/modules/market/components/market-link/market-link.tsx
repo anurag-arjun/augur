@@ -7,7 +7,8 @@ import makeQuery from "modules/routes/helpers/make-query";
 import {
   TYPE_REPORT,
   TYPE_DISPUTE,
-  TYPE_MIGRATE_REP
+  TYPE_MIGRATE_REP,
+  HEADER_TYPE
 } from "modules/common/constants";
 import {
   MARKET,
@@ -18,15 +19,18 @@ import {
 import {
   MARKET_ID_PARAM_NAME,
   RETURN_PARAM_NAME,
+  OUTCOME_ID_PARAM_NAME
 } from "modules/routes/constants/param-names";
 
 interface MarketLinkProps {
   id: string;
   linkType?: string;
   className?: string;
+  outcomeId?: string;
+  headerType?: string;
 }
 
-const MarketLink: React.FC<MarketLinkProps> = ({ linkType, className, id, children }) => {
+const MarketLink: React.FC<MarketLinkProps> = ({ linkType, className, id, outcomeId, children, headerType }) => {
   let path;
 
   switch (linkType) {
@@ -43,32 +47,58 @@ const MarketLink: React.FC<MarketLinkProps> = ({ linkType, className, id, childr
       path = makePath(MARKET);
   }
 
-  const queryLink = {
+  let queryLink = {
     [MARKET_ID_PARAM_NAME]: id,
   };
+
+  if (outcomeId) {
+    queryLink[OUTCOME_ID_PARAM_NAME] = outcomeId;
+  }
 
   if (linkType === TYPE_DISPUTE || linkType === TYPE_REPORT) {
     queryLink[RETURN_PARAM_NAME] = location.hash;
   }
 
-  return (
-    <span>
-      {id ? (
-        <Link
-          data-testid={"link-" + id}
-          className={className}
-          to={{
-            pathname: path,
-            search: makeQuery(queryLink)
-          }}
-        >
-          {children}
-        </Link>
-      ) : (
-          children
-        )}
-    </span>
+  const linkOrNot = id ? (
+    <Link
+      data-testid={'link-' + id}
+      to={{
+        pathname: path,
+        search: makeQuery(queryLink),
+      }}
+    >
+      {children}
+    </Link>
+  ) : (
+    children
   );
+
+  switch (headerType) {
+    case HEADER_TYPE.H1:
+      return (
+        <h1 className={className}>
+          {linkOrNot}
+        </h1>
+      );
+    case HEADER_TYPE.H2:
+      return (
+        <h2 className={className}>
+          {linkOrNot}
+        </h2>
+      );
+    case HEADER_TYPE.H3:
+      return (
+        <h3 className={className}>
+          {linkOrNot}
+        </h3>
+      );
+    default:
+      return (
+        <span className={className}>
+          {linkOrNot}
+        </span>
+      );
+  }
 };
 
 MarketLink.defaultProps = {

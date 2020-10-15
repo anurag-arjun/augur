@@ -1,14 +1,11 @@
-import * as React from 'react';
+import React, { Component, useState } from 'react';
 import classNames from 'classnames';
 import Styles from 'modules/common/selection.styles';
-import {
-  ThickChevron,
-  Chevron,
-  DotDotDot,
-} from 'modules/common/icons';
+import { ThickChevron, Chevron, ShareIcon } from 'modules/common/icons';
 import ReactTooltip from 'react-tooltip';
 import TooltipStyles from 'modules/common/tooltip.styles.less';
 import { MARKET_TEMPLATES } from 'modules/create-market/constants';
+import { INVALID_OUTCOME_ID } from 'modules/common/constants';
 
 export interface NameValuePair {
   label: string;
@@ -47,6 +44,7 @@ interface DropdownState {
 interface SelectionOption {
   label: string;
   id: number;
+  subLabel?: string;
 }
 
 interface PillSelectionProps {
@@ -67,11 +65,24 @@ interface DotSelectionState {
   toggleMenu: boolean;
 }
 
-class Dropdown extends React.Component<DropdownProps, DropdownState> {
+
+function findSelected(options, defaultVal) {
+  const foundOption = options.find(
+    o => o.value === defaultVal
+  );
+  const defaultValue = defaultVal ? {
+    label: defaultVal.toString(),
+    value: defaultVal,
+  } : null;
+
+  return foundOption ? foundOption : defaultValue;
+}
+
+class Dropdown extends Component<DropdownProps, DropdownState> {
   state: DropdownState = {
-    selected: this.props.defaultValue
-      ? this.props.options.find(o => o.value === this.props.defaultValue)
-      : null,
+    selected: this.props.defaultValue !== null
+        ? findSelected(this.props.options, this.props.defaultValue)
+        : null,
     showList: false,
     scrollWidth: null,
     clientWidth: null,
@@ -92,22 +103,22 @@ class Dropdown extends React.Component<DropdownProps, DropdownState> {
     window.removeEventListener('click', this.handleWindowOnClick);
   }
 
-  componentDidUpdate(nextProps) {
+  componentDidUpdate(prevProps: DropdownProps, prevState: DropdownState) {
     this.measure();
-    if (nextProps.defaultValue !== this.props.defaultValue) {
+    if (prevProps.defaultValue !== this.props.defaultValue) {
       this.setState({
-        selected: this.props.options.find(
-          o => o.value === this.props.defaultValue
-        ),
-      });
+        selected: findSelected(this.props.options, this.props.defaultValue)
+      })
     }
     if (
-      JSON.stringify(this.props.options) !== JSON.stringify(nextProps.options)
+      JSON.stringify(this.props.options) !==
+        JSON.stringify(prevProps.options) ||
+      this.props.sort !== prevProps.sort
     ) {
       const sortedList =
-        nextProps.sort && nextProps.options
+        this.props.sort && this.props.options
           ? this.props.options.sort((a, b) => (a.label > b.label ? 1 : -1))
-          : nextProps.options;
+          : this.props.options;
       this.setState({
         sortedList,
       });
@@ -173,7 +184,6 @@ class Dropdown extends React.Component<DropdownProps, DropdownState> {
   render() {
     const {
       sortByStyles,
-      options,
       large,
       stretchOutOnMobile,
       openTop,
@@ -185,7 +195,6 @@ class Dropdown extends React.Component<DropdownProps, DropdownState> {
       disabled,
     } = this.props;
     const { selected, showList, isDisabled, sortedList } = this.state;
-
     return (
       <div
         style={sortByStyles}
@@ -209,10 +218,12 @@ class Dropdown extends React.Component<DropdownProps, DropdownState> {
         onClick={this.toggleList}
         data-tip
         data-for={'dropdown-' + id + staticLabel}
+        data-iscapture={true}
       >
         <button
           className={classNames(Styles.label, {
             [Styles.SelectedLabel]: selected,
+            [Styles.invalidColor]: selected?.value === INVALID_OUTCOME_ID,
           })}
         >
           <span ref={ref => (this.labelRef = ref)}>
@@ -220,20 +231,25 @@ class Dropdown extends React.Component<DropdownProps, DropdownState> {
           </span>
           {ThickChevron}
         </button>
-        <div
-          className={classNames(Styles.list, {
-            [`${Styles.active}`]: showList,
-          })}
-        >
-          {sortedList.map(option => (
-            <button
-              key={`${option.value}${option.label}`}
-              value={option.value}
-              onClick={() => this.dropdownSelect(option)}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div>
+          <div
+            className={classNames(Styles.list, {
+              [`${Styles.active}`]: showList,
+            })}
+          >
+            {sortedList.map(option => (
+              <button
+                key={`${option.value}${option.label}`}
+                value={option.value}
+                onClick={() => this.dropdownSelect(option)}
+                className={classNames({
+                  [Styles.invalidColor]: option?.value === INVALID_OUTCOME_ID,
+                })}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
         {selected && (
           <select
@@ -259,8 +275,8 @@ class Dropdown extends React.Component<DropdownProps, DropdownState> {
             effect="solid"
             place="top"
             type="light"
-            data-event="mouseover"
-            data-event-off="blur scroll"
+            event="mouseover mouseenter"
+            eventOff="mouseleave mouseout scroll mousewheel blur"
           >
             {selected.label}
           </ReactTooltip>
@@ -280,7 +296,19 @@ export class StaticLabelDropdown extends Dropdown {
         selected: options.find(o => o.value === defaultValue),
       });
     }
+    window.addEventListener('click', this.handleWindowOnClick);
   }
+
+  componentWillUnmount() {
+    window.removeEventListener('click', this.handleWindowOnClick);
+  }
+
+
+  handleWindowOnClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (this.refDropdown && !this.refDropdown.contains(event.target)) {
+      this.setState({ showList: false });
+    }
+  };
 
   render() {
     const {
@@ -316,22 +344,24 @@ export class StaticLabelDropdown extends Dropdown {
           &nbsp;
           <b>{selected.label}</b> {Chevron}
         </button>
-        <div
-          className={classNames({
-            [`${Styles.active}`]: showList,
-          })}
-        >
-          {options.map(option => (
-            <button
-              key={`${option.value}${option.label}`}
-              value={option.value}
-              onClick={() => this.dropdownSelect(option)}
-            >
-              {staticMenuLabel}
-              &nbsp;
-              <b>{option.label}</b>
-            </button>
-          ))}
+        <div>
+          <div
+            className={classNames({
+              [`${Styles.active}`]: showList,
+            })}
+          >
+            {options.map(option => (
+              <button
+                key={`${option.value}${option.label}`}
+                value={option.value}
+                onClick={() => this.dropdownSelect(option)}
+              >
+                {staticMenuLabel}
+                &nbsp;
+                <b>{option.label}</b>
+              </button>
+            ))}
+          </div>
         </div>
         <select
           onChange={e => {
@@ -350,49 +380,42 @@ export class StaticLabelDropdown extends Dropdown {
   }
 }
 
-export class PillSelection extends React.Component<
-  PillSelectionProps,
-  PillSelectionState
-> {
-  state: PillSelectionState = {
-    selected: this.props.defaultSelection || 0,
-  };
-
-  buttonSelect = (option: SelectionOption) => {
-    const { onChange } = this.props;
-    if (option.id !== this.state.selected) {
-      this.setState({
-        selected: option.id,
-      });
+export const PillSelection = ({
+  options,
+  onChange,
+  defaultSelection = 0,
+}: PillSelectionProps) => {
+  const [selected, setSelected] = useState(defaultSelection);
+  const buttonSelect = (option: SelectionOption) => {
+    if (option.id !== selected) {
+      setSelected(option.id);
       onChange(option.id);
     }
   };
 
-  renderButton = (option: SelectionOption): React.ReactNode => (
+  const renderButton = (option: SelectionOption): React.ReactNode => (
     <li
       className={classNames({
-        [Styles.Selected]: this.state.selected === option.id,
+        [Styles.Selected]: selected === option.id,
       })}
       key={option.label}
     >
-      <button onClick={() => this.buttonSelect(option)}>{option.label}</button>
+      <button onClick={() => buttonSelect(option)}>
+        {option.label} {option.subLabel && <span>{option.subLabel}</span>}
+      </button>
     </li>
   );
 
-  render() {
-    const { options } = this.props;
-    return (
-      <ul className={Styles.PillSelection}>
-        {options.map(
-          (option: SelectionOption): React.ReactNode =>
-            this.renderButton(option)
-        )}
-      </ul>
-    );
-  }
-}
+  return (
+    <ul className={Styles.PillSelection}>
+      {options.map(
+        (option: SelectionOption): React.ReactNode => renderButton(option)
+      )}
+    </ul>
+  );
+};
 
-export class DotSelection extends React.Component<
+export class DotSelection extends Component<
   DotSelectionProps,
   DotSelectionState
 > {
@@ -440,7 +463,7 @@ export class DotSelection extends React.Component<
           }}
           onClick={() => this.toggleMenu()}
         >
-          {DotDotDot}
+          {ShareIcon}
         </button>
         {this.state.toggleMenu && (
           <div

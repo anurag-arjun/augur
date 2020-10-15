@@ -2,15 +2,13 @@
 
 import React from 'react';
 
-import { formatShares } from 'utils/format-number';
+import { formatDaiPrice, formatMarketShares, formatEther } from 'utils/format-number';
 import { MarketData } from 'modules/types';
 import {
   LinearPropertyLabel,
-  LinearPropertyViewTransaction,
   ValueLabel,
 } from 'modules/common/labels';
 import { ViewTransactionDetailsButton } from 'modules/common/buttons';
-
 import Styles from 'modules/portfolio/components/common/filled-orders-table.styles.less';
 import MarketTitle from 'modules/market/containers/market-title';
 
@@ -29,18 +27,22 @@ const FilledOrdersTable = (props: FilledOrdersTableProps) => {
         )}
         <ul>
           <li>Filled</li>
+          <li>Price</li>
           <li>Time Stamp</li>
-          <li>TX Details</li>
+          <li>Details</li>
         </ul>
         {filledOrder.trades.map((trade: MarketData, i: number) => (
           <ul key={i}>
             <li>
-              <ValueLabel value={formatShares(trade.amount)} />
+              <ValueLabel value={formatMarketShares(filledOrder.marketType, trade.amount)} />
             </li>
-            <li>{trade.timestamp.formattedShort}</li>
+            <li>
+              <ValueLabel value={formatEther(trade.price)} />
+            </li>
+            <li>{trade.timestamp.formattedLocalShortDateTimeNoTimezone}</li>
             <li>
               <ViewTransactionDetailsButton
-                label={'VIEW etherscan tx'}
+                label={'VIEW Etherscan'}
                 light
                 transactionHash={trade.transactionHash}
               />
@@ -49,20 +51,29 @@ const FilledOrdersTable = (props: FilledOrdersTableProps) => {
         ))}
       </div>
       <div>
+        {showMarketInfo && (
+          <MarketTitle id={filledOrder.marketId} />
+        )}
         {filledOrder.trades.map((trade: MarketData, i: number) => (
           <div key={i}>
             <LinearPropertyLabel
               highlightFirst
               label="Filled"
-              value={formatShares(trade.amount).formatted}
+              value={formatMarketShares(filledOrder.marketType, trade.amount).formatted}
+            />
+            <LinearPropertyLabel
+              highlightFirst
+              label="Price"
+              value={formatEther(trade.price).formatted}
             />
             <LinearPropertyLabel
               highlightFirst
               label="Timestamp"
-              value={trade.timestamp.formattedShort}
+              value={trade.timestamp.formattedLocalShortDateTimeNoTimezone}
             />
-            <LinearPropertyViewTransaction
-              highlightFirst
+            <ViewTransactionDetailsButton
+              light
+              label='View Transaction Details'
               transactionHash={trade.transactionHash}
             />
           </div>

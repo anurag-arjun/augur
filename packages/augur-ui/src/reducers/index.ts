@@ -1,60 +1,64 @@
-import accountPositions from "modules/positions/reducers/account-positions";
-import appStatus from "modules/app/reducers/app-status";
-import sidebarStatus from "modules/app/reducers/sidebar-status";
-import authStatus from "modules/auth/reducers/auth-status";
-import blockchain from "modules/app/reducers/blockchain";
-import connection from "modules/app/reducers/connection";
-import env from "modules/app/reducers/env";
-import favorites from "modules/markets/reducers/favorites";
-import filterSortOptions from "modules/filter-sort/reducers/filter-sort-options";
-import gasPriceInfo from "modules/app/reducers/gas-price-info";
-import loginAccount from "modules/auth/reducers/login-account";
-import marketTradingHistory from "modules/markets/reducers/market-trading-history";
-import marketInfos from "modules/markets/reducers/market-infos";
-import modal from "modules/modal/reducers/modal";
-import newMarket from "modules/markets/reducers/new-market";
-import alerts from "modules/alerts/reducers/alerts";
-import orderBooks from "modules/orders/reducers/order-books";
-import orderCancellation from "modules/orders/reducers/order-cancellation";
-import pendingLiquidityOrders from "modules/orders/reducers/liquidity-orders";
-import universe from "modules/universe/reducers/universe";
-import categoryStats from "modules/app/reducers/category-stats";
-import pendingOrders from "modules/orders/reducers/pending-orders";
-import filledOrders from "modules/orders/reducers/filled-orders";
-import readNotifications from "modules/notifications/reducers/read-notifications";
-import pendingQueue from "modules/pending-queue/reducers/pending-queue";
-import userOpenOrders from "modules/orders/reducers/open-orders";
-import drafts from "modules/create-market/reducers/drafts";
-import marketsList from "modules/markets-list/reducers/markets-list";
-import reportingListState from "modules/reporting/reducers/reporting-list-state";
+import type { SDKConfiguration } from '@augurproject/artifacts';
+import type { Getters } from '@augurproject/sdk';
+import alerts from 'modules/alerts/reducers/alerts';
+import analytics from 'modules/app/reducers/analytics';
+import appStatus from 'modules/app/reducers/app-status';
+import blockchain from 'modules/app/reducers/blockchain';
+import categoryStats from 'modules/app/reducers/category-stats';
+import connection from 'modules/app/reducers/connection';
+import env from 'modules/app/reducers/env';
+import gasPriceInfo from 'modules/app/reducers/gas-price-info';
+import sidebarStatus from 'modules/app/reducers/sidebar-status';
+import authStatus from 'modules/auth/reducers/auth-status';
+import loginAccount from 'modules/auth/reducers/login-account';
+import drafts from 'modules/create-market/reducers/drafts';
+import filterSortOptions
+  from 'modules/filter-sort/reducers/filter-sort-options';
+import marketsList from 'modules/markets-list/reducers/markets-list';
+import favorites from 'modules/markets/reducers/favorites';
+import marketInfos from 'modules/markets/reducers/market-infos';
+import marketTradingHistory
+  from 'modules/markets/reducers/market-trading-history';
+import newMarket from 'modules/markets/reducers/new-market';
+import modal from 'modules/modal/reducers/modal';
+import readNotifications
+  from 'modules/notifications/reducers/read-notifications';
+import filledOrders from 'modules/orders/reducers/filled-orders';
+import pendingLiquidityOrders from 'modules/orders/reducers/liquidity-orders';
+import userOpenOrders from 'modules/orders/reducers/open-orders';
+import orderBooks from 'modules/orders/reducers/order-books';
+import pendingOrders from 'modules/orders/reducers/pending-orders';
+import pendingQueue from 'modules/pending-queue/reducers/pending-queue';
+import accountPositions from 'modules/positions/reducers/account-positions';
+import reportingListState
+  from 'modules/reporting/reducers/reporting-list-state';
 import {
-  LoginAccount,
   AccountPosition,
+  Alert,
+  Analytics,
   AppStatus,
   AuthStatus,
   Blockchain,
   Connection,
-  EnvObject,
+  Drafts,
   Favorite,
+  FilledOrders,
   FilterSortOptions,
   GasPriceInfo,
-  MarketInfos,
-  NewMarket,
-  Alert,
-  Notification,
-  OrderBooks,
-  OrderCancellations,
   LiquidityOrders,
+  LoginAccount,
+  MarketInfos,
+  MarketsList,
+  NewMarket,
+  Notification,
+  OpenOrders,
+  OrderBooks,
   PendingOrders,
   PendingQueue,
-  FilledOrders,
-  Universe,
-  OpenOrders,
-  Drafts,
-  MarketsList,
   ReportingListState,
-} from "modules/types";
-import { Getters } from "@augurproject/sdk";
+  Universe,
+} from 'modules/types';
+import universe from 'modules/universe/reducers/universe';
 
 export function createReducer() {
   return {
@@ -74,8 +78,6 @@ export function createReducer() {
     modal,
     newMarket,
     readNotifications,
-    orderBooks,
-    orderCancellation,
     pendingLiquidityOrders,
     pendingOrders,
     pendingQueue,
@@ -87,6 +89,8 @@ export function createReducer() {
     drafts,
     marketsList,
     reportingListState,
+    analytics,
+    orderBooks
   };
 }
 
@@ -94,12 +98,12 @@ export function createReducer() {
 // keeping with reducers for easier maintenance.
 export interface AppStateInterface {
   accountPositions: AccountPosition;
-  alerts: Array<Alert>;
+  alerts: Alert[];
   appStatus: AppStatus;
   authStatus: AuthStatus;
   blockchain: Blockchain;
   connection: Connection;
-  env: EnvObject;
+  config: SDKConfiguration;
   favorites: Favorite;
   filterSortOptions: FilterSortOptions;
   gasPriceInfo: GasPriceInfo;
@@ -108,9 +112,7 @@ export interface AppStateInterface {
   marketInfos: MarketInfos;
   modal: any;
   newMarket: NewMarket;
-  readNotifications: Array<Notification>;
-  orderBooks: OrderBooks;
-  orderCancellation: OrderCancellations;
+  readNotifications: Notification[];
   pendingLiquidityOrders: LiquidityOrders;
   pendingOrders: PendingOrders;
   pendingQueue: PendingQueue;
@@ -122,4 +124,6 @@ export interface AppStateInterface {
   drafts: Drafts;
   marketsList: MarketsList;
   reportingListState: ReportingListState;
+  analytics: Analytics;
+  orderBooks: OrderBooks;
 }

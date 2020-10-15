@@ -1,7 +1,7 @@
 import { connect } from "react-redux";
 import { withRouter } from "react-router-dom";
 import { Message } from "modules/modal/message";
-import { AppState } from "store";
+import { AppState } from "appStore";
 import { closeModal } from "modules/modal/actions/close-modal";
 import { ThunkDispatch } from "redux-thunk";
 import { Action } from "redux";
@@ -20,7 +20,6 @@ const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Action>) => ({
 const mergeProps = (sP: any, dP: any, oP: any) => ({
   title: "Approve Augur",
   description: [
-    `Current approval is ${sP.account.allowanceFormatted.formatted} DAI`,
     `In order to trade on Augur you must first approve the Augur Contracts to move DAI on your behalf. You will not be able to trade until approval has completed.`,
     `After clicking "Approve" you will be asked to sign a transaction. This will approval for 1 million DAI.`
   ],
@@ -31,7 +30,7 @@ const mergeProps = (sP: any, dP: any, oP: any) => ({
     {
       text: "Approve",
       action: () => {
-        dP.approveAccount(sP.modal.approveOnSent, sP.modal.approveCallback);
+        dP.approveAccount(sP.account?.affiliate);
         dP.closeModal();
       }
     }

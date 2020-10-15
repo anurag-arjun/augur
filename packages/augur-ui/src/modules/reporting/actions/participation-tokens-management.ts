@@ -1,14 +1,17 @@
-import logError from 'utils/log-error';
-import { AppState } from 'store';
-import { NodeStyleCallback } from 'modules/types';
-import { ThunkDispatch } from 'redux-thunk';
-import { Action } from 'redux';
+import { TXEventName } from '@augurproject/sdk-lite';
+import { AppState } from 'appStore';
+import { BUYPARTICIPATIONTOKENS } from 'modules/common/constants';
 import {
   buyParticipationTokens,
   buyParticipationTokensEstimateGas,
 } from 'modules/contracts/actions/contractCalls';
+import { addUpdatePendingTransaction } from 'modules/pending-queue/actions/pending-queue-management';
+import { NodeStyleCallback } from 'modules/types';
+import { Action } from 'redux';
+import { ThunkDispatch } from 'redux-thunk';
+import logError from 'utils/log-error';
 
-export const purchaseParticipationTokens = (
+export const stakeTokens = (
   amount: string,
   estimateGas = false,
   callback: NodeStyleCallback = logError
@@ -26,6 +29,8 @@ export const purchaseParticipationTokens = (
     );
     return callback(null, gas);
   }
-  buyParticipationTokens(universeId, amount);
+  buyParticipationTokens(universeId, amount).catch(() => {
+    dispatch(addUpdatePendingTransaction(BUYPARTICIPATIONTOKENS, TXEventName.Failure))
+  });
   callback(null);
 };

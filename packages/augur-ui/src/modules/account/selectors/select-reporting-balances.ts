@@ -1,17 +1,14 @@
-import { createSelector } from 'reselect';
-import { Getters } from '@augurproject/sdk';
+import type { Getters } from '@augurproject/sdk';
 import {
-  selectLoginAccountReportingState,
   selectLoginAccountBalancesState,
-} from 'store/select-state';
-import { AccountBalances } from 'modules/types';
-import {
-  formatAttoRep,
-  formatPercent,
-  formatRep
-} from 'utils/format-number';
+  selectLoginAccountReportingState,
+} from 'appStore/select-state';
+import loginAccount from 'modules/auth/selectors/login-account';
 import { ZERO } from 'modules/common/constants';
+import { AccountBalances } from 'modules/types';
+import { createSelector } from 'reselect';
 import { createBigNumber } from 'utils/create-big-number';
+import { formatAttoRep, formatPercent, formatRep } from 'utils/format-number';
 
 export const selectReportingBalances = createSelector(
   selectLoginAccountReportingState,
@@ -57,6 +54,9 @@ export const selectReportingBalances = createSelector(
       .plus(createBigNumber(disputingAmountFormatted.value));
     const repTotalAmountStakedFormatted = formatRep(repTotalAmountStaked);
 
+
+    // TODO: wire this up when governance contracts are in
+    const stakedSrep = '0';
     return {
       repBalanceFormatted,
       repProfitLossPercentageFormatted,
@@ -65,7 +65,8 @@ export const selectReportingBalances = createSelector(
       reportingAmountFormatted,
       participationAmountFormatted,
       repTotalAmountStakedFormatted,
-      hasStakedRep
+      hasStakedRep,
+      stakedSrep,
     };
   }
 );
@@ -81,6 +82,7 @@ export const selectDefaultReportingBalances = () => {
   const reportingAmountFormatted = formatAttoRep(ZERO);
   const disputingAmountFormatted = formatAttoRep(ZERO);
   const repTotalAmountStakedFormatted = formatAttoRep(ZERO);
+  const stakedSrep = formatAttoRep(ZERO);
 
   return {
     repBalanceFormatted,
@@ -90,5 +92,6 @@ export const selectDefaultReportingBalances = () => {
     reportingAmountFormatted,
     participationAmountFormatted,
     repTotalAmountStakedFormatted,
+    stakedSrep
   };
 };

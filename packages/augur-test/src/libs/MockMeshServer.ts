@@ -1,8 +1,8 @@
-import { logUtils } from '@0x/utils';
 import { SignedOrder } from '@0x/types';
+import { logUtils } from '@0x/utils';
 import * as http from 'http';
-import * as WebSocket from 'websocket';
 import * as _ from 'lodash';
+import * as WebSocket from 'websocket';
 
 const DEFAULT_STATUS_CODE = 404;
 export const SERVER_PORT = 64321;
@@ -28,6 +28,7 @@ export interface StoredOrder {
  * @return A WS server
  */
 export async function setupServerAsync(): Promise<WebSocket.server> {
+    let port = SERVER_PORT + Math.floor(Math.random() * 1000);
     return new Promise<WebSocket.server>((resolve, reject) => {
         server = http.createServer((_request, response) => {
             response.writeHead(DEFAULT_STATUS_CODE);
@@ -40,13 +41,23 @@ export async function setupServerAsync(): Promise<WebSocket.server> {
             maxReceivedFrameSize: sixtyFourMB,
             maxReceivedMessageSize: sixtyFourMB,
             fragmentOutgoingMessages: false,
-            keepalive: false,
+            keepalive: true,
             disableNagleAlgorithm: false,
         });
 
-        server.listen(SERVER_PORT, () => {
-            resolve(wsServer);
+        server.on('listening', () => {
+            resolve({port, wsServer});
+        })
+
+        server.on('error', (e: any) => {
+            if (e.code === 'EADDRINUSE') {
+                port = SERVER_PORT + Math.floor(Math.random() * 1000);
+                server.close();
+                server.listen(port);
+            }
         });
+
+        server.listen(port);
     });
 }
 
@@ -55,8 +66,8 @@ export async function setupServerAsync(): Promise<WebSocket.server> {
  */
 export function stopServer(): void {
     try {
+        server.close()
         wsServer.shutDown();
-        server.close();
     } catch (e) {
         logUtils.log('stopServer threw', e);
     }
@@ -65,6 +76,7 @@ export function stopServer(): void {
 export class MockMeshServer {
     readonly orders: {[orderHash: string]: StoredOrder};
     readonly server: WebSocket.Server;
+    private _subInterval: any = null;
 
     constructor(wsServer: WebSocket.Server) {
         this.server = wsServer;
@@ -72,10 +84,10 @@ export class MockMeshServer {
         this.initialize();
     }
 
-    static async create(): Promise<MockMeshServer> {
-        const wsServer = await setupServerAsync();
+    static async create(): Promise<{port: number, meshServer: MockMeshServer }> {
+        const { port, wsServer } = await setupServerAsync();
         const meshServer = new MockMeshServer(wsServer);
-        return meshServer;
+        return { port, meshServer };
     }
 
     initialize(): void {
@@ -84,21 +96,78 @@ export class MockMeshServer {
             connection.on('message', ((message: WSMessage) => {
                 const jsonRpcRequest = JSON.parse(message.utf8Data);
                 let response = "";
-                if (jsonRpcRequest.method == "mesh_getOrders") response = self.getOrders(jsonRpcRequest.id, jsonRpcRequest.params);
-                else if (jsonRpcRequest.method == "mesh_addOrders") response = self.addOrders(jsonRpcRequest.id, jsonRpcRequest.params, connection);
-                else if (jsonRpcRequest.method == "mesh_subscribe") response = self.subscribe(jsonRpcRequest.id);
-                else throw new Error(`Bad Request: ${jsonRpcRequest.method}`);
+
+                switch(jsonRpcRequest.method) {
+                  case "mesh_getOrders":
+                    response = self.getOrders(jsonRpcRequest.id, jsonRpcRequest.params);
+                    break;
+                  case "mesh_addOrders":
+                    response = self.addOrders(jsonRpcRequest.id, jsonRpcRequest.params, connection);
+                    break;
+                  case "mesh_subscribe":
+                    response = self.subscribe(jsonRpcRequest.id, jsonRpcRequest.params, connection);
+                    break;
+                  case  "mesh_getStats":
+                    response = self.getStats(jsonRpcRequest.id);
+                    break;
+                  default:
+                    throw new Error(`Bad Request: ${jsonRpcRequest.method}`);
+                }
                 connection.sendUTF(response);
             }) as any);
         }) as any);
     }
 
-    subscribe(id: number): string {
+
+    getStats(id: number) {
+      return JSON.stringify({
+        jsonrpc: "2.0",
+        id,
+        result: {
+          numPeers: 1,
+          numOrders: 1
+        }
+      });
+    }
+
+    subscribe(id: number, params: string[], connection: WebSocket.connection): string {
+        let subscription =  "0xdeadbeefdeadbeefdeadbeefdeadbeef";
+        const heartbeatSub =  "0xab1a3e8af590364c09d0fa6a12103ada";
+
+        if (params[0] === "heartbeat") {
+            subscription = heartbeatSub;
+            if (this._subInterval !== null) {
+              throw new Error("Attempting to subscribe twice to the mock relayer. Make sure tests unsubscribe.")
+            }
+
+            this._subInterval = setInterval(() => {
+                connection.sendUTF(JSON.stringify({
+                    jsonrpc: "2.0",
+                    method: "mesh_subscription",
+                    params: {
+                        subscription: heartbeatSub,
+                        result: "tick"
+                    }
+                }))
+            }, 10000);
+        }
+
         return JSON.stringify({
             id,
             jsonrpc: "2.0",
-            result: "0xab1a3e8af590364c09d0fa6a12103ada"
+            result: subscription
         });
+    }
+
+    unsubscribe(id: number): string {
+      clearInterval(this._subInterval);
+      this._subInterval = null;
+
+      return JSON.stringify({
+        id,
+        jsonrpc: '2.0',
+        result: '0xab1a3e8af590364c09d0fa6a12103ada'
+      });
     }
 
     getOrders(id: number, params: any[]): string {
@@ -124,7 +193,7 @@ export class MockMeshServer {
         const accepted = [];
         for (const order of newOrders) {
             const storedOrder: StoredOrder = {
-                orderHash: order.orderHash,
+                orderHash: order.hash,
                 signedOrder: order,
                 fillableTakerAssetAmount: order.takerAssetAmount,
             }

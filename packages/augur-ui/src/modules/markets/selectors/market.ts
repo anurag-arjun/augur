@@ -1,18 +1,21 @@
-import { formatDai, formatNumber, formatAttoDai } from 'utils/format-number';
+import type { Getters } from '@augurproject/sdk';
+import store, { AppState } from 'appStore';
 import {
-  YES_NO,
-  SCALAR,
+  selectCurrentTimestamp,
+  selectMarketInfosState,
+} from 'appStore/select-state';
+import {
   INVALID_OUTCOME_ID,
+  SCALAR,
   SCALAR_DOWN_ID,
+  YES_NO,
   ZERO,
 } from 'modules/common/constants';
-import store, { AppState } from 'store';
-import { selectMarketInfosState } from 'store/select-state';
 import { MarketData, OutcomeFormatted } from 'modules/types';
-import { convertMarketInfoToMarketData } from 'utils/convert-marketInfo-marketData';
 import { createSelector } from 'reselect';
-import { Getters } from '@augurproject/sdk';
+import { convertMarketInfoToMarketData } from 'utils/convert-marketInfo-marketData';
 import { createBigNumber } from 'utils/create-big-number';
+import { formatNumber } from 'utils/format-number';
 
 function selectMarketsDataStateMarket(state, marketId) {
   return selectMarketInfosState(state)[marketId];
@@ -36,7 +39,8 @@ export const selectMarket = (marketId): MarketData | null => {
 
 const assembleMarket = createSelector(
   selectMarketsDataStateMarket,
-  (marketData): MarketData => convertMarketInfoToMarketData(marketData)
+  selectCurrentTimestamp,
+  (marketData, currentTimestamp): MarketData => convertMarketInfoToMarketData(marketData, currentTimestamp)
 );
 
 export const selectSortedMarketOutcomes = (marketType, outcomes: OutcomeFormatted[]) => {
@@ -46,21 +50,23 @@ export const selectSortedMarketOutcomes = (marketType, outcomes: OutcomeFormatte
     return sortedOutcomes.reverse();
   }
   // Move invalid to the end
-  sortedOutcomes.push(sortedOutcomes.shift());
+  if(sortedOutcomes.length > 0) sortedOutcomes.push(sortedOutcomes.shift());
+
   return sortedOutcomes;
 };
 
 export const selectSortedDisputingOutcomes = (
   marketType: string,
   outcomes: OutcomeFormatted[],
-  stakes: Getters.Markets.StakeDetails[] | null
+  stakes: Getters.Markets.StakeDetails[] | null,
+  isWarpSync: boolean
 ): OutcomeFormatted[] => {
   if (!stakes || stakes.length === 0)
     return selectSortedMarketOutcomes(marketType, outcomes);
 
   const sortedStakes = sortStakes(stakes);
   if (marketType === SCALAR)
-    return buildScalarDisputingOutcomes(outcomes, sortedStakes);
+    return buildScalarDisputingOutcomes(outcomes, sortedStakes, isWarpSync);
   return buildYesNoCategoricalDisputingOutcomes(outcomes, sortedStakes);
 };
 
@@ -79,7 +85,8 @@ const sortStakes = (stakes: Getters.Markets.StakeDetails[]) => {
 
 const buildScalarDisputingOutcomes = (
   outcomes: OutcomeFormatted[],
-  sortedStakes: Getters.Markets.StakeDetails[]
+  sortedStakes: Getters.Markets.StakeDetails[],
+  isWarpSync: boolean,
 ) => {
   // always add invalid
   const invalidOutcome = outcomes[INVALID_OUTCOME_ID];
@@ -104,11 +111,12 @@ const buildScalarDisputingOutcomes = (
             price: null,
             volume: '0',
             isTradeable: true,
+            isInvalid: false,
           } as OutcomeFormatted,
         ];
   }, []);
 
-  return results.find(o => o.id === INVALID_OUTCOME_ID)
+  return (results.find(o => o.id === INVALID_OUTCOME_ID) || isWarpSync)
     ? results
     : [...results, invalidOutcome];
 };

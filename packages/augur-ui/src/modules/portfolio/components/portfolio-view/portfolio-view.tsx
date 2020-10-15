@@ -7,16 +7,23 @@ import OpenOrders from 'modules/portfolio/containers/open-orders';
 import FilledOrders from 'modules/portfolio/containers/filled-orders';
 import ModuleTabs from 'modules/market/components/common/module-tabs/module-tabs';
 import ModulePane from 'modules/market/components/common/module-tabs/module-pane';
-import { SMALL_MOBILE, TABLET_MAX } from 'modules/common/constants';
+import { SMALL_MOBILE } from 'modules/common/constants';
 import Styles from 'modules/portfolio/components/portfolio-view/portfolio-view.styles.less';
+import { PORTFOLIO_VIEW_HEAD_TAGS } from 'modules/seo/helmet-configs';
+import { HelmetTag } from 'modules/seo/helmet-tag';
+import parseQuery from 'modules/routes/helpers/parse-query';
+import { CREATE_MARKET_PORTFOLIO } from 'modules/routes/constants/param-names';
 
-interface PortfolioViewProps {}
+interface PortfolioViewProps {
+  location: Location;
+}
 
 interface PortfolioViewState {
   extendPositions: boolean;
   extendMarkets: boolean;
   extendOpenOrders: boolean;
   extendFilledOrders: boolean;
+  initialPage: number;
 }
 
 export default class PortfolioView extends React.Component<
@@ -28,6 +35,7 @@ export default class PortfolioView extends React.Component<
     extendMarkets: false,
     extendOpenOrders: false,
     extendFilledOrders: false,
+    initialPage: parseFloat(parseQuery(this.props.location.search)[CREATE_MARKET_PORTFOLIO]) || 0,
   };
 
   toggle = (extend: string, hide: string) => {
@@ -46,11 +54,12 @@ export default class PortfolioView extends React.Component<
 
     return (
       <div className={Styles.PortfolioView}>
-        <Media query={TABLET_MAX}>
+        <HelmetTag {...PORTFOLIO_VIEW_HEAD_TAGS} />
+        <Media query={SMALL_MOBILE}>
           {matches =>
             matches ? (
               <>
-              <ModuleTabs selected={0} fillWidth noBorder>
+              <ModuleTabs selected={s.initialPage} fillWidth noBorder>
                 <ModulePane label="Positions">
                   <MyPositions />
                 </ModulePane>

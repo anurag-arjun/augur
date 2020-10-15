@@ -4,7 +4,7 @@ import Media from 'react-media';
 import TermsAndConditions from 'modules/app/containers/terms-and-conditions';
 import Notifications from 'modules/account/containers/notifications';
 import Transactions from 'modules/account/containers/transactions';
-import AugurStatus from 'modules/account/containers/augur-status';
+import AugurStatus from 'modules/account/components/augur-status';
 import Favorites from 'modules/portfolio/containers/favorites';
 import OpenMarkets from 'modules/account/containers/open-markets';
 import Overview from 'modules/account/containers/overview';
@@ -18,9 +18,10 @@ import {
 
 import Styles from 'modules/account/components/account-view.styles.less';
 import classNames from 'classnames';
+import { ACCOUNT_VIEW_HEAD_TAGS } from 'modules/seo/helmet-configs';
+import { HelmetTag } from 'modules/seo/helmet-tag';
 export interface AccountViewProps {
   newNotifications?: boolean;
-  isLogged: boolean;
 }
 
 interface AccountViewState {
@@ -42,20 +43,19 @@ export default class AccountView extends React.Component<
   };
 
   toggle = (extend: string, hide: string) => {
-    if (!this.state[extend] && this.state[hide]) {
-      this.setState({ [extend]: false, [hide]: false });
-    } else {
-      this.setState({
-        [extend]: !this.state[extend],
-        [hide]: false,
-      });
-    }
+    this.setState({ [extend]: !this.state[extend], [hide]: false });
   };
 
   render() {
-    const s = this.state;
+    const {
+      extendActiveMarkets,
+      extendWatchlist,
+      extendNotifications,
+    } = this.state;
+    const { newNotifications } = this.props;
     return (
       <>
+        <HelmetTag {...ACCOUNT_VIEW_HEAD_TAGS} />
         <Media query={SMALL_MOBILE}>
           {matches =>
             matches ? (
@@ -63,72 +63,54 @@ export default class AccountView extends React.Component<
                 <ModulePane label={YOUR_OVERVIEW_TITLE}>
                   <Overview />
                 </ModulePane>
-                <ModulePane
-                  label="Notifications"
-                  isNew={this.props.newNotifications}
-                >
+                <ModulePane label="Notifications" isNew={newNotifications}>
                   <Notifications />
-                </ModulePane>
-                <ModulePane label="Watchlist">
-                  <Favorites />
                 </ModulePane>
                 <ModulePane label="My Active Markets">
                   <OpenMarkets />
                 </ModulePane>
-                <ModulePane label={AUGUR_STATUS_TITLE}>
-                  <AugurStatus />
+                <ModulePane label="Watchlist">
+                  <Favorites />
                 </ModulePane>
                 <ModulePane label="Transactions">
                   <Transactions />
+                </ModulePane>
+                <ModulePane label={AUGUR_STATUS_TITLE}>
+                  <AugurStatus />
                 </ModulePane>
               </ModuleTabs>
             ) : (
               <div
                 className={classNames(Styles.AccountView, {
-                  [Styles.HideNotifications]: s.extendActiveMarkets,
-                  [Styles.HideTransactions]: s.extendWatchlist,
-                  [Styles.HideActiveMarkets]: s.extendNotifications,
+                  [Styles.HideNotifications]: extendActiveMarkets,
+                  [Styles.HideTransactions]: extendWatchlist,
+                  [Styles.HideActiveMarkets]: extendNotifications,
                 })}
               >
-                <div>
-                  <div>
-                    <Notifications
-                      toggle={() =>
-                        this.toggle(
-                          'extendNotifications',
-                          'extendActiveMarkets'
-                        )
-                      }
-                    />
-                    <OpenMarkets
-                      toggle={() =>
-                        this.toggle(
-                          'extendActiveMarkets',
-                          'extendNotifications'
-                        )
-                      }
-                    />
-                  </div>
-                  <div>
-                    <ModuleTabs selected={0}>
-                      <ModulePane label={YOUR_OVERVIEW_TITLE}>
-                        <Overview />
-                      </ModulePane>
-                      <ModulePane label={AUGUR_STATUS_TITLE}>
-                        <AugurStatus />
-                      </ModulePane>
-                    </ModuleTabs>
-                  </div>
-                  <div>
-                    <Favorites
-                      toggle={() =>
-                        this.toggle('extendWatchlist', 'extendTransactions')
-                      }
-                    />
-                    { this.props.isLogged && <Transactions /> }
-                  </div>
-                </div>
-                <TermsAndConditions />
+                <Notifications
+                  toggle={() =>
+                    this.toggle('extendActiveMarkets', 'extendNotifications')
+                  }
+                />
+                <ModuleTabs selected={0}>
+                  <ModulePane label={YOUR_OVERVIEW_TITLE}>
+                    <Overview />
+                  </ModulePane>
+                  <ModulePane label={AUGUR_STATUS_TITLE}>
+                    <AugurStatus />
+                  </ModulePane>
+                </ModuleTabs>
+                <Favorites
+                  toggle={() =>
+                    this.toggle('extendWatchlist', 'extendTransactions')
+                  }
+                />
+                <OpenMarkets
+                  toggle={() =>
+                    this.toggle('extendNotifications', 'extendActiveMarkets')
+                  }
+                />
+                <Transactions />
               </div>
             )
           }

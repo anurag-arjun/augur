@@ -1,14 +1,15 @@
 # populated geth docker file
-FROM augurproject/dev-node-geth:latest as geth
+FROM augurproject/dev-node-geth:v1.9.19 as geth
 
-ARG normal_time=false
-ENV USE_NORMAL_TIME=$normal_time
+ARG normal_time=true
+ENV NORMAL_TIME=$normal_time
 
 ARG network_id=101
 ARG period_time=5
 
 ENV NETWORK_ID=$network_id
 ENV PERIOD_TIME=$period_time
+ENV NODE_OPTIONS="--max_old_space_size=8192"
 
 RUN apk add --no-cache \
     alpine-sdk \
@@ -35,7 +36,7 @@ RUN bash /augur/packages/augur-tools/docker-builder/run-geth-and-deploy.sh
 #RUN find /geth -name geth.ipc -delete
 
 # create final image with no cruft
-FROM augurproject/dev-node-geth:latest
+FROM augurproject/dev-node-geth:v1.9.19
 
 RUN apk add --no-cache \
     bash \

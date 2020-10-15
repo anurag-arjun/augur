@@ -6,9 +6,6 @@
   },
   "references": [
     {
-      "path": "../blockstream-adapters"
-    },
-    {
       "path": "../augur-artifacts"
     },
     {
@@ -18,13 +15,16 @@
       "path": "../augur-types"
     },
     {
-      "path": "../contract-dependencies-ethers"
-    },
-    {
-      "path": "../contract-dependencies-gnosis"
-    },
-    {
       "path": "../augur-core"
+    },
+    {
+      "path": "../ethersjs-provider"
+    },
+    {
+      "path": "../augur-sdk-lite"
+    },
+    {
+      "path": "../augur-utils"
     }
   ]
 }

@@ -5,14 +5,14 @@ import { selectNotifications } from 'modules/notifications/selectors/notificatio
 import { updateReadNotifications } from 'modules/notifications/actions/update-notifications';
 import { updateModal } from 'modules/modal/actions/update-modal';
 import { selectMarket } from 'modules/markets/selectors/market';
-import { AppState } from 'store';
+import { AppState } from 'appStore';
 import {
-  MODAL_FINALIZE_MARKET,
   MODAL_CLAIM_MARKETS_PROCEEDS,
   MODAL_CLAIM_FEES,
   MODAL_UNSIGNED_ORDERS,
   MODAL_OPEN_ORDERS,
   MODAL_REPORTING,
+  MODAL_FINALIZE_MARKET,
 } from 'modules/common/constants';
 import { ThunkDispatch } from 'redux-thunk';
 import { Action } from 'redux';
@@ -32,8 +32,6 @@ const mapStateToProps = (state: AppState) => {
 const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Action>) => ({
   updateReadNotifications: (notifications: Notification[]) =>
     dispatch(updateReadNotifications(notifications)),
-  finalizeMarketModal: (marketId: string, cb: NodeStyleCallback) =>
-    dispatch(updateModal({ type: MODAL_FINALIZE_MARKET, marketId, cb })),
   claimMarketsProceeds: (marketIds: string[], cb: NodeStyleCallback) =>
     dispatch(
       updateModal({ type: MODAL_CLAIM_MARKETS_PROCEEDS, marketIds, cb })
@@ -69,6 +67,22 @@ const mapDispatchToProps = (dispatch: ThunkDispatch<void, any, Action>) => ({
         type: MODAL_OPEN_ORDERS,
         marketId,
         cb,
+      })
+    ),
+  showReportingModal: (marketId: string) => {
+    const market = selectMarket(marketId);
+    dispatch(
+      updateModal({
+        type: MODAL_REPORTING,
+        market
+      }),
+    )},
+  finalize: (marketId: string, cb: NodeStyleCallback) =>
+    dispatch(
+      updateModal({
+        type: MODAL_FINALIZE_MARKET,
+        cb,
+        marketId,
       })
     ),
 });

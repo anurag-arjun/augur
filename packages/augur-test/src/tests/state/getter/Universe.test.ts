@@ -1,82 +1,102 @@
-import { API } from '@augurproject/sdk/build/state/getter/API';
-import { DB } from '@augurproject/sdk/build/state/db/DB';
-import { makeDbMock, makeProvider } from '../../../libs';
-import { ContractAPI, ACCOUNTS, loadSeedFile, defaultSeedPath } from '@augurproject/tools';
-import { BigNumber } from 'bignumber.js';
-import { fork } from '@augurproject/tools';
-import { formatBytes32String } from 'ethers/utils';
 import { UniverseDetails } from '@augurproject/sdk/build/state/getter/Universe';
-import { getPayoutNumerators, makeValidScalarOutcome } from '@augurproject/tools/build/flash/fork';
-import { NULL_ADDRESS } from '../../../libs/Utils';
-import { TestEthersProvider } from '../../../libs/TestEthersProvider';
-
-const mock = makeDbMock();
+import {
+  ACCOUNTS,
+  defaultSeedPath,
+  fork,
+  loadSeed,
+} from '@augurproject/tools';
+import { TestContractAPI } from '@augurproject/tools';
+import {
+  getPayoutNumerators,
+  makeValidScalarOutcome,
+} from '@augurproject/tools/build/flash/fork';
+import { TestEthersProvider } from '@augurproject/tools/build/libs/TestEthersProvider';
+import { NULL_ADDRESS } from '@augurproject/tools/build/libs/Utils';
+import { BigNumber } from 'bignumber.js';
+import { makeProvider } from '../../../libs';
+import { SDKConfiguration } from '@augurproject/utils';
+import { MarketInfo } from "@augurproject/sdk-lite";
+import { ethers } from 'ethers';
 
 describe('State API :: Universe :: ', () => {
-  let db: Promise<DB>;
-  let api: API;
-  let john: ContractAPI;
-  let mary: ContractAPI;
-  let bob: ContractAPI;
+  let john: TestContractAPI;
+  let mary: TestContractAPI;
+  let bob: TestContractAPI;
 
   let baseProvider: TestEthersProvider;
+  let config: SDKConfiguration;
 
   beforeAll(async () => {
-    const seed = await loadSeedFile(defaultSeedPath);
+    const seed = await loadSeed(defaultSeedPath);
     baseProvider = await makeProvider(seed, ACCOUNTS);
-    const addresses = baseProvider.getContractAddresses();
+    config = baseProvider.getConfig();
 
-    john = await ContractAPI.userWrapper(ACCOUNTS[0], baseProvider, addresses);
-    mary = await ContractAPI.userWrapper(ACCOUNTS[1], baseProvider, addresses);
-    bob = await ContractAPI.userWrapper(ACCOUNTS[2], baseProvider, addresses);
-    await john.approveCentralAuthority();
-    await mary.approveCentralAuthority();
-    await bob.approveCentralAuthority();
-  }, 120000);
+    john = await TestContractAPI.userWrapper(
+      ACCOUNTS[0],
+      baseProvider,
+      config
+    );
+    mary = await TestContractAPI.userWrapper(
+      ACCOUNTS[1],
+      baseProvider,
+      config
+    );
+    bob = await TestContractAPI.userWrapper(
+      ACCOUNTS[2],
+      baseProvider,
+      config
+    );
+    await john.approve();
+    await mary.approve();
+    await bob.approve();
+  });
 
   beforeEach(async () => {
     const provider = await baseProvider.fork();
-    const addresses = baseProvider.getContractAddresses();
-    john = await ContractAPI.userWrapper(ACCOUNTS[0], provider, addresses);
-    mary = await ContractAPI.userWrapper(ACCOUNTS[1], provider, addresses);
-    bob = await ContractAPI.userWrapper(ACCOUNTS[2], provider, addresses);
-    db = makeDbMock().makeDB(john.augur, ACCOUNTS);
-    api = new API(john.augur, db);
+    john = await TestContractAPI.userWrapper(ACCOUNTS[0], provider, config);
+    mary = await TestContractAPI.userWrapper(ACCOUNTS[1], provider, config);
+    bob = await TestContractAPI.userWrapper(ACCOUNTS[2], provider, config);
   });
 
-  // TODO Fix the 0x error occurring when multiuple fork getter tests run in one file.
+  // TODO Fix the 0x error occurring when multiple fork getter tests run in one file.
   test('getForkMigrationTotals : YesNo', async () => {
     const universe = john.augur.contracts.universe;
 
-    const actualDB = await db;
-
-    await actualDB.sync(john.augur, mock.constants.chunkSize, 0);
-    let migrationTotals = await api.route('getForkMigrationTotals', {
+    await john.sync();
+    let migrationTotals = await john.api.route('getForkMigrationTotals', {
       universe: universe.address,
     });
 
     expect(migrationTotals).toEqual({});
 
     const market = await john.createReasonableYesNoMarket();
-    await actualDB.sync(john.augur, mock.constants.chunkSize, 0);
-    const marketInfo = (await api.route('getMarketsInfo', {marketIds: [market.address]}))[0];
+    await john.sync();
+    const marketInfo: MarketInfo = (await john.api.route('getMarketsInfo', {
+      marketIds: [market.address],
+    }))[0];
 
-    await fork(john, marketInfo);
+    await fork(john, market);
 
     const repTokenAddress = await john.augur.contracts.universe.getReputationToken_();
-    const repToken = john.augur.contracts.reputationTokenFromAddress(repTokenAddress, john.augur.networkId);
+    const repToken = john.augur.contracts.reputationTokenFromAddress(
+      repTokenAddress,
+      john.augur.config.networkId
+    );
 
     const invalidNumerators = getPayoutNumerators(marketInfo, 0);
     const noNumerators = getPayoutNumerators(marketInfo, 1);
 
-    await john.repFaucet(new BigNumber(1e21));
+    await john.faucetRep(new BigNumber(1e21));
+
+    await (await john.augur.contracts.getOriginUniverse()).createChildUniverse(invalidNumerators);
     await repToken.migrateOutByPayout(invalidNumerators, new BigNumber(1e21));
 
-    await john.repFaucet(new BigNumber(1e21));
+    await john.faucetRep(new BigNumber(1e21));
+    await (await john.augur.contracts.getOriginUniverse()).createChildUniverse(noNumerators);
     await repToken.migrateOutByPayout(noNumerators, new BigNumber(1e21));
 
-    await actualDB.sync(john.augur, mock.constants.chunkSize, 0);
-    migrationTotals = await api.route('getForkMigrationTotals', {
+    await john.sync();
+    migrationTotals = await john.api.route('getForkMigrationTotals', {
       universe: universe.address,
     });
 
@@ -87,61 +107,57 @@ describe('State API :: Universe :: ', () => {
           outcomeName: 'Invalid',
           outcome: '0',
           amount: '1000000000000000000000',
-          payoutNumerators: [
-            '100',
-            '0',
-            '0',
-          ],
+          payoutNumerators: ['1000', '0', '0'],
         },
         {
           outcomeName: 'No',
           outcome: '1',
           amount: '1000000000000000000000',
-          payoutNumerators: [
-            '0',
-            '100',
-            '0',
-          ],
+          payoutNumerators: ['0', '1000', '0'],
         },
       ],
     });
-
-  }, 200000);
+  });
 
   test('getForkMigrationTotals : Categorical', async () => {
     const universe = john.augur.contracts.universe;
 
-    const actualDB = await db;
-
-    await actualDB.sync(john.augur, mock.constants.chunkSize, 0);
-    let migrationTotals = await api.route('getForkMigrationTotals', {
+    await john.sync();
+    let migrationTotals = await john.api.route('getForkMigrationTotals', {
       universe: universe.address,
     });
 
     expect(migrationTotals).toEqual({});
 
     const market = await john.createReasonableMarket(
-      ['foo', 'bar', 'happiness', 'smile'].map(formatBytes32String)
+      ['foo', 'bar', 'happiness', 'smile'].map(ethers.utils.formatBytes32String)
     );
-    await actualDB.sync(john.augur, mock.constants.chunkSize, 0);
-    const marketInfo = (await api.route('getMarketsInfo', {marketIds: [market.address]}))[0];
+    await john.sync();
+    const marketInfo = (await john.api.route('getMarketsInfo', {
+      marketIds: [market.address],
+    }))[0];
 
-    await fork(john, marketInfo);
+    await fork(john, market);
 
     const repTokenAddress = await john.augur.contracts.universe.getReputationToken_();
-    const repToken = john.augur.contracts.reputationTokenFromAddress(repTokenAddress, john.augur.networkId);
+    const repToken = john.augur.contracts.reputationTokenFromAddress(
+      repTokenAddress,
+      john.augur.config.networkId
+    );
 
     const invalidNumerators = getPayoutNumerators(marketInfo, 0);
     const fooNumerators = getPayoutNumerators(marketInfo, 1);
 
-    await john.repFaucet(new BigNumber(1e21));
+    await john.faucetRep(new BigNumber(1e21));
+    await (await john.augur.contracts.getOriginUniverse()).createChildUniverse(invalidNumerators);
     await repToken.migrateOutByPayout(invalidNumerators, new BigNumber(1e21));
 
-    await john.repFaucet(new BigNumber(1e21));
+    await john.faucetRep(new BigNumber(1e21));
+    await (await john.augur.contracts.getOriginUniverse()).createChildUniverse(fooNumerators);
     await repToken.migrateOutByPayout(fooNumerators, new BigNumber(1e21));
 
-    await actualDB.sync(john.augur, mock.constants.chunkSize, 0);
-    migrationTotals = await api.route('getForkMigrationTotals', {
+    await john.sync();
+    migrationTotals = await john.api.route('getForkMigrationTotals', {
       universe: universe.address,
     });
 
@@ -153,63 +169,55 @@ describe('State API :: Universe :: ', () => {
           outcome: '0',
           isInvalid: true,
           amount: '1000000000000000000000',
-          payoutNumerators: [
-            '100',
-            '0',
-            '0',
-            '0',
-            '0',
-          ],
+          payoutNumerators: ['1000', '0', '0', '0', '0'],
         },
         {
-          outcomeName: 'foo'.padEnd(32, '\0'),
+          outcomeName: 'foo',
           outcome: '1',
           amount: '1000000000000000000000',
-          payoutNumerators: [
-            '0',
-            '100',
-            '0',
-            '0',
-            '0',
-          ],
+          payoutNumerators: ['0', '1000', '0', '0', '0'],
         },
       ],
     });
-
-  }, 200000);
+  });
 
   test('getForkMigrationTotals : Scalar', async () => {
     const universe = john.augur.contracts.universe;
 
-    const actualDB = await db;
-
-    await actualDB.sync(john.augur, mock.constants.chunkSize, 0);
-    let migrationTotals = await api.route('getForkMigrationTotals', {
+    await john.sync();
+    let migrationTotals = await john.api.route('getForkMigrationTotals', {
       universe: universe.address,
     });
 
     expect(migrationTotals).toEqual({});
 
     const market = await john.createReasonableScalarMarket();
-    await actualDB.sync(john.augur, mock.constants.chunkSize, 0);
-    const marketInfo = (await api.route('getMarketsInfo', {marketIds: [market.address]}))[0];
+    await john.sync();
+    const marketInfo = (await john.api.route('getMarketsInfo', {
+      marketIds: [market.address],
+    }))[0];
 
     const invalidNumerators = getPayoutNumerators(marketInfo, 'invalid');
     const fooOutcome = makeValidScalarOutcome(marketInfo);
     const fooNumerators = getPayoutNumerators(marketInfo, fooOutcome);
 
-    await fork(john, marketInfo);
+    await fork(john, market);
 
     const repTokenAddress = await john.augur.contracts.universe.getReputationToken_();
-    const repToken = john.augur.contracts.reputationTokenFromAddress(repTokenAddress, john.augur.networkId);
+    const repToken = john.augur.contracts.reputationTokenFromAddress(
+      repTokenAddress,
+      john.augur.config.networkId
+    );
 
-    await john.repFaucet(new BigNumber(1e21));
+    await john.faucetRep(new BigNumber(1e21));
 
+    await (await john.augur.contracts.getOriginUniverse()).createChildUniverse(invalidNumerators);
     await repToken.migrateOutByPayout(invalidNumerators, new BigNumber(1e21));
-    await john.repFaucet(new BigNumber(1e21));
+    await john.faucetRep(new BigNumber(1e21));
+    await (await john.augur.contracts.getOriginUniverse()).createChildUniverse(fooNumerators);
     await repToken.migrateOutByPayout(fooNumerators, new BigNumber(1e21));
-    await actualDB.sync(john.augur, mock.constants.chunkSize, 0);
-    migrationTotals = await api.route('getForkMigrationTotals', {
+    await john.sync();
+    migrationTotals = await john.api.route('getForkMigrationTotals', {
       universe: universe.address,
     });
 
@@ -218,61 +226,56 @@ describe('State API :: Universe :: ', () => {
       outcomes: [
         {
           outcomeName: 'Invalid',
-          outcome:     '0',
+          outcome: '0',
           amount: '1000000000000000000000',
           isInvalid: true,
-          payoutNumerators: [
-            '20000',
-            '0',
-            '0',
-          ],
+          payoutNumerators: ['20000', '0', '0'],
         },
         {
           outcomeName: '116000000000000000000',
-          outcome:     '116000000000000000000',
+          outcome: '116000000000000000000',
           amount: '1000000000000000000000',
-          payoutNumerators: [
-            '0',
-            '13400',
-            '6600',
-          ],
+          payoutNumerators: ['0', '13400', '6600'],
         },
       ],
     });
-  }, 200000);
+  });
 
   test('getUniverseChildren : Genesis', async () => {
     const genesisUniverse = john.augur.contracts.universe;
-    const actualDB = await db;
 
-    let johnRep = new BigNumber(1); // we faucet 1 attoREP for john during deployment
+    const legacyRep = new BigNumber(11000000).multipliedBy(10 ** 18);
+    let johnRep = await john.augur.contracts.reputationToken.balanceOf_(john.account.address);
     let maryRep = new BigNumber(0);
     const bobRep = new BigNumber(0);
-    let totalRep = johnRep.plus(maryRep).plus(bobRep);
+    let totalRep = await john.augur.contracts.reputationToken.totalSupply_();
 
-    await john.repFaucet(new BigNumber(91));
+    await john.faucetRep(new BigNumber(91));
     johnRep = johnRep.plus(91);
-    await mary.repFaucet(new BigNumber(19));
+    await mary.faucetRep(new BigNumber(19));
     maryRep = maryRep.plus(19);
     totalRep = totalRep.plus(91).plus(19);
 
     // Verify from John's perspective.
 
     console.log("Verify from John's perspective.");
-    await actualDB.sync(john.augur, mock.constants.chunkSize, 0);
-    let universeChildren: UniverseDetails = await api.route('getUniverseChildren', {
-      universe: genesisUniverse.address,
-      account: john.account.publicKey,
-    });
+    await john.sync();
+    let universeChildren: UniverseDetails = await john.api.route(
+      'getUniverseChildren',
+      {
+        universe: genesisUniverse.address,
+        account: john.account.address,
+      }
+    );
 
     expect(universeChildren).toMatchObject({
       id: genesisUniverse.address,
       parentUniverseId: NULL_ADDRESS,
       outcomeName: 'Genesis',
-      usersRep: johnRep.toString(),
-      totalRepSupply: totalRep.toString(),
+      usersRep: johnRep.toFixed(),
+      totalRepSupply: totalRep.toFixed(),
       totalOpenInterest: '0',
-      numberOfMarkets: 0,
+      numberOfMarkets: 1, // includes warp sync market
       children: [],
     });
     expect(universeChildren.creationTimestamp).toBeGreaterThan(0);
@@ -281,20 +284,20 @@ describe('State API :: Universe :: ', () => {
     // Tests case where there aren't any TokenBalanceChanged logs.
 
     console.log("Verify from Bob's perspective.");
-    await actualDB.sync(bob.augur, mock.constants.chunkSize, 0);
-    universeChildren = await api.route('getUniverseChildren', {
+    await john.sync();
+    universeChildren = await john.api.route('getUniverseChildren', {
       universe: genesisUniverse.address,
-      account: bob.account.publicKey,
+      account: bob.account.address,
     });
 
     expect(universeChildren).toMatchObject({
       id: genesisUniverse.address,
       parentUniverseId: NULL_ADDRESS,
       outcomeName: 'Genesis',
-      usersRep: bobRep.toString(), // aka zero
-      totalRepSupply: totalRep.toString(),
+      usersRep: bobRep.toFixed(), // aka zero
+      totalRepSupply: totalRep.toFixed(),
       totalOpenInterest: '0',
-      numberOfMarkets: 0,
+      numberOfMarkets: 1, // includes warp sync market
       children: [],
     });
     expect(universeChildren.creationTimestamp).toBeGreaterThan(0);
@@ -304,20 +307,22 @@ describe('State API :: Universe :: ', () => {
     console.log('Create a market to see how that affects numberOfMarkets.');
     const repBond = await genesisUniverse.getOrCacheMarketRepBond_();
     const market = await john.createReasonableScalarMarket();
-    totalRep = totalRep.plus(repBond); // not added to john because he put it in the market
-    await actualDB.sync(john.augur, mock.constants.chunkSize, 0);
-    universeChildren = await api.route('getUniverseChildren', {
+    johnRep = johnRep.minus(repBond);
+
+    await john.sync();
+
+    universeChildren = await john.api.route('getUniverseChildren', {
       universe: genesisUniverse.address,
-      account: john.account.publicKey,
+      account: john.account.address,
     });
     expect(universeChildren).toMatchObject({
       id: genesisUniverse.address,
       parentUniverseId: NULL_ADDRESS,
       outcomeName: 'Genesis',
-      usersRep: johnRep.toString(),
-      totalRepSupply: totalRep.toString(),
+      usersRep: johnRep.toFixed(),
+      totalRepSupply: totalRep.toFixed(),
       totalOpenInterest: '0',
-      numberOfMarkets: 1,
+      numberOfMarkets: 2, // includes warp sync market
       children: [],
     });
     expect(universeChildren.creationTimestamp).toBeGreaterThan(0);
@@ -325,42 +330,51 @@ describe('State API :: Universe :: ', () => {
     // Fork to see how that affects the children.
 
     console.log('Fork to see how that affects the children.');
-    const marketInfo = (await api.route('getMarketsInfo', {marketIds: [market.address]}))[0];
-    await fork(john, marketInfo);
+    const marketInfo = (await john.api.route('getMarketsInfo', {
+      marketIds: [market.address],
+    }))[0];
+    await fork(john, market);
     const repTokenAddress = await john.augur.contracts.universe.getReputationToken_();
-    const repToken = john.augur.contracts.reputationTokenFromAddress(repTokenAddress, john.augur.networkId);
+    const repToken = john.augur.contracts.reputationTokenFromAddress(
+      repTokenAddress,
+      john.augur.config.networkId
+    );
     // The fork script faucets a lot of REP then uses up a difficult-to-predict amount.
-    johnRep = await repToken.balanceOf_(john.account.publicKey);
+    johnRep = await repToken.balanceOf_(john.account.address);
     totalRep = await repToken.totalSupply_();
 
     const invalidNumerators = getPayoutNumerators(marketInfo, 'invalid');
     const childUniverseRep = johnRep;
     // Call twice because there's a bug when the first migration meets the goal.
+    await (await john.augur.contracts.getOriginUniverse()).createChildUniverse(invalidNumerators);
     await repToken.migrateOutByPayout(invalidNumerators, new BigNumber(1));
-    await repToken.migrateOutByPayout(invalidNumerators, childUniverseRep.minus(1));
+    await repToken.migrateOutByPayout(
+      invalidNumerators,
+      childUniverseRep.minus(1)
+    );
     johnRep = johnRep.minus(childUniverseRep);
     totalRep = totalRep.minus(childUniverseRep);
 
-    await actualDB.sync(john.augur, mock.constants.chunkSize, 0);
-    universeChildren = await api.route('getUniverseChildren', {
+    await john.sync();
+    universeChildren = await john.api.route('getUniverseChildren', {
       universe: genesisUniverse.address,
-      account: john.account.publicKey,
+      account: john.account.address,
     });
 
     expect(universeChildren).toMatchObject({
       id: genesisUniverse.address,
       outcomeName: 'Genesis',
       usersRep: '0', // all all migrated out
-      totalRepSupply: totalRep.toString(),
+      totalRepSupply: totalRep.toFixed(),
       totalOpenInterest: '0',
-      numberOfMarkets: 1,
+      numberOfMarkets: 2, // includes warp sync market
       parentUniverseId: NULL_ADDRESS,
       children: [
         {
           parentUniverseId: genesisUniverse.address,
           outcomeName: 'Invalid',
-          usersRep: childUniverseRep.toString(),
-          totalRepSupply: childUniverseRep.toString(),
+          usersRep: childUniverseRep.toFixed(),
+          totalRepSupply: childUniverseRep.toFixed(),
           totalOpenInterest: '0',
           numberOfMarkets: 0,
           children: [],
@@ -371,5 +385,4 @@ describe('State API :: Universe :: ', () => {
     expect(universeChildren.children[0].creationTimestamp).toBeGreaterThan(0);
     expect(universeChildren.children[0].id).not.toEqual(NULL_ADDRESS);
   });
-
 });

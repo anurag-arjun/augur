@@ -1,4 +1,4 @@
-pragma solidity ^0.5.10;
+pragma solidity ^0.5.15;
 
 import 'ROOT/reporting/IReputationToken.sol';
 import 'ROOT/libraries/ITyped.sol';
@@ -51,7 +51,7 @@ contract MockReputationToken is ITyped, Initializable, MockVariableSupplyToken, 
         setMigrateInValue = _setMigrateInValue;
     }
 
-    function setTrustedTransfer(bool _setTrustedTransferValue) public {
+    function setTrustedCashTransfer(bool _setTrustedTransferValue) public {
         setTrustedTransferValue = _setTrustedTransferValue;
     }
 

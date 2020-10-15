@@ -3,34 +3,28 @@
   "include": [],
   "references": [
     {
-      "path": "./packages/gnosis-relay-api"
-    },
-    {
-      "path": "./packages/ethersjs-provider"
-    },
-    {
       "path": "./packages/augur-core"
     },
     {
       "path": "./packages/augur-types"
     },
     {
+      "path": "./packages/augur-templates"
+    },
+    {
       "path": "./packages/augur-sdk"
+    },
+    {
+      "path": "./packages/augur-sdk-lite"
+    },
+    {
+      "path": "./packages/ethersjs-provider"
     },
     {
       "path": "./packages/augur-artifacts"
     },
     {
-      "path": "./packages/contract-dependencies"
-    },
-    {
-      "path": "./packages/contract-dependencies-ethers"
-    },
-    {
-      "path": "./packages/contract-dependencies-gnosis"
-    },
-    {
-      "path": "./packages/blockstream-adapters"
+      "path": "./packages/augur-contract-dependencies-ethers"
     },
     {
       "path": "./packages/augur-test"

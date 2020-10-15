@@ -2,9 +2,7 @@ import React, { ReactNode } from 'react';
 import classNames from 'classnames';
 
 import BoxHeader from 'modules/portfolio/components/common/box-header';
-import { NameValuePair } from 'modules/portfolio/types';
 import { SearchSort } from 'modules/common/search-sort';
-import { SquareDropdown } from 'modules/common/selection';
 
 import Styles from 'modules/portfolio/components/common/quad-box.styles.less';
 
@@ -30,12 +28,16 @@ export interface QuadBoxProps {
   hide?: boolean;
   extend?: boolean;
   hideHeader?: boolean;
+  customClass?: string;
+  showHeaderOnMobile?: boolean;
+  h1Title?: boolean;
 }
 
 const BoxHeaderElement = (props: QuadBoxProps) => (
   <BoxHeader
     extraTitlePadding={props.extraTitlePadding}
     title={props.title}
+    showHeaderOnMobile={props.showHeaderOnMobile}
     normalOnMobile={props.normalOnMobile}
     switchHeaders={props.switchHeaders}
     noBorders={props.noBorders}
@@ -59,6 +61,7 @@ const BoxHeaderElement = (props: QuadBoxProps) => (
     bottomRightBarContent={props.bottomRightBarContent}
     bottomBarContent={props.bottomBarContent}
     noBackgroundBottom={props.noBackgroundBottom}
+    h1Title={props.h1Title}
   />
 );
 
@@ -68,7 +71,8 @@ const QuadBox = (props: QuadBoxProps) => (
       [Styles.NoBorders]: props.noBorders,
       [Styles.NormalOnMobile]: props.normalOnMobile,
       [Styles.HideToggle]: props.hide,
-      [Styles.Extend]: props.extend
+      [Styles.Extend]: props.extend,
+      [props.customClass]: props.customClass
     })}
   >
     {!props.hideHeader &&

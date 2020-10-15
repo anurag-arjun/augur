@@ -1,7 +1,7 @@
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router-dom';
 import { Loading } from 'modules/modal/loading';
-import { AppState } from 'store';
+import { AppState } from 'appStore';
 import { closeModal } from 'modules/modal/actions/close-modal';
 import { ThunkDispatch } from 'redux-thunk';
 import { Action } from 'redux';
@@ -22,6 +22,7 @@ const mergeProps = (sP: any, dP: any) => ({
   callback: sP.modal.callback,
   showMetaMaskHelper: sP.modal.showMetaMaskHelper,
   showCloseAfterDelay: sP.modal.showCloseAfterDelay,
+  showLearnMore: sP.modal.showLearnMore,
   closeModal: dP.closeModal,
 });
 
